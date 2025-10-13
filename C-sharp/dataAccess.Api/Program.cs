@@ -1386,19 +1386,51 @@ static (decimal? sumForecast, decimal? last7, decimal? last28, JsonElement actua
 {
     decimal? GetNum(string name)
     {
-        if (!payload.TryGetProperty(name, out var el)) return null;
-        if (el.ValueKind == JsonValueKind.Number && el.TryGetDecimal(out var d)) return d;
-        if (el.ValueKind == JsonValueKind.String && Decimal.TryParse(el.GetString(), out var s)) return s;
+        // Try top-level first
+        if (payload.TryGetProperty(name, out var el))
+        {
+            if (el.ValueKind == JsonValueKind.Number && el.TryGetDecimal(out var d)) return d;
+            if (el.ValueKind == JsonValueKind.String && Decimal.TryParse(el.GetString(), out var s)) return s;
+        }
+        
+        // Try inside "kpis" object
+        if (payload.TryGetProperty("kpis", out var kpis) && kpis.ValueKind == JsonValueKind.Object)
+        {
+            if (kpis.TryGetProperty(name, out var kpiEl))
+            {
+                if (kpiEl.ValueKind == JsonValueKind.Number && kpiEl.TryGetDecimal(out var d2)) return d2;
+                if (kpiEl.ValueKind == JsonValueKind.String && Decimal.TryParse(kpiEl.GetString(), out var s2)) return s2;
+            }
+        }
+        
         return null;
     }
 
     JsonElement FindSeries(string key1, string key2, out bool found)
     {
-        // supports { series:{ actual:[...], forecast:[...] } } OR top-level arrays
-        if (payload.TryGetProperty("series", out var sObj) && sObj.ValueKind == JsonValueKind.Object &&
-            sObj.TryGetProperty(key1, out var s1) && s1.ValueKind == JsonValueKind.Array) { found = true; return s1; }
-        if (payload.TryGetProperty(key2, out var s2) && s2.ValueKind == JsonValueKind.Array) { found = true; return s2; }
-        found = false; return default;
+        // supports { series:{ history:[...], forecast:[...] } } 
+        // OR { series:{ actual:[...], forecast:[...] } } 
+        // OR top-level arrays
+        if (payload.TryGetProperty("series", out var sObj) && sObj.ValueKind == JsonValueKind.Object)
+        {
+            if (sObj.TryGetProperty(key1, out var s1) && s1.ValueKind == JsonValueKind.Array) 
+            { 
+                found = true; 
+                return s1; 
+            }
+            if (sObj.TryGetProperty(key2, out var s2) && s2.ValueKind == JsonValueKind.Array) 
+            { 
+                found = true; 
+                return s2; 
+            }
+        }
+        if (payload.TryGetProperty(key2, out var s3) && s3.ValueKind == JsonValueKind.Array) 
+        { 
+            found = true; 
+            return s3; 
+        }
+        found = false; 
+        return default;
     }
 
     var sumF = GetNum("sum_forecast");
@@ -1406,7 +1438,7 @@ static (decimal? sumForecast, decimal? last7, decimal? last28, JsonElement actua
     var a28 = GetNum("last_28d_actual");
 
     var _ = false;
-    var actual = FindSeries("actual", "actual", out _);
+    var actual = FindSeries("history", "actual", out _);  // Try "history" first, then "actual"
     var forecast = FindSeries("forecast", "forecast", out _);
 
     return (sumF, a7, a28, actual, forecast);
@@ -1420,6 +1452,8 @@ static async Task<string[]> GenerateAnalystNarrativeAsync(
     decimal? sumForecast,
     decimal? last7,
     decimal? last28,
+    JsonElement historicalData,
+    JsonElement forecastData,
     CancellationToken ct)
 {
     static string PickStyleHint(int seed)
@@ -1439,29 +1473,92 @@ static async Task<string[]> GenerateAnalystNarrativeAsync(
     var system = """
     You are a business analyst. Write a short, SINGLE-PARAGRAPH explanation of the forecast.
     Tone: professional analyst. No bullets, no headings, no emojis.
-    Use 3–5 sentences. Be concrete and period-specific. Reference the provided KPIs.
+    Use 3–5 sentences. Be concrete and period-specific. Reference the provided data.
     Do NOT invent numbers, dates, or categories beyond the input.
-    Avoid boilerplate like:
-      - "steady mid-week lift"
-      - "lower weekend demand persists"
-      - "weekday seasonality and recent 28-day momentum"
+    
+    IMPORTANT: You will receive:
+    1. Historical Data: Past actual values (dates + amounts) from recent days
+    2. Forecast Data: Predicted future values (dates + amounts) for the forecast period
+    3. KPIs: Aggregated summaries
+    
+    Your task:
+    - Analyze the historical trend from the data points
+    - Compare the forecast predictions to recent historical performance
+    - Identify any patterns (increasing/decreasing/stable)
+    - Be specific with numbers and dates when relevant
+    
+    DO NOT say "lack of data" or "data is null" - you have both historical and forecast arrays.
+    
     Return STRICT JSON: {"narrative":"<one paragraph>"} and nothing else.
     """;
 
+    // Build historical summary from data points
+    string historicalSummary = "No historical data";
+    if (historicalData.ValueKind == JsonValueKind.Array && historicalData.GetArrayLength() > 0)
+    {
+        var count = historicalData.GetArrayLength();
+        var recentPoints = new List<string>();
+        for (int i = Math.Max(0, count - 5); i < count; i++)
+        {
+            var point = historicalData[i];
+            if (point.TryGetProperty("date", out var d) && point.TryGetProperty("value", out var v))
+            {
+                var dateStr = d.ValueKind == JsonValueKind.String ? d.GetString() : d.GetRawText();
+                var val = v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0m;
+                recentPoints.Add($"{dateStr}: ₱{val:N2}");
+            }
+        }
+        historicalSummary = recentPoints.Count > 0 
+            ? $"Last {recentPoints.Count} days: {string.Join(", ", recentPoints)}"
+            : "Historical data available but no recent points";
+    }
+
+    // Build forecast summary from data points
+    string forecastSummary = "No forecast data";
+    if (forecastData.ValueKind == JsonValueKind.Array && forecastData.GetArrayLength() > 0)
+    {
+        var count = forecastData.GetArrayLength();
+        var forecastPoints = new List<string>();
+        for (int i = 0; i < Math.Min(5, count); i++)
+        {
+            var point = forecastData[i];
+            if (point.TryGetProperty("date", out var d) && point.TryGetProperty("value", out var v))
+            {
+                var dateStr = d.ValueKind == JsonValueKind.String ? d.GetString() : d.GetRawText();
+                var val = v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0m;
+                forecastPoints.Add($"{dateStr}: ₱{val:N2}");
+            }
+        }
+        forecastSummary = forecastPoints.Count > 0 
+            ? $"Next {forecastPoints.Count} days: {string.Join(", ", forecastPoints)}"
+            : "Forecast data available but no points";
+    }
+
+    // Safe array length checks
+    int histCount = historicalData.ValueKind == JsonValueKind.Array ? historicalData.GetArrayLength() : 0;
+    int foreCount = forecastData.ValueKind == JsonValueKind.Array ? forecastData.GetArrayLength() : 0;
+
     var user = $"""
     Domain: {domainTitle}
-    Period: {periodLabel}
+    Forecast Period: {periodLabel}
 
-    KPIs:
-      - Sum Forecast: {(sumForecast is null ? "null" : sumForecast.Value.ToString("0.##"))}
-      - Last 7d Actual: {(last7 is null ? "null" : last7.Value.ToString("0.##"))}
-      - Last 28d Actual: {(last28 is null ? "null" : last28.Value.ToString("0.##"))}
+    Historical Data ({histCount} days):
+    {historicalSummary}
 
+    Forecast Predictions ({foreCount} days):
+    {forecastSummary}
+
+    Aggregated KPIs:
+      - Forecasted Total: {(sumForecast is null || sumForecast == 0 ? "₱0.00" : "₱" + sumForecast.Value.ToString("N2"))}
+      - Recent 7d Actual: {(last7 is null || last7 == 0 ? "₱0.00" : "₱" + last7.Value.ToString("N2"))}
+      - Recent 28d Actual: {(last28 is null || last28 == 0 ? "₱0.00" : "₱" + last28.Value.ToString("N2"))}
+
+    Task: Write a brief forecast analysis based on the historical trend and predictions shown above.
     Style hint: {styleHint}
     Constraints:
       - Single paragraph only.
       - No bullet points or line breaks.
-      - Mention directionality (rising/flat/softening) anchored to KPIs if possible.
+      - Reference specific data points or patterns you observe.
     """;
 
     try
@@ -1731,9 +1828,10 @@ app.MapPost("/api/assistant", async (
         // 3) Ask Groq for a concise analyst narrative (helper also in Program.cs)
         // Task<string[]> GenerateAnalystNarrativeAsync(
         //     GroqJsonClient groq, string domainTitle, string periodLabel,
-        //     decimal? sumForecast, decimal? last7, decimal? last28, CancellationToken ct)
+        //     decimal? sumForecast, decimal? last7, decimal? last28, 
+        //     JsonElement historicalData, JsonElement forecastData, CancellationToken ct)
         var narrativeArr = await GenerateAnalystNarrativeAsync(
-            groq, domainTitle, periodLabel, sumF, last7, last28, ct);
+            groq, domainTitle, periodLabel, sumF, last7, last28, _actual, _forecast, ct);
         var narrative = (narrativeArr?.Length ?? 0) > 0 ? (narrativeArr![0] ?? "") : "";
 
         // 4) Merge: keep current payload shape, just add notes.narrative

@@ -317,6 +317,7 @@ const Assistant = () => {
             label: x?.params?.label,
           },
           kpis: x?.result?.kpis ?? {},
+          series: x?.result?.series ?? {},  // ✅ INCLUDE SERIES DATA FOR CHART!
           notes: x?.result?.ui_spec?.notes ?? x?.result?.notes ?? null,
           domain: dom,
         };

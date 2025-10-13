@@ -51,9 +51,25 @@ examples:
     output: |
       { "intent": "forecasting", "domain": "sales", "confidence": 0.95 }
 
+  - input: "forecast expenses for next 7 days"
+    output: |
+      { "intent": "forecasting", "domain": "expenses", "confidence": 0.95 }
+
+  - input: "predict expenses for next week"
+    output: |
+      { "intent": "forecasting", "domain": "expenses", "confidence": 0.95 }
+
+  - input: "expenses forecast next 14 days"
+    output: |
+      { "intent": "forecasting", "domain": "expenses", "confidence": 0.95 }
+
   - input: "gastos projection 14 days"
     output: |
       { "intent": "forecasting", "domain": "expenses", "confidence": 0.92 }
+
+  - input: "sales projection next month"
+    output: |
+      { "intent": "forecasting", "domain": "sales", "confidence": 0.95 }
 
   - input: "create this month's expense report"
     output: |

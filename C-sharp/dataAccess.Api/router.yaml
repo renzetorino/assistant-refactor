@@ -1,113 +1,83 @@
-﻿# router.yaml — drop-in
-# Notes:
-# - Use case-insensitive regexes via (?i).
-# - Priorities: higher wins. Forecasting (95) > Report (90) > NLQ (50) > Chitchat (10) > Fallback (1).
-# - Router outputs:
-#     route: one of [forecasting, report, nlq, chitchat]
-#     domain: one of [sales, expenses, inventory] when applicable
-# - Horizon (7/14/30 or "next month") is not extracted here—compute from text in /api/assistant.
+# router.yaml
+# Format matches RouterConfig class: intents[] and domains[] arrays
+# Each rule has: id, any[], not[], weight (optional), threshold (optional)
+# Patterns support:
+#   - Plain text: "forecast"
+#   - Regex: "regex:/(?i)\\bforecast\\b/"
 
-rules:
+intent_fallback: "nlq"
+domain_fallback: "sales"
 
-  # =========================
-  # Forecasting (Sales)
-  # =========================
-  - id: forecast_sales
-    priority: 95
-    when:
-      any:
-        # “forecast/predict/projection ... sales/revenue”
-        - regex: "(?i)\\b(forecast|predict|projection|project)\\b.*\\b(sales|revenue)\\b"
-        # “sales ... next week/month/14 days”
-        - regex: "(?i)\\b(sales|revenue)\\b.*\\b(next\\s+(week|month)|\\d+\\s*days?)\\b"
-        # Tagalog variants
-        - regex: "(?i)\\b(predict|projection|forecast)\\b.*\\b(benta|kita|sales)\\b"
-        - regex: "(?i)\\b(benta|kita|sales)\\b.*\\b(susunod\\s+na\\s+(linggo|buwan)|\\d+\\s*araw)\\b"
-    route: "forecasting"
-    domain: "sales"
+# ==========================
+# INTENTS (forecasting, report, nlq, chitchat)
+# ==========================
+intents:
+  # Forecasting: highest priority (weight 10)
+  - id: "forecasting"
+    weight: 10.0
+    threshold: 1.0
+    any:
+      # English: forecast/predict/projection + sales/expenses/revenue
+      - "regex:/(?i)\\b(forecast|predict(ion)?|projection|project)\\b.*\\b(sales|revenue|expense|expenses|spend(ing)?)\\b/"
+      # English: next week/month/days
+      - "regex:/(?i)\\b(sales|revenue|expense|expenses)\\b.*\\b(next\\s+(week|month|quarter)|\\d+\\s*days?)\\b/"
+      # Tagalog
+      - "regex:/(?i)\\b(predict|forecast)\\b.*\\b(benta|kita|gastos)\\b/"
+      - "regex:/(?i)\\b(benta|kita|gastos)\\b.*\\b(susunod|\\d+\\s*araw)\\b/"
 
-  # =========================
-  # Forecasting (Expenses)
-  # =========================
-  - id: forecast_expenses
-    priority: 95
-    when:
-      any:
-        # “forecast/predict/projection ... expense(s)/spend(ing)”
-        - regex: "(?i)\\b(forecast|predict|projection|project)\\b.*\\b(expense|expenses|spend(ing)?)\\b"
-        # “expenses ... next week/month/14 days”
-        - regex: "(?i)\\b(expense|expenses|spend(ing)?)\\b.*\\b(next\\s+(week|month)|\\d+\\s*days?)\\b"
-        # Tagalog variants (gastos)
-        - regex: "(?i)\\b(predict|projection|forecast)\\b.*\\b(gastos)\\b"
-        - regex: "(?i)\\b(gastos)\\b.*\\b(susunod\\s+na\\s+(linggo|buwan)|\\d+\\s*araw)\\b"
-    route: "forecasting"
-    domain: "expenses"
+  # Report: medium-high priority (weight 8)
+  - id: "report"
+    weight: 8.0
+    threshold: 1.0
+    any:
+      # English: explicit report requests
+      - "regex:/(?i)\\b(create|generate|make|build|prepare|show\\s+me)\\b.*\\breport\\b/"
+      - "regex:/(?i)\\breport\\b.*\\b(sales|revenue|expense|expenses|inventory|stock)\\b/"
+      # Tagalog
+      - "regex:/(?i)\\b(gawan|gawa|gumawa|ihanda)\\b.*\\b(ulat|report)\\b/"
+    not:
+      # Exclude if contains forecast keywords
+      - "regex:/(?i)\\b(forecast|predict|projection|next\\s+(week|month)|\\d+\\s*days?)\\b/"
 
-  # =========================
-  # Report (YAML-based renderer)
-  # =========================
-  # Explicit “create/generate/make ... report” requests.
-  # These route to your YAML-driven report renderer (sales/expenses/inventory).
-  - id: report_sales
-    priority: 90
-    when:
-      any:
-        - regex: "(?i)\\b(create|generate|make|build|prepare)\\b.*\\b(sales|revenue)\\b.*\\breport\\b"
-        - regex: "(?i)\\b(report)\\b.*\\b(sales|revenue)\\b"
-        - regex: "(?i)\\b(gawan|gawa|gumawa|ihanda)\\b.*\\b(ul[áa]t|report)\\b.*\\b(benta|kita|sales)\\b"
-    route: "report"
-    domain: "sales"
+  # NLQ: medium priority (weight 5)
+  - id: "nlq"
+    weight: 5.0
+    threshold: 1.0
+    any:
+      # Question words
+      - "regex:/(?i)\\b(what|which|who|how\\s+(many|much)|when|where|compare|top|best|list|show|filter|find)\\b/"
+      - "regex:/(?i)\\b(sum|total|average|avg|max|min|count)\\b/"
+      # Tagalog
+      - "regex:/(?i)\\b(ilan|magkano|kailan|ano|alin|ipakita|ilist|ihambing)\\b/"
+    not:
+      - "regex:/(?i)\\b(forecast|predict|report)\\b/"
 
-  - id: report_expenses
-    priority: 90
-    when:
-      any:
-        - regex: "(?i)\\b(create|generate|make|build|prepare)\\b.*\\b(expense|expenses|spend(ing)?)\\b.*\\breport\\b"
-        - regex: "(?i)\\b(report)\\b.*\\b(expense|expenses|spend(ing)?)\\b"
-        - regex: "(?i)\\b(gawan|gawa|gumawa|ihanda)\\b.*\\b(ul[áa]t|report)\\b.*\\b(gastos)\\b"
-    route: "report"
-    domain: "expenses"
+  # Chitchat: low priority (weight 2)
+  - id: "chitchat"
+    weight: 2.0
+    threshold: 1.0
+    any:
+      - "regex:/(?i)\\b(hi|hello|hey|kumusta|kamusta|good\\s+(morning|evening|afternoon)|thanks?|thank\\s+you|salamat)\\b/"
+      - "regex:/(?i)\\b(joke|kwento|story|chitchat|usap)\\b/"
 
-  - id: report_inventory
-    priority: 90
-    when:
-      any:
-        - regex: "(?i)\\b(create|generate|make|build|prepare)\\b.*\\b(inventory|stock|stocks)\\b.*\\breport\\b"
-        - regex: "(?i)\\b(report)\\b.*\\b(inventory|stock|stocks)\\b"
-        - regex: "(?i)\\b(gawan|gawa|gumawa|ihanda)\\b.*\\b(ul[áa]t|report)\\b.*\\b(inventory|imbentaryo)\\b"
-    route: "report"
-    domain: "inventory"
-
-  # =========================
-  # NLQ quick answer
-  # =========================
-  # Natural-language questions that are NOT “report” and NOT “forecast”.
-  - id: nlq_question
-    priority: 50
-    when:
-      any:
-        # question words / comparative / filter-ish prompts
-        - regex: "(?i)\\b(what|which|who|how\\s+many|how\\s+much|when|compare|top|best|list|show|filter|sum|total|average|avg|max|min)\\b"
-        - regex: "(?i)\\b(ilan|magkano|kailan|ano|alin|ipakita|ilist(a)?|ihambing|total|average|avg|max|min)\\b"
-    route: "nlq"
-
-  # =========================
-  # Chitchat / small talk
-  # =========================
-  - id: chitchat
-    priority: 10
-    when:
-      any:
-        - regex: "(?i)\\b(hi|hello|hey|kumusta|kamusta|good\\s+morning|good\\s+evening|thanks|thank\\s+you|salamat)\\b"
-        - regex: "(?i)\\b(joke|kwento|story|chitchat|usap|usap\\s+lang)\\b"
-    route: "chitchat"
-
-  # =========================
-  # Fallback — default to NLQ
-  # =========================
-  - id: fallback_nlq
-    priority: 1
-    when:
-      any:
-        - regex: ".*"
-    route: "nlq"
+# ==========================
+# DOMAINS (sales, expenses, inventory)
+# ==========================
+domains:
+  - id: "sales"
+    weight: 1.0
+    threshold: 1.0
+    any:
+      - "regex:/(?i)\\b(sales?|revenue|benta|kita|order|transaction)\\b/"
+  
+  - id: "expenses"
+    weight: 1.0
+    threshold: 1.0
+    any:
+      - "regex:/(?i)\\b(expense|expenses|spend(ing)?|cost|gastos)\\b/"
+  
+  - id: "inventory"
+    weight: 1.0
+    threshold: 1.0
+    any:
+      - "regex:/(?i)\\b(inventory|stock|stocks|product|imbentaryo)\\b/"
