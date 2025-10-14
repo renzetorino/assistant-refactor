@@ -90,11 +90,23 @@ const AddProduct = ({ onClose, user }) => {
       return;
     }
 
-    if (categories.length === 0) {
-      setFormError("Please add at least one category.");
-      setIsSubmitting(false);
-      return;
-    }
+   // Validate category fields
+  const hasValidCategory = categories.some(
+    (cat) =>
+      cat.color.trim() !== "" ||
+      cat.agesize.trim() !== "" ||
+      cat.cost !== "" ||
+      cat.price !== "" ||
+      cat.currentstock !== "" ||
+      cat.reorderpoint !== ""
+  );
+
+  if (!hasValidCategory) {
+    setFormError("Please fill in at least one complete category.");
+    setIsSubmitting(false);
+    return;
+  }
+
 
     try {
       const form = new FormData();

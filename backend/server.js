@@ -205,9 +205,16 @@ app.post("/api/update-product", upload.single("image"), async (req, res) => {
 
       // 2. Delete old image from Supabase storage
       if (oldProduct?.image_url) {
-        const oldPath = oldProduct.image_url.split("/").pop(); // extract filename
-        await supabase.storage.from("product-images").remove([oldPath]);
+      // ✅ Extract the correct file path after the bucket name
+        const oldPath = oldProduct.image_url.split("/product-images/")[1];
+
+        if (oldPath) {
+          const {} = await supabase.storage
+            .from("product-images")
+            .remove([oldPath]);
+        }
       }
+
 
       // 3. Compress and upload new image
       const compressedBuffer = await sharp(req.file.buffer)
@@ -332,6 +339,19 @@ app.post("/api/delete-product", async (req, res) => {
 
     if (fetchError || !productData) {
       return res.status(404).json({ error: "Product not found." });
+    }
+    
+     const { data: oldProduct, error: oldError } = await supabase
+      .from("products")
+      .select("image_url")
+      .eq("productid", productid)
+      .single();
+
+    if (oldProduct?.image_url) {
+      const oldPath = oldProduct.image_url.split("/product-images/")[1];
+      if (oldPath) {
+        await supabase.storage.from("product-images").remove([oldPath]);
+      }
     }
 
     // Delete product
