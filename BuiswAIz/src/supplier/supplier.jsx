@@ -85,7 +85,8 @@ const Supplier = () => {
           new_cost: newCost,
           new_price: newPrice,
           batchCode,
-          datereceived: receivedAt
+          datereceived: receivedAt,
+          created_at: receivedAt
         });
 
       if (restockError) throw restockError;

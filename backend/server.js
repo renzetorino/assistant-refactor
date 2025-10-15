@@ -471,7 +471,15 @@ app.get("/api/products", async (req, res) => {
 // Add defective item
 app.post("/api/add-defective-item", async (req, res) => {
   try {
-    const { productid, productcategoryid, quantity, status, defectdescription, reporteddate, userid } = req.body;
+    const {
+      productid,
+      productcategoryid,
+      quantity,
+      status,
+      defectdescription,
+      reporteddate,
+      userid, // user submitting the report
+    } = req.body;
 
     if (!productid || !productcategoryid || !quantity || !status || !reporteddate) {
       return res.status(400).json({ error: "Missing required fields." });
@@ -484,25 +492,30 @@ app.post("/api/add-defective-item", async (req, res) => {
       .eq("productcategoryid", productcategoryid)
       .single();
 
-    if (catErr || !category) return res.status(400).json({ error: "Category not found." });
+    if (catErr || !category)
+      return res.status(400).json({ error: "Category not found." });
 
     if (parseInt(quantity) > category.currentstock) {
       return res.status(400).json({ error: "Quantity exceeds current stock." });
     }
 
-    // Insert defective item
-    const { error: insertErr } = await supabase
-      .from("defectiveitems")
-      .insert([{
+    // Insert defective item — include reportedbyuserid here ✅
+    const { error: insertErr } = await supabase.from("defectiveitems").insert([
+      {
         productid,
-        productcategoryid, // use correct column name
+        productcategoryid,
         quantity,
         status,
         defectdescription,
-        reporteddate
-      }]);
+        reporteddate,
+        reportedbyuserid: userid, // ✅ new column included
+      },
+    ]);
 
-    if (insertErr) return res.status(500).json({ error: insertErr.message || JSON.stringify(insertErr) });
+    if (insertErr)
+      return res
+        .status(500)
+        .json({ error: insertErr.message || JSON.stringify(insertErr) });
 
     // Update stock
     const { error: updateErr } = await supabase
@@ -510,19 +523,23 @@ app.post("/api/add-defective-item", async (req, res) => {
       .update({ currentstock: category.currentstock - quantity })
       .eq("productcategoryid", productcategoryid);
 
-    if (updateErr) return res.status(500).json({ error: updateErr.message || JSON.stringify(updateErr) });
+    if (updateErr)
+      return res
+        .status(500)
+        .json({ error: updateErr.message || JSON.stringify(updateErr) });
 
     // Log activity
     if (userid) {
-      await supabase.from("activitylog").insert([{
-        action_type: "add_defect",
-        action_desc: `added ${quantity} defective item(s) for product ${productid}, category ${productcategoryid}`,
-        done_user: userid
-      }]);
+      await supabase.from("activitylog").insert([
+        {
+          action_type: "add_defect",
+          action_desc: `added ${quantity} defective item(s) for product ${productid}, category ${productcategoryid}`,
+          done_user: userid,
+        },
+      ]);
     }
 
     res.status(200).json({ message: "Defective item added successfully." });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Server error." });
