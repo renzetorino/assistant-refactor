@@ -7,10 +7,18 @@ import "../stylecss/AssistantChat.css";
  * - onSend: (text: string) => void
  * - onAction: (actionId: string, message: any) => void
  * - loading: boolean
+ * - prompts: Array<{ id, text, category }>
  */
-export default function AssistantChat({ messages = [], onSend, onAction, loading }) {
+export default function AssistantChat({ 
+  messages = [], 
+  onSend, 
+  onAction, 
+  loading,
+  prompts = []
+}) {
   const [input, setInput] = useState("");
   const listRef = useRef(null);
+  const [showPrompts, setShowPrompts] = useState(false);
 
   useEffect(() => {
     if (listRef.current) {
@@ -44,6 +52,45 @@ export default function AssistantChat({ messages = [], onSend, onAction, loading
           </div>
         </div>
       </div>
+
+      {/* Prompts Suggestions Section */}
+      {showPrompts && prompts && prompts.length > 0 && (
+        <div className="asst-prompts-section">
+          <div className="asst-prompts-header">
+            <span className="asst-prompts-title">💡 Suggested Questions</span>
+            <button 
+              className="asst-prompts-toggle"
+              onClick={() => setShowPrompts(false)}
+              title="Hide suggestions"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="asst-prompts-grid">
+            {prompts.map((prompt) => (
+              <div
+                key={prompt.id}
+                className="asst-prompt-card"
+                title="Suggested question"
+              >
+                <div className="asst-prompt-text">{prompt.text}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Show prompts button when hidden */}
+      {!showPrompts && (
+        <div className="asst-prompts-show">
+          <button 
+            className="asst-prompts-show-btn"
+            onClick={() => setShowPrompts(true)}
+          >
+            💡 Show Suggested Prompts
+          </button>
+        </div>
+      )}
 
       {/* Chat list */}
       <div className="asst-chat-list" ref={listRef}>
@@ -86,7 +133,7 @@ export default function AssistantChat({ messages = [], onSend, onAction, loading
   );
 }
 
-function ChatBubble({ role, text, payload, actions, onAction }) {
+function ChatBubble({ role, text, payload }) {
   const isUser = role === "user";
   return (
     <div className={`asst-row ${isUser ? "asst-user" : "asst-assistant"}`}>
@@ -115,33 +162,7 @@ function ChatBubble({ role, text, payload, actions, onAction }) {
           <p className="asst-narr-text">{payload.notes.narrative}</p>
         )}
 
-        {/* Actions (kept) */}
-        {!isUser && (() => {
-          const p = payload || {};
-          const isReport =
-            !!(p.report_title || p.kpis || p.sections || p.cards || p.charts);
-
-          const allowed = new Set(["download", "download_pdf", "regenerate", "regenerate_report"]);
-          const safeActions = Array.isArray(actions)
-            ? actions.filter(a => allowed.has(String(a.id || a.type || a.label).toLowerCase()))
-            : [];
-
-          if (!isReport || safeActions.length === 0) return null;
-
-          return (
-            <div className="asst-actions">
-              {safeActions.map((a, i) => (
-                <button
-                  key={a.id || a.label || i}
-                  className="asst-action-btn"
-                  onClick={() => onAction?.(a.id || a.type || a.label)}
-                >
-                  {a.label || a.type || "Action"}
-                </button>
-              ))}
-            </div>
-          );
-        })()}
+        {/* Action buttons removed as requested */}
       </div>
     </div>
   );

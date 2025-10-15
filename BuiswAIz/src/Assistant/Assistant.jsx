@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabase";
 import "../stylecss/Assistant.css";
 import AssistantChat from "./AssistantChat";
+import prompts from "./prompts";
 
 import PopupWindow from "../components/PopupWindow";
 import InventoryWindow from "../components/InventoryWindow";
@@ -209,6 +210,15 @@ const Assistant = () => {
         return;
       }
 
+      if (res.mode === "faq") {
+        const md = res.uiSpec?.render?.content || "No answer available.";
+        const actions = Array.isArray(res.uiSpec?.suggestedActions)
+          ? res.uiSpec.suggestedActions.map((a) => ({ id: a.id || a.label, label: a.label }))
+          : null;
+        setMessages((p) => [...p, { id: newId(), role: "assistant", text: md, actions }]);
+        return;
+      }
+
       if (res.mode === "chitchat") {
         const md = res.uiSpec?.render?.content || "…";
         const actions = Array.isArray(res.uiSpec?.suggestedActions)
@@ -249,7 +259,8 @@ const Assistant = () => {
       }
 
       if (res.mode === "nlq") {
-        setMessages((p) => [...p, { id: newId(), role: "assistant", text: res.notice || "NLQ answer." }]);
+        const md = res.uiSpec?.render?.content || res.notice || "Here's your data.";
+        setMessages((p) => [...p, { id: newId(), role: "assistant", text: md }]);
         return;
       }
 
@@ -482,6 +493,7 @@ const Assistant = () => {
               loading={loading}
               onSend={handleSend}
               onAction={handleAction}
+              prompts={prompts}
             />
           </div>
         </div>

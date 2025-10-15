@@ -114,6 +114,8 @@ builder.Services.AddSingleton<MetricMapper>();
 builder.Services.AddSingleton<AnswerFormatter>();
 builder.Services.AddScoped<NlqService>();
 
+// Vertex AI FAQ Service
+builder.Services.AddScoped<IVertexAISearchService, VertexAISearchService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -1712,10 +1714,11 @@ app.MapGet("/api/debug/config/vec-all", (IConfiguration cfg) =>
 
 app.MapPost("/api/assistant", async (
     HttpContext ctx,
-    dataAccess.Reports.YamlIntentRunner intentRunner,
+    dataAccess.Reports.YamlIntentRunner intentRunner,  // ← LLM-based routing using router.intent.yaml
     dataAccess.Reports.YamlReportRunner yamlRunner,
     HybridForecastService forecastSvc,
     dataAccess.Forecasts.IForecastStore forecastStore,
+    IVertexAISearchService faqService,
     GroqJsonClient groq,
     CancellationToken ct) =>
 {
@@ -1727,13 +1730,14 @@ app.MapPost("/api/assistant", async (
     var userText = req.Text;
     var userLower = userText.ToLowerInvariant();
 
-    // 1) INTENT/DOMAIN via AI classifier prompt (no manual regex router)
+    // 1) INTENT/DOMAIN via LLM classifier (router.intent.yaml)
     string intent; string? domain; double conf;
 
     if (string.IsNullOrWhiteSpace(req.Domain))
     {
         try
         {
+            // Use YamlIntentRunner for LLM-based routing
             using var doc = await intentRunner.RunIntentAsync(userText, ct);
             var root = doc.RootElement;
 
@@ -1752,6 +1756,8 @@ app.MapPost("/api/assistant", async (
             if (string.IsNullOrWhiteSpace(intent))
                 intent = "nlq";
 
+            Console.WriteLine($"[Router:LLM] Intent: {intent}, Domain: {domain ?? "null"}, Confidence: {conf:F2}, Query: '{userText}'");
+
             // tiny domain inference only when needed for forecasting
             if (intent.Equals("forecasting", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(domain))
             {
@@ -1763,51 +1769,217 @@ app.MapPost("/api/assistant", async (
                             : "sales");
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine($"[Router:LLM] Error: {ex.Message}");
             intent = "nlq"; domain = null; conf = 0.5;
         }
     }
     else
     {
-        // Explicit domain in request → chitchat DAPAT
+        // Explicit domain in request → report
         intent = "report";
         domain = req.Domain!.ToLowerInvariant();
         conf = 1.0;
     }
 
-    // 2) FORECASTING
+    // ═══════════════════════════════════════════════════════════════
+    // 1.5) OUT_OF_SCOPE - Handle non-business questions
+    // ═══════════════════════════════════════════════════════════════
+    if (intent.Equals("out_of_scope", StringComparison.OrdinalIgnoreCase))
+    {
+        Console.WriteLine($"[OutOfScope] Rejecting non-business query: '{userText}'");
+        
+        return Results.Json(new
+        {
+            mode = "chitchat",
+            uiSpec = new
+            {
+                render = new 
+                { 
+                    kind = "markdown", 
+                    content = "Sorry, I can't help you with that. I'm focused on helping with business and BuiswAIz-related questions.\n\n" +
+                             "Try asking about:\n" +
+                             "• Sales forecasting and predictions\n" +
+                             "• Inventory management\n" +
+                             "• Financial reports and analytics\n" +
+                             "• Budget planning and tracking\n" +
+                             "• Expense analysis"
+                }
+            },
+            router = new { intent = "out_of_scope", domain, confidence = conf, rejected = true }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 2) FAQ - Vertex AI Search (HIGHEST BUSINESS PRIORITY)
+    // ═══════════════════════════════════════════════════════════════
+    if (intent.Equals("faq", StringComparison.OrdinalIgnoreCase))
+    {
+        try
+        {
+            // Extract user ID from auth context
+            string? userId = ctx.User?.FindFirst("sub")?.Value 
+                          ?? ctx.User?.FindFirst("user_id")?.Value;
+
+            Console.WriteLine($"[FAQ] Processing query: '{userText}'");
+            
+            // Call Vertex AI Search Service
+            var faqResult = await faqService.SearchFaqAsync(userText, userId, maxResults: 3);
+
+            Console.WriteLine($"[FAQ] Confidence: {faqResult.Confidence:F2}, Chunks: {faqResult.Chunks.Count}");
+
+            // ────────────────────────────────────────────────────────────
+            // Confidence Thresholds (Production-Grade Logic)
+            // ────────────────────────────────────────────────────────────
+            // < 0.30 = Out of scope / No relevant answer → Reject
+            // 0.30-0.50 = Very low confidence → Show disclaimer
+            // 0.50-0.70 = Moderate confidence → Show with note
+            // ≥ 0.70 = High confidence → Full answer with sources
+            // ────────────────────────────────────────────────────────────
+
+            // REJECT: Out-of-scope or irrelevant questions
+            if (faqResult.Confidence < 0.30 || faqResult.Chunks.Count == 0)
+            {
+                Console.WriteLine($"[FAQ] Rejecting low-confidence query (confidence: {faqResult.Confidence:F2})");
+                
+                return Results.Json(new
+                {
+                    mode = "chitchat",
+                    uiSpec = new
+                    {
+                        render = new 
+                        { 
+                            kind = "markdown", 
+                            content = "Sorry, I can't help you with that. I'm focused on helping with business and BuiswAIz-related questions.\n\n" +
+                                     "Try asking about:\n" +
+                                     "• Sales forecasting\n" +
+                                     "• Inventory management\n" +
+                                     "• Financial reports\n" +
+                                     "• Budget planning"
+                        }
+                    },
+                    router = new { intent = "faq", domain, confidence = faqResult.Confidence, rejected = true }
+                });
+            }
+
+            // VERY LOW CONFIDENCE: Show answer but with strong disclaimer
+            if (faqResult.Confidence < 0.50)
+            {
+                var responseText = $"⚠️ **I found a possible answer, but I'm not very confident:**\n\n{faqResult.Answer}\n\n" +
+                                  $"*Confidence: {faqResult.Confidence:P0}. Please verify this information with the documentation or contact support.*";
+
+                return Results.Json(new
+                {
+                    mode = "faq",
+                    uiSpec = new
+                    {
+                        render = new { kind = "markdown", content = responseText },
+                        confidence = faqResult.Confidence,
+                        confidenceLevel = "very_low"
+                    },
+                    router = new { intent = "faq", domain, confidence = conf }
+                });
+            }
+
+            // MODERATE CONFIDENCE: Show answer with note
+            if (faqResult.Confidence < 0.70)
+            {
+                var responseText = $"💡 **Suggested Answer:**\n\n{faqResult.Answer}\n\n" +
+                                  $"*Note: This answer has moderate confidence ({faqResult.Confidence:P0}). Please verify with documentation if needed.*";
+
+                return Results.Json(new
+                {
+                    mode = "faq",
+                    uiSpec = new
+                    {
+                        render = new { kind = "markdown", content = responseText },
+                        confidence = faqResult.Confidence,
+                        confidenceLevel = "moderate",
+                        sources = faqResult.Chunks.Select(c => new 
+                        { 
+                            content = c.Content, 
+                            pageNumber = c.PageNumber, 
+                            score = c.Score 
+                        }).ToArray()
+                    },
+                    router = new { intent = "faq", domain, confidence = conf }
+                });
+            }
+
+            // HIGH CONFIDENCE: Full answer (sources removed for cleaner UI)
+            var fullResponseText = $"📚 **FAQ Answer:**\n\n{faqResult.Answer}";
+
+            return Results.Json(new
+            {
+                mode = "faq",
+                uiSpec = new
+                {
+                    render = new { kind = "markdown", content = fullResponseText },
+                    confidence = faqResult.Confidence,
+                    confidenceLevel = "high"
+                    // sources removed for cleaner UI
+                },
+                router = new { intent = "faq", domain, confidence = conf }
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[FAQ] Error: {ex.Message}");
+            Console.WriteLine($"[FAQ] Stack: {ex.StackTrace}");
+            
+            // Graceful fallback - show error to user
+            return Results.Json(new
+            {
+                mode = "chitchat",
+                uiSpec = new
+                {
+                    render = new 
+                    { 
+                        kind = "markdown", 
+                        content = "⚠️ I encountered an error while searching the FAQ. Please try again or rephrase your question.\n\n" +
+                                 "If the problem persists, contact support."
+                    }
+                },
+                router = new { intent = "faq", domain, confidence = 0.0, error = true }
+            });
+        }
+    }
+
+    // 3) FORECASTING
     if (intent.Equals("forecasting", StringComparison.OrdinalIgnoreCase))
     {
-        // ✅ normalize for forecasting (expense/expenses both OK)
-        var domainEnum = ToForecastDomain(domain);
-
-        // horizon
-        int days = 30;
-        if (userLower.Contains("next week"))
-            days = 7;
-        else if (userLower.Contains("next month"))
+        try
         {
-            var today = DateTime.Today;
-            var firstOfNext = new DateTime(today.Year, today.Month, 1).AddMonths(1);
-            days = DateTime.DaysInMonth(firstOfNext.Year, firstOfNext.Month);
-        }
-        else
-        {
-            var m = Regex.Match(userLower, @"\b(\d+)\s*days?\b");
-            if (m.Success && int.TryParse(m.Groups[1].Value, out var parsed))
-                days = Math.Clamp(parsed, 1, 60);
-        }
+            // ✅ normalize for forecasting (expense/expenses both OK)
+            var domainEnum = ToForecastDomain(domain);
 
-        // 1) Compute numbers using Hybrid EMA/CMA forecasting
-        var payload = await forecastSvc.ForecastAsync(
-            domainEnum, 
-            days, 
-            emaAlpha: 0.2,      // Default EMA smoothing factor
-            blendBeta: 0.7,     // Default blend weight (70% EMA, 30% CMA)
-            from: null, 
-            to: null, 
-            ct);
+            // horizon
+            int days = 30;
+            if (userLower.Contains("next week"))
+                days = 7;
+            else if (userLower.Contains("next month"))
+            {
+                var today = DateTime.Today;
+                var firstOfNext = new DateTime(today.Year, today.Month, 1).AddMonths(1);
+                days = DateTime.DaysInMonth(firstOfNext.Year, firstOfNext.Month);
+            }
+            else
+            {
+                var m = Regex.Match(userLower, @"\b(\d+)\s*days?\b");
+                if (m.Success && int.TryParse(m.Groups[1].Value, out var parsed))
+                    days = Math.Clamp(parsed, 1, 60);
+            }
+
+            // 1) Compute numbers using Hybrid EMA/CMA forecasting
+            var payload = await forecastSvc.ForecastAsync(
+                domainEnum, 
+                days, 
+                emaAlpha: 0.2,      // Default EMA smoothing factor
+                blendBeta: 0.7,     // Default blend weight (70% EMA, 30% CMA)
+                from: null, 
+                to: null, 
+                ct);
 
         // 2) Turn payload into JsonElement so we can lift KPIs/period
         using var tmp = JsonDocument.Parse(JsonSerializer.Serialize(payload));
@@ -1880,6 +2052,13 @@ app.MapPost("/api/assistant", async (
             uiSpec = uiNode,
             router = new { intent, domain = (domain ?? "sales"), confidence = conf }
         });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[FORECAST ERROR] {ex.Message}");
+            // Fallback to FAQ or chitchat if forecasting fails
+            intent = "faq";
+        }
     }
 
     // 3) REPORT (YAML)
@@ -2068,11 +2247,11 @@ app.MapPost("/api/assistant", async (
 
         return Results.Json(new
         {
-            mode = "chitchat",
+            mode = "nlq",
             uiSpec = new
             {
                 render = new { kind = "markdown", content = filteredContent },
-                suggestedActions = new[] { new { id = "regenerate", label = "Regenerate" } }
+                // No suggested actions for NLQ - it's just data display
             },
             router = new { intent, domain, confidence = conf, method = usedMethod }
         });

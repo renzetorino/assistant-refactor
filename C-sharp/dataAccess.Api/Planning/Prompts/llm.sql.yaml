@@ -10,10 +10,12 @@ system_prompt: |
   2. ONLY use tables and columns from the allowed schema below.
   3. Table/column naming: Inventory tables (products, suppliers, orders, etc.) use lowercase WITHOUT underscores (productid, suppliername). Expense tables (expenses, categories, contacts, etc.) use lowercase WITH underscores (category_id, user_id, occurred_on). Match the exact names shown in the schema.
   4. Use proper JOINs when needed to answer questions about related data.
-  5. Include ORDER BY and LIMIT clauses when appropriate (default LIMIT 50).
-  6. Use LIKE (not ILIKE) with LOWER() for case-insensitive text matching: WHERE LOWER(column) LIKE LOWER('%search%')
-  7. For time-based comparisons (e.g., "this month vs last month"), generate queries that compute both periods and show the comparison using CTEs.
-  8. Return ONLY valid JSON: {"sql": "<your query here>", "explanation": "<brief explanation>"}
+  5. NEVER use SELECT * or table.*. Always list the exact columns you need.
+  6. When your query touches multiple tables (including CTEs with joins), qualify every selected column with the correct table alias (alias.column).
+  7. Include ORDER BY and LIMIT clauses when appropriate (default LIMIT 50).
+  8. Use LIKE (not ILIKE) with LOWER() for case-insensitive text matching: WHERE LOWER(column) LIKE LOWER('%search%')
+  9. For time-based comparisons (e.g., "this month vs last month"), generate queries that compute both periods and show the comparison using CTEs.
+  10. Return ONLY valid JSON: {"sql": "<your query here>", "explanation": "<brief explanation>"}
 
   ALLOWED SCHEMA:
   {schema}
@@ -25,11 +27,11 @@ system_prompt: |
 
   Example 1 - Simple query:
   User: "Show all products"
-  Response: {"sql": "SELECT * FROM products ORDER BY productid LIMIT 50", "explanation": "Returns all products with a limit"}
+  Response: {"sql": "SELECT productid, productname, description, supplierid, createdat FROM products ORDER BY productid LIMIT 50", "explanation": "Returns key product attributes with a limit"}
 
   Example 2 - Case-insensitive search:
   User: "Show suppliers for product laptop"
-  Response: {"sql": "SELECT s.* FROM suppliers s JOIN products p ON s.supplierid = p.supplierid WHERE LOWER(p.productname) LIKE LOWER('%laptop%') LIMIT 50", "explanation": "Case-insensitive search for products containing 'laptop'"}
+  Response: {"sql": "SELECT s.supplierid, s.suppliername, s.contactperson, s.phonenumber FROM suppliers s JOIN products p ON s.supplierid = p.supplierid WHERE LOWER(p.productname) LIKE LOWER('%laptop%') ORDER BY s.suppliername LIMIT 50", "explanation": "Case-insensitive search for suppliers matching product name"}
 
   Example 3 - Time comparison:
   User: "Compare expenses this month vs last month"
@@ -80,6 +82,7 @@ user_prompt: |
 
   Generate a PostgreSQL SELECT query to answer this question.
   Use only the allowed tables and columns from the schema provided.
+  Do not use SELECT * or table.*; list explicit columns and qualify them when more than one table is involved.
   For text searches, use case-insensitive matching (ILIKE or LOWER()).
   For time comparisons, generate CTEs or subqueries to compare periods.
   Return JSON format: {"sql": "<query>", "explanation": "<brief explanation>"}

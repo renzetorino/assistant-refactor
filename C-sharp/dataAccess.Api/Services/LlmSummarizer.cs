@@ -81,6 +81,7 @@ Rules:
 - Focus on the most important insights
 - Use natural, business-friendly language
 - Mention specific numbers when relevant
+- Express any monetary values in Philippine pesos (PHP); avoid USD or dollar symbols
 - Do NOT include technical SQL details
 
 Output format (JSON):

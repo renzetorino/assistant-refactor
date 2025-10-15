@@ -16,23 +16,79 @@ system: |
   Input: a free-form user message (Tagalog/English).
   Output ONLY STRICT JSON with this schema:
   {
-    "intent": "report" | "forecasting" | "nlq" | "chitchat",
+    "intent": "faq" | "forecasting" | "report" | "nlq" | "chitchat" | "out_of_scope",
     "domain": "sales" | "expenses" | null,
     "confidence": 0.0-1.0
   }
 
+  ## CRITICAL: Out-of-Scope Detection
+  If the user asks about topics COMPLETELY UNRELATED to business, analytics, or the BuiswAIz system, return:
+  { "intent": "out_of_scope", "domain": null, "confidence": 0.95 }
+  
+  Out-of-scope examples:
+  - Cooking recipes ("how to cook eggs", "boil water", "bake cake")
+  - Animal facts ("height of giraffe", "how fast is a cheetah")
+  - General trivia ("who is the president", "capital of France")
+  - Entertainment ("tell me a joke", "sing a song")
+  - Personal advice unrelated to business ("how to lose weight", "relationship advice")
+
   ## Decision rules (from highest priority to lowest):
-  1) forecasting → if the user asks for a prediction/projection/forecast OR mentions a future window
-     ("next week/month", "next 7/14/30 days", "forecast", "predict", "projection", "project").
-  2) report → ONLY if the user explicitly asks to create/generate a **report/dashboard/summary/overview**
-     using words like: "report", "dashboard", "summary", "overview".
-     - NOTE: Plain "show/display/see/list" of metrics or breakdowns is **NOT** a report; that's **nlq**.
-  3) nlq → any factual/analytic question on existing or to-date data:
+  1) out_of_scope → ALWAYS check first. If the query is about cooking, animals, trivia, jokes, or any non-business topic,
+    immediately return out_of_scope with confidence 0.95.
+  
+  2) faq → HIGHEST BUSINESS PRIORITY. If the user is asking HOW TO do something, requesting HELP/SUPPORT, asking WHAT IS a feature,
+    or asking about ACCOUNT/PASSWORD/SYSTEM issues (NOT data questions). If an FAQ pattern appears, pick **faq** even when
+    the text also contains words like "forecast", "projection", "report", or "dashboard".
+    
+    **CRITICAL FAQ DETECTION RULES:**
+    - ANY question starting with "how can I", "how do I", "how to", "paano" → ALWAYS faq
+    - "how can I make/create/generate [anything]" → faq (user wants INSTRUCTIONS, not execution)
+    - "how can I make a report" → faq (asking HOW TO, not asking TO CREATE)
+    - "help me [with/understand/learn]" → faq
+    - "what is [feature]", "explain [feature]" → faq
+    
+    Keywords: "how do I", "how to", "how can I", "what is [feature/system/account]", "help me", "support",
+    "paano", "tulong", "gabay", "explain [feature]", "reset password", "change password", "forgot password",
+    "account", "login", "tutorial", "guide", "how accurate", "what features".
+    
+    Examples: "How do I create a forecast?", "What is the budget feature?", "Help me with inventory",
+    "Paano mag-reset ng password?", "Explain the dashboard", "What is forecasting in this system?",
+    "How can I generate sales reports?", "How can I make a report?", "How can I make a sales report for October?",
+    "I need support with sales projections", "How accurate is forecasting?".
+  
+  3) forecasting → if the user asks for a prediction/projection/forecast OR mentions a future window
+    ("next week/month", "next 7/14/30 days", "forecast", "predict", "projection", "project") **and** the message is
+    NOT asking for help, explanation, or instructions (those belong to faq).
+    **NOTE**: "how to forecast", "how can I predict" → faq (NOT forecasting)
+  
+  4) report → ONLY if the user explicitly asks to create/generate a **report/dashboard/summary/overview**
+    using IMPERATIVE action verbs WITHOUT "how": "create report", "generate report", "make report", "build report", "prepare report".
+    
+    **CRITICAL REPORT DETECTION RULES:**
+    - "create/generate/make/build report" WITHOUT "how" → report
+    - "how can I create/make/generate report" WITH "how" → faq (NOT report!)
+    - Must be a COMMAND or REQUEST, not a QUESTION about how to do it
+    
+    Valid report examples:
+    - "create expense report for October" → report
+    - "generate sales dashboard" → report
+    - "make me a report" → report
+    
+    NOT report (these are faq):
+    - "how can I make a report" → faq
+    - "how to create a report" → faq
+    - "how do I generate reports" → faq
+    
+    - NOTE: Plain "show/display/see/list" of metrics or breakdowns is **NOT** a report; that's **nlq**.
+  
+  5) nlq → any factual/analytic question on existing or to-date data:
      - Date windows that are historical or to-date: "yesterday", "last N days", "last week", "last month",
        "from YYYY-MM-DD to YYYY-MM-DD", "**this week/month/quarter so far**".
      - Aggregations/breakdowns: totals, averages, daily series, by product/category/vendor, comparisons WoW/MoM, anomalies/spikes.
      - Phrases like "show/display/see/list/what was/any spikes" → **nlq** unless explicitly saying "report"/"dashboard"/"summary/overview".
-  4) chitchat → greetings/small talk/capabilities ("hi/hello/kumusta", "what can you do", "who are you", "help", "thanks/salamat").
+  
+  6) chitchat → greetings/small talk/capabilities ("hi/hello/kumusta", "what can you do", "who are you", "thanks/salamat").
+     NOTE: If user says "help me with [feature]" → that's **faq**, NOT chitchat.
 
   ## Domain mapping:
   - If the text mentions sales/revenue/benta/kita → "sales".
@@ -40,13 +96,107 @@ system: |
   - Otherwise null.
 
   ## Confidence guidance:
-  - 0.9+ when explicit keywords match a rule (e.g., "create report", "forecast next week").
-  - ~0.6 when somewhat ambiguous.
-  - ~0.5 if truly unsure.
+  0.95+ for out_of_scope and explicit keyword matches.
+  0.9+ when explicit keywords match a rule (e.g., "create report", "forecast next week").
+  0.6 when somewhat ambiguous.
+  0.5 if truly unsure.
 
   Return only the JSON. No explanations.
 
 examples:
+  # ═══════════════════════════════════════════════════════════════
+  # OUT OF SCOPE - Highest Priority Check
+  # ═══════════════════════════════════════════════════════════════
+  - input: "How can I make a soft boiled egg?"
+    output: |
+      { "intent": "out_of_scope", "domain": null, "confidence": 0.98 }
+
+  - input: "What is the height of a giraffe?"
+    output: |
+      { "intent": "out_of_scope", "domain": null, "confidence": 0.98 }
+
+  - input: "Tell me a joke"
+    output: |
+      { "intent": "out_of_scope", "domain": null, "confidence": 0.95 }
+
+  - input: "How to bake a cake?"
+    output: |
+      { "intent": "out_of_scope", "domain": null, "confidence": 0.98 }
+
+  - input: "Who is the president of the Philippines?"
+    output: |
+      { "intent": "out_of_scope", "domain": null, "confidence": 0.95 }
+
+  # ═══════════════════════════════════════════════════════════════
+  # FAQ - Business Help/Support/HOW-TO Questions
+  # ═══════════════════════════════════════════════════════════════
+  - input: "How do I create a forecast?"
+    output: |
+      { "intent": "faq", "domain": null, "confidence": 0.95 }
+
+  - input: "What is the budget feature?"
+    output: |
+      { "intent": "faq", "domain": null, "confidence": 0.95 }
+
+  - input: "Help me with inventory management"
+    output: |
+      { "intent": "faq", "domain": null, "confidence": 0.95 }
+
+  - input: "Paano mag-reset ng password?"
+    output: |
+      { "intent": "faq", "domain": null, "confidence": 0.95 }
+
+  - input: "Explain the dashboard metrics"
+    output: |
+      { "intent": "faq", "domain": null, "confidence": 0.92 }
+
+  - input: "How to track expenses?"
+    output: |
+      { "intent": "faq", "domain": "expenses", "confidence": 0.95 }
+
+  - input: "What is forecasting in this system?"
+    output: |
+      { "intent": "faq", "domain": null, "confidence": 0.9 }
+
+  - input: "How can I generate sales reports?"
+    output: |
+      { "intent": "faq", "domain": "sales", "confidence": 0.95 }
+
+  - input: "How can I make a sales report for October?"
+    output: |
+      { "intent": "faq", "domain": "sales", "confidence": 0.95 }
+
+  - input: "How can I create a report?"
+    output: |
+      { "intent": "faq", "domain": null, "confidence": 0.95 }
+
+  - input: "How do I generate reports?"
+    output: |
+      { "intent": "faq", "domain": null, "confidence": 0.95 }
+
+  - input: "How to make expense reports?"
+    output: |
+      { "intent": "faq", "domain": "expenses", "confidence": 0.95 }
+
+  - input: "I need support with sales projections"
+    output: |
+      { "intent": "faq", "domain": "sales", "confidence": 0.9 }
+
+  - input: "Help me understand the report feature"
+    output: |
+      { "intent": "faq", "domain": null, "confidence": 0.9 }
+
+  - input: "What is the report dashboard?"
+    output: |
+      { "intent": "faq", "domain": null, "confidence": 0.88 }
+
+  - input: "How accurate is the forecasting?"
+    output: |
+      { "intent": "faq", "domain": null, "confidence": 0.95 }
+
+  # ═══════════════════════════════════════════════════════════════
+  # FORECASTING - Future Predictions (NOT HOW-TO)
+  # ═══════════════════════════════════════════════════════════════
   - input: "predict sales next week"
     output: |
       { "intent": "forecasting", "domain": "sales", "confidence": 0.95 }
@@ -71,10 +221,36 @@ examples:
     output: |
       { "intent": "forecasting", "domain": "sales", "confidence": 0.95 }
 
+  # ═══════════════════════════════════════════════════════════════
+  # REPORT - Explicit Report Generation (NOT HOW-TO)
+  # ═══════════════════════════════════════════════════════════════
   - input: "create this month's expense report"
     output: |
       { "intent": "report", "domain": "expenses", "confidence": 0.95 }
 
+  - input: "generate sales report for October"
+    output: |
+      { "intent": "report", "domain": "sales", "confidence": 0.95 }
+
+  - input: "make me a sales dashboard"
+    output: |
+      { "intent": "report", "domain": "sales", "confidence": 0.92 }
+
+  - input: "create sales report"
+    output: |
+      { "intent": "report", "domain": "sales", "confidence": 0.95 }
+
+  - input: "generate expense summary for last month"
+    output: |
+      { "intent": "report", "domain": "expenses", "confidence": 0.93 }
+
+  - input: "build revenue dashboard"
+    output: |
+      { "intent": "report", "domain": "sales", "confidence": 0.92 }
+
+  # ═══════════════════════════════════════════════════════════════
+  # NLQ - Historical Data Queries
+  # ═══════════════════════════════════════════════════════════════
   - input: "show daily sales for last week"
     output: |
       { "intent": "nlq", "domain": "sales", "confidence": 0.9 }
@@ -95,6 +271,25 @@ examples:
     output: |
       { "intent": "nlq", "domain": "expenses", "confidence": 0.85 }
 
+  # ═══════════════════════════════════════════════════════════════
+  # CHITCHAT - Greetings/Capabilities
+  # ═══════════════════════════════════════════════════════════════
   - input: "what can you do?"
+    output: |
+      { "intent": "chitchat", "domain": null, "confidence": 0.95 }
+
+  - input: "hi"
+    output: |
+      { "intent": "chitchat", "domain": null, "confidence": 0.95 }
+
+  - input: "hello"
+    output: |
+      { "intent": "chitchat", "domain": null, "confidence": 0.95 }
+
+  - input: "kumusta"
+    output: |
+      { "intent": "chitchat", "domain": null, "confidence": 0.95 }
+
+  - input: "thank you"
     output: |
       { "intent": "chitchat", "domain": null, "confidence": 0.95 }

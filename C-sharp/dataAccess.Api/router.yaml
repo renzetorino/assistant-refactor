@@ -9,9 +9,27 @@ intent_fallback: "nlq"
 domain_fallback: "sales"
 
 # ==========================
-# INTENTS (forecasting, report, nlq, chitchat)
+# INTENTS (forecasting, report, nlq, chitchat, faq)
 # ==========================
 intents:
+  # FAQ: highest priority for help/support questions (weight 12)
+  - id: "faq"
+    weight: 12.0
+    # Lower the threshold so partial matches and common phrasings trigger FAQ
+    threshold: 0.5
+    any:
+      # English: how-to, help, support, FAQ keywords
+      - "regex:/(?i)\\b(how\\s+(do|to|can|does)|help|support|guide|tutorial|faq|frequently\\s+asked)\\b/"
+      - "regex:/(?i)\\b(what\\s+is|explain|tell\\s+me\\s+about)\\b.*\\b(feature|system|function|refund|policy|account|password|login)\\b/"
+      # Questions about accuracy, reliability, methodology
+      - "regex:/(?i)\\b(how\\s+(accurate|reliable)|what\\s+is\\s+the\\s+(accuracy|reliability|method))\\b/"
+      - "regex:/(?i)\\b(gaano\\s+ka(accurate|tumpak))\\b/"
+      # Tagalog: paano, tulong, gabay
+      - "regex:/(?i)\\b(paano|tulong|gabay|support|help)\\b/"
+      # common account/support keywords (password, reset)
+      - "regex:/(?i)\\b(password|reset\\s+password|change\\s+password|forgot\\s+password)\\b/"
+      - "regex:/(?i)\\b(ano\\s+ang|ipaliwanag|sabihin\\s+mo)\\b.*\\b(feature|system|password|account|refund|policy)\\b/"
+
   # Forecasting: highest priority (weight 10)
   - id: "forecasting"
     weight: 10.0
@@ -36,6 +54,9 @@ intents:
       # Tagalog
       - "regex:/(?i)\\b(gawan|gawa|gumawa|ihanda)\\b.*\\b(ulat|report)\\b/"
     not:
+      # Exclude HOW-TO questions - those are FAQ
+      - "regex:/(?i)\\b(how\\s+(do|to|can|does))\\b/"
+      - "regex:/(?i)\\b(paano)\\b/"
       # Exclude if contains forecast keywords
       - "regex:/(?i)\\b(forecast|predict|projection|next\\s+(week|month)|\\d+\\s*days?)\\b/"
 

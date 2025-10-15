@@ -34,8 +34,8 @@ public sealed class GroqJsonClient
             ?? throw new InvalidOperationException("APP__GROQ__API_KEY (or GROQ_API_KEY) is not set.");
 
         // Allow override via config/env; default to a JSON-capable, fast model
-        _chatModel = cfg["APP__GROQ__MODEL_CHAT"] ?? Environment.GetEnvironmentVariable("APP__GROQ__MODEL_CHAT") ?? "llama-3.1-8b-instant";
-        _reportModel = cfg["APP__GROQ__MODEL_REPORT"] ?? Environment.GetEnvironmentVariable("APP__GROQ__MODEL_REPORT") ?? "llama-3.3-70b-versatile";
+        _chatModel = cfg["APP__GROQ__MODEL_CHAT"] ?? Environment.GetEnvironmentVariable("APP__GROQ__MODEL_CHAT") ?? "groq/compound/mini";
+        _reportModel = cfg["APP__GROQ__MODEL_REPORT"] ?? Environment.GetEnvironmentVariable("APP__GROQ__MODEL_REPORT") ?? "groq/compound";
 
         // BaseAddress is usually set in Program.cs AddHttpClient<GroqJsonClient>(...), but keep it safe here:
         if (_http.BaseAddress is null)
