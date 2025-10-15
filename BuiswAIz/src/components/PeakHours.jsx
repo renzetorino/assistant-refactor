@@ -74,7 +74,7 @@ const PeakHours = ({ orderData }) => {
   return (
     <div className="peak-hours-wrapper">
       <div className="peak-hours-header">
-        <h3>Peak Sales Hours</h3>
+        <h3>Peak Hours Sales</h3>
         {peakInterval.sales > 0 && (
           <div className="peak-indicator">
             <span className="peak-time">Peak: {peakInterval.timeRange}</span>
@@ -89,19 +89,19 @@ const PeakHours = ({ orderData }) => {
             <LineChart
               data={peakHoursData}
               margin={{
-                top: 20,
-                right: 30,
-                left: 20,
+                top: 10,
+                right: 10,
+                left: 0,
                 bottom: 20
               }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray=" 3" stroke="#f0f0f0" />
               <XAxis 
                 dataKey="timeRange" 
                 tick={{ fontSize: 10, fill: '#666' }}
-                angle={-45}
+                angle={-20}
                 textAnchor="end"
-                height={60}
+                height={10}
                 interval={0}
               />
               <YAxis 
@@ -114,8 +114,8 @@ const PeakHours = ({ orderData }) => {
                 dataKey="sales" 
                 stroke="#04B4FC" 
                 strokeWidth={2}
-                dot={{ fill: '#04B4FC', strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6, stroke: '#04B4FC', strokeWidth: 2, fill: '#ffffff' }}
+                dot={{ fill: '#04B4FC', strokeWidth: 2, r: 3 }}
+                activeDot={{ r: 4, stroke: '#04B4FC', strokeWidth: 0, fill: '#ffffff' }}
               />
             </LineChart>
           </ResponsiveContainer>

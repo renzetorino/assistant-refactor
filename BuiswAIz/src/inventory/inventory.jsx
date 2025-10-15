@@ -132,16 +132,16 @@ const Inventory = () => {
 
               <li onClick={() => navigate("/Dashboard")}>Dashboard</li>
               <li className="active">Inventory</li>
-              <li onClick={() => navigate("/supplier")}>Supplier</li>
               <li onClick={() => navigate("/TablePage")}>Sales</li>
               <li onClick={() => navigate("/expenses")}>Expenses</li>
-              <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li>
+              
               <li onClick={() => navigate("/assistant")}>AI Assistant</li>
             </ul>
-            <p className="nav-header">SUPPORT</p>
+            <p className="nav-header">RELATED</p>
             <ul>
-              <li>Help</li>
-              <li>Settings</li>
+              <li onClick={() => navigate("/supplier")}>Supplier</li>
+              <li onClick={() => navigate("/pos")}>Point of Sales</li>
+              <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li>
             </ul>
           </div>
         </aside>

@@ -111,8 +111,8 @@ table {
   border-spacing: 0 10px;
 }
 
-.inventory-container thead th {
-  text-align: left;
+thead th {
+  text-align: center;
   font-size: 13px;
   color: #666;
   padding: 10px 6px;

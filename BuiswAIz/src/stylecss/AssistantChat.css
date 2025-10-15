@@ -1,79 +1,302 @@
-.chat-container {
+/* ===================== CHAT WRAPPER ===================== */
+.asst-wrap {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  background-color: #f9f9f9;
-  font-family: sans-serif;
-  padding: 0px;
+  height: 100%;
+  background: #f7f9fc;
+  border-radius: 20px;
+  border: 1px solid #e3e8f0;
+  padding: 16px;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
 }
 
-.chat-title {
-  font-weight: bold;
-  font-size: 24px;
-  color: #2c2c54;
-  margin-bottom: 10px;
+/* ===================== HEADER ===================== */
+.asst-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  border-bottom: 1px solid #e3e8f0;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  gap: 0px;
 }
 
-.chat-box {
+.asst-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.asst-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #2f80ed;
+  color: #fff;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+}
+
+.asst-title .asst-name {
+  font-weight: 700;
+  font-size: 17px;
+  color: #1b2430;
+}
+
+.asst-title .asst-sub {
+  font-size: 13px;
+  color: #6b778c;
+}
+
+/* ===================== CHAT LIST ===================== */
+.asst-chat-list {
   flex: 1;
-  background-color: white;
-  border-radius: 16px;
-  padding: 10px 14px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  gap: 14px;
+  padding: 16px;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #cfd8ea transparent;
 }
 
-.message {
-  max-width: 80%;
-  padding: 12px 16px;
-  border-radius: 16px;
-  font-size: 15px;
-  line-height: 1.4;
-  white-space: pre-wrap;
+.asst-chat-list::-webkit-scrollbar {
+  width: 8px;
 }
 
-.user-msg {
-  align-self: flex-end;
-  background-color: #b3e0ff;
-  color: #0a0a0a;
-  border-bottom-right-radius: 4px;
+.asst-chat-list::-webkit-scrollbar-thumb {
+  background-color: #cfd8ea;
+  border-radius: 10px;
 }
 
-/*.assistant-msg {
-  align-self: flex-start;
-  background-color: #e3f8e0;
-  color: #1c1c1c;
-  border-bottom-left-radius: 4px;
-}  future kinemerut*/
+.asst-chat-list::-webkit-scrollbar-track {
+  background: transparent;
+}
 
-.chat-input-area {
+/* ===================== CHAT ROWS ===================== */
+.asst-row {
   display: flex;
-  margin-top: 15px;
+  width: 100%;
+}
+
+.asst-user { justify-content: flex-end; }
+.asst-assistant { justify-content: flex-start; }
+
+/* ===================== BUBBLES ===================== */
+.asst-bubble {
+  max-width: 80%;
+  padding: 18px 22px;
+  border-radius: 24px;
+  font-size: 15px;
+  line-height: 1.7;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  transition: all 0.2s ease;
+  border: 1.5px solid #e3e8f0;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.07);
+  animation: fadeInBubble 0.3s;
+}
+
+.asst-bubble-user {
+  background: linear-gradient(135deg, #2f80ed 80%, #56ccf2 100%);
+  color: #fff;
+  border-radius: 24px 8px 24px 24px;
+  border: 1.5px solid #2f80ed;
+  box-shadow: 0 6px 24px rgba(47, 128, 237, 0.18);
+  font-weight: 500;
+}
+
+.asst-bubble-assistant {
+  background: linear-gradient(135deg, #e8f9d2 80%, #c6e298 100%);
+  color: #1b2430;
+  border-radius: 8px 24px 24px 24px;
+  border: 1.5px solid #b6d97a;
+  box-shadow: 0 6px 24px rgba(163, 230, 53, 0.13);
+  font-weight: 500;
+}
+@keyframes fadeInBubble {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.asst-bubble pre,
+.asst-bubble code {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 13px;
+}
+
+/* ===================== INPUT BAR ===================== */
+.asst-input-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid #e3e8f0;
+  background: #fff;
+  border-radius: 0 0 16px 16px;
+  position: sticky;
+  bottom: 0;
+}
+
+.asst-input {
+  flex: 1;
+  resize: none;
+  border: 1px solid #d9e3f5;
+  background: #f0f4ff;
+  border-radius: 16px;
+  padding: 14px 16px;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.asst-input:focus {
+  border-color: #2f80ed;
+  box-shadow: 0 4px 12px rgba(47,128,237,0.15);
+}
+
+.asst-send {
+  padding: 12px 20px;
+  background: #2f80ed;
+  color: #fff;
+  border-radius: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.asst-send:hover { filter: brightness(1.1); }
+/* ===================== Action bar===================== */
+.asst-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.asst-action-btn {
+  padding: 10px 14px;
+  border: 1px solid #dbe6fb;
+  background: #f7f9ff;
+  color: #2f80ed;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.asst-action-btn:hover {
+  background: #eef5ff;
+  box-shadow: 0 4px 12px rgba(46, 132, 255, 0.15);
+}
+
+
+/* ===================== NARRATION TEXT ===================== */
+.asst-narr {
+  margin: 6px 0;
+  padding: 10px 14px;
+  background: #f0fef2; /* soft greenish background */
+  color: #1b2430;
+  font-size: 14px;
+  line-height: 1.6;
+  border-left: 4px solid #12a150; /* accent line */
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(16, 24, 40, 0.05);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+
+.asst-narr ul {
+  margin: 0; /* remove top/bottom margin to fit container */
+  padding-left: 18px; /* indent inside narration */
+  list-style-type: disc;
+  color: #1b2430;
+}
+
+.asst-narr li {
+  margin: 4px 0; /* smaller spacing between items */
+  line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: anywhere; /* ensure long words wrap */
+}
+
+/* ===================== MINI REPORTS ===================== */
+.mini-report {
+  display: grid;
+  gap: 16px;
+  border: 1px solid #e7ecf5; /* subtle card-like border */
+  border-radius: 16px;
+  padding: 16px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.04);
+}
+
+/* Inner mini items remain original */
+.mini-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mini-title { margin: 0; font-size: 16px; font-weight: 700; color: #1b2430; }
+.mini-chip {
+  padding: 4px 10px;
+  font-size: 12px;
+  background: #eef5ff;
+  color: #2f80ed;
+  border: 1px solid #d7e6ff;
+  border-radius: 999px;
+}
+
+.mini-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
-
-.chat-input {
-  flex: 1;
-  padding: 12px 16px;
-  border-radius: 24px;
-  border: 1px solid #ccc;
-  font-size: 14px;
+.mini-kpi {
+  background: #f8fbff;
+  border: 1px solid #ecf3ff;
+  border-radius: 14px;
+  padding: 12px;
+  text-align: center;
 }
+.mini-kpi-label { font-size: 12px; color: #6b778c; }
+.mini-kpi-value { font-size: 18px; font-weight: 700; }
+.mini-delta { margin-left: 6px; font-size: 12px; }
+.mini-delta.up { color: #12a150; }
+.mini-delta.down { color: #c73636; }
 
-.submit-btn {
-  padding: 12px 20px;
-  border: none;
-  background-color: #6200ee;
-  color: white;
-  border-radius: 24px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: 0.3s;
+.mini-cards {
+   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* slightly wider cards */
+  gap: 12px;
 }
+.mini-card {
+  background: #fff;
+  border: 1px solid #eef2f8;
+  border-radius: 14px;
+  padding: 12px;
+  max-width: 500px;
+}
+.mini-card-title { font-weight: 700; margin-bottom: 10px; }
 
-.submit-btn:hover {
-  background-color: #4b00c4;
+.mini-table { display: grid; gap: 8px; }
+.mini-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.mini-row-head { font-weight: 700; color: #50607a; }
+.mini-cell { background: #f7f9fc; padding: 8px 10px; border-radius: 10px; font-size: 13px; }
+
+.mini-charts { display: grid; gap: 12px; }
+.mini-chart { background: #fff; border: 1px solid #eef2f8; border-radius: 14px; padding: 12px; }
+.mini-chart-hint { color: #6b778c; font-size: 12px; }
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 960px) {
+  .mini-kpis { grid-template-columns: repeat(2, 1fr); }
+  .asst-bubble { max-width: 100%; }
+  .asst-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .asst-input-bar { flex-direction: column; gap: 8px; }
 }

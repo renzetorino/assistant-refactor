@@ -1,43 +1,35 @@
-/* Updated PeakHours for side-by-side layout with StatsContainer */
 .peak-hours-wrapper {
-  grid-column: 2; /* Takes the right side in bottom-analytics-wrapper */
-  grid-row: 1;
   border: 1px solid #ddd;
   padding: 20px;
   background-color: #fff;
   display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: auto 1fr auto;
-  gap: 13px;
   overflow: hidden;
   border-radius: 20px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  min-height: 150px;
+  min-height: 250px;
+  width: 100%;
+  height: 100%;
 }
 
 .peak-hours-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 10px;
+  flex-direction: row;
   border-bottom: 2px solid #e0e0e0;
-  flex-wrap: wrap;
-  gap: 10px;
 }
 
 .peak-hours-header h3 {
-  margin: 0;
   color: #333;
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: bold;
   font-family: 'Montserrat', sans-serif;
+  flex: 2.5;
 }
 
 .peak-indicator {
   display: flex;
+  flex: 1.5;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
+  align-items: center;
 }
 
 .peak-time {
@@ -53,12 +45,11 @@
 .peak-count {
   font-size: 10px;
   color: #666;
-  font-weight: 500;
 }
 
 .peak-hours-chart-container {
   flex: 1;
-  min-height: 120px;
+  min-height: 180px;
   position: relative;
   background-color: #fafafa;
   border-radius: 8px;
@@ -130,7 +121,7 @@
   background-color: #f8f9fa;
   border: 1px solid #e9ecef;
   border-radius: 8px;
-  padding: 5px;
+  padding: 8px;
 }
 
 .summary-stats {
@@ -159,149 +150,4 @@
   font-size: 14px;
   font-weight: 600;
   color: #333;
-}
-
-/* Responsive design */
-@media (max-width: 991px) {
-  .peak-hours-wrapper {
-    grid-column: 1;
-    grid-row: 2;
-    min-height: 180px;
-    padding: 15px;
-  }
-  
-  .peak-hours-chart-container {
-    min-height: 180px;
-  }
-}
-
-@media (max-width: 767px) {
-  .peak-hours-wrapper {
-    grid-column: 1;
-    grid-row: 2;
-    min-height: 160px;
-    padding: 15px;
-  }
-  
-  .peak-hours-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-  
-  .peak-hours-header h3 {
-    font-size: 1rem;
-    text-align: center;
-  }
-  
-  .peak-indicator {
-    align-items: center;
-    text-align: center;
-  }
-  
-  .peak-hours-chart-container {
-    min-height: 160px;
-  }
-  
-  .summary-stats {
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  .stat-item {
-    flex-direction: row;
-    justify-content: space-between;
-    width: 100%;
-    padding: 8px 0;
-    border-bottom: 1px solid #e9ecef;
-  }
-  
-  .stat-item:last-child {
-    border-bottom: none;
-  }
-}
-
-@media (max-width: 575px) {
-  .peak-hours-wrapper {
-    min-height: 220px;
-    padding: 12px;
-  }
-  
-  .peak-hours-header h3 {
-    font-size: 0.9rem;
-  }
-  
-  .peak-time {
-    font-size: 11px;
-    padding: 3px 6px;
-  }
-  
-  .peak-count {
-    font-size: 9px;
-  }
-  
-  .peak-hours-chart-container {
-    min-height: 140px;
-  }
-  
-  .peak-hours-summary {
-    padding: 10px;
-  }
-  
-  .stat-label {
-    font-size: 10px;
-  }
-  
-  .stat-value {
-    font-size: 12px;
-  }
-}
-
-/* Chart responsiveness enhancements */
-@media (max-width: 480px) {
-  .peak-hours-chart-container .recharts-cartesian-axis-tick-value {
-    font-size: 8px !important;
-  }
-  
-  .peak-hours-tooltip {
-    padding: 8px;
-    max-width: 160px;
-  }
-  
-  .tooltip-label {
-    font-size: 10px;
-  }
-  
-  .tooltip-sales,
-  .tooltip-revenue {
-    font-size: 9px;
-  }
-}
-
-/* Animation for chart appearance */
-.peak-hours-chart-container .recharts-line {
-  animation: lineAppear 1s ease-out;
-}
-
-@keyframes lineAppear {
-  from {
-    stroke-dasharray: 100;
-    stroke-dashoffset: 100;
-  }
-  to {
-    stroke-dasharray: 100;
-    stroke-dashoffset: 0;
-  }
-}
-
-/* Hover effects */
-.peak-hours-wrapper:hover {
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
-  transition: box-shadow 0.3s ease;
-}
-
-.peak-indicator:hover .peak-time {
-  background-color: rgba(4, 180, 252, 0.15);
-  border-color: rgba(4, 180, 252, 0.3);
-  transition: all 0.2s ease;
 }

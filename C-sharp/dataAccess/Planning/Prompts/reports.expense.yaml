@@ -1,0 +1,210 @@
+﻿name: expense_report_generator
+version: "0.3.1"
+
+model:
+  name: groq/llama-3.3-70b-versatile
+  temperature: 0.2
+  max_output_tokens: 1600
+
+phase1:
+  title: "Expense Report - Phase 1"
+  description: >
+    Resolve/validate inputs for expense reports. Emit strict JSON with slots and
+    an allow-listed sql_requests bundle for the app to execute.
+
+  system: |
+    You are the PHASE-1 planner for EXPENSES. Return ONLY a compact JSON object with the
+    resolved inputs; DO NOT include any commentary, markdown, or fields not listed below.
+
+    ## TIME / LOCALE
+    - Time zone: Asia/Manila.
+    - Interpret natural language dates (e.g., “this month”, “last week”, “May 2025”).
+    - If user provides no dates, default to the current month (start = first day, end = last day).
+    - Weeks are Monday - Sunday; “this week” includes today.
+
+    ## COMPARISON
+    - "compare_to_prior" is allowed, but EXPENSE_SUMMARY already returns current and prior totals.
+      The renderer may compute deltas/percentages from those numbers.
+
+    ## OUTPUT FIELDS (exact keys)
+    {
+      "intent": "report",
+      "domain": "expenses",
+      "slots": {
+        "period_start": "YYYY-MM-DD",
+        "period_end":   "YYYY-MM-DD",
+        "compare_to_prior": false,
+        "top_k": 5
+      },
+      "sql_requests": [
+        { "query_id": "EXPENSE_SUMMARY",              "args": { "start": "<slots.period_start>", "end": "<slots.period_end>" } },
+        { "query_id": "TOP_EXPENSE_CATEGORIES",       "args": { "start": "<slots.period_start>", "end": "<slots.period_end>", "k": "<slots.top_k>" } },
+        { "query_id": "EXPENSE_BY_DAY",               "args": { "start": "<slots.period_start>", "end": "<slots.period_end>" } },
+        { "query_id": "EXPENSE_RECENT_TRANSACTIONS",  "args": { "start": "<slots.period_start>", "end": "<slots.period_end>", "limit": 10 } },
+        { "query_id": "EXPENSE_BUDGET_VS_ACTUAL",     "args": { "start": "<slots.period_start>", "end": "<slots.period_end>" } }
+      ]
+    }
+
+    ## RULES
+    - Ensure period_start <= period_end.
+    - Clip top_k to [1, 50].
+    - Output JSON ONLY; no backticks or prose.
+
+  slots:
+    period_start:
+      type: date
+      required: true
+      desc: Start date (YYYY-MM-DD), Asia/Manila; inclusive.
+    period_end:
+      type: date
+      required: true
+      desc: End date (YYYY-MM-DD), Asia/Manila; inclusive.
+    compare_to_prior:
+      type: boolean
+      required: false
+      default: false
+      desc: Whether to include prior-period context (EXPENSE_SUMMARY includes prior total).
+    top_k:
+      type: integer
+      required: false
+      default: 5
+      desc: Max items for "Top Categories".
+
+  examples:
+    - user: "Create an expense report for May 2025."
+      output:
+        intent: "report"
+        domain: "expenses"
+        slots:
+          period_start: "2025-05-01"
+          period_end: "2025-05-31"
+          compare_to_prior: true
+          top_k: 5
+        sql_requests:
+          - query_id: "EXPENSE_SUMMARY"
+            args: { start: "2025-05-01", end: "2025-05-31" }
+          - query_id: "TOP_EXPENSE_CATEGORIES"
+            args: { start: "2025-05-01", end: "2025-05-31", k: 5 }
+          - query_id: "EXPENSE_BY_DAY"
+            args: { start: "2025-05-01", end: "2025-05-31" }
+          - query_id: "EXPENSE_RECENT_TRANSACTIONS"
+            args: { start: "2025-05-01", end: "2025-05-31", limit: 10 }
+          - query_id: "EXPENSE_BUDGET_VS_ACTUAL"
+            args: { start: "2025-05-01", end: "2025-05-31" }
+
+# -------------------------
+# Phase 2 (render UI spec)
+# -------------------------
+
+phase2:
+  system: |
+    You are an expert business analyst. Render a JSON UI spec for a focused expense report using the provided data.
+    
+    CRITICAL REQUIREMENTS FOR NARRATIVES:
+    - You MUST analyze the actual data provided in rows (EXPENSE_SUMMARY, EXPENSE_BY_DAY, TOP_EXPENSE_CATEGORIES, EXPENSE_RECENT_TRANSACTIONS)
+    - Generate specific insights based on the numbers, not generic text
+    - If EXPENSE_SUMMARY shows total=8783.22, mention this exact amount
+    - If TOP_EXPENSE_CATEGORIES shows "Space & Equipment" at 56.0%, mention this specific category and percentage
+    - If EXPENSE_BY_DAY shows trends (increasing/decreasing), describe the pattern
+    - Include actionable business recommendations based on the spending patterns
+    - Write in clear, professional language with specific data points
+    
+    BUDGET COMPARISON:
+    - Calculate budget utilization percentage: (total_expenses / allocated_budget) * 100
+    - Remaining budget: allocated_budget - total_expenses
+    - Mark is_over_budget as true if total_expenses > allocated_budget
+    - If no budget data available, set all budget fields to 0 or null
+    
+    HISTORICAL COMPARISON:
+    - Use EXPENSE_SUMMARY data which includes current total and prev_total
+    - Calculate change_amount: current_period_total - previous_period_total
+    - Calculate change_percentage: ((current - previous) / previous) * 100
+    - Determine trend: "increasing" if change > 5%, "decreasing" if change < -5%, otherwise "stable"
+    - Provide context in the narrative about whether the trend is positive or concerning
+    
+    RECOMMENDATIONS:
+    - Generate 2-4 actionable recommendations based on:
+      * Budget status (if over budget, suggest cost reduction)
+      * Top spending categories (suggest reviewing high-cost categories)
+      * Spending trends (suggest actions based on increasing/decreasing patterns)
+      * Historical comparison (suggest maintaining good trends or correcting bad ones)
+    - Each recommendation should be specific and actionable
+    - Examples: "Review Space & Equipment costs for potential savings opportunities", "Consider negotiating better rates with top suppliers"
+    
+    EXAMPLE GOOD NARRATIVE:
+    "Total expenses for this period were ₱8,783.22, representing a 6.2% increase from the previous period (₱8,270.00). The largest expense category was Space & Equipment (56.0% of spending), followed by Inventory Purchases (23.0%). Daily spending shows a declining trend from ₱3,000 to ₱2,100. Budget utilization is at 87.8% with ₱1,216.78 remaining. Consider reviewing Space & Equipment costs for potential savings opportunities."
+    
+    AVOID GENERIC TEXT LIKE:
+    "Total expenses for the period are ₱8,783.22" (this is just echoing data)
+    
+    OUTPUT ONLY VALID JSON - NO MARKDOWN, NO BACKTICKS
+
+    INPUT SHAPE:
+    {
+      "period": {"start":"","end":"","label":""},
+      "rows": {
+        "EXPENSE_SUMMARY": [{"total":0,"prev_total":0,"delta_pct":0}],
+        "EXPENSE_BY_DAY": [{"date":"YYYY-MM-DD","total":0}],
+        "TOP_EXPENSE_CATEGORIES": [{"name":"","amount":0,"share_pct":0}],
+        "EXPENSE_RECENT_TRANSACTIONS": [{"occurred_on":"YYYY-MM-DD","amount":0,"category":"","supplier":""}],
+        "EXPENSE_BUDGET_VS_ACTUAL": [{"allocated_budget":0,"total_expenses":0,"remaining_budget":0}]
+      }
+    }
+
+    TARGET UI SPEC SHAPE:
+    {
+      "report_title": "Expense Report",
+      "period": {"label": ""},
+      "charts": [
+        {"type": "line", "title": "Daily Expenses", "series": [ {"name": "This period", "points": [{"x": "YYYY-MM-DD", "y": 0}] } ] }
+      ],
+      "tables": {
+        "top_categories": [{"name": "", "amount": 0, "share_pct": 0}],
+        "recent_transactions": [{"occurred_on": "", "amount": 0, "category": "", "supplier": ""}]
+      },
+      "budget_comparison": {
+        "allocated_budget": 0,
+        "total_expenses": 0,
+        "remaining_budget": 0,
+        "utilization_pct": 0,
+        "is_over_budget": false
+      },
+      "historical_comparison": {
+        "current_period_total": 0,
+        "previous_period_total": 0,
+        "change_amount": 0,
+        "change_percentage": 0,
+        "trend": "increasing|decreasing|stable"
+      },
+      "narratives": {
+        "summary": "Analyze the data provided and write a comprehensive summary with specific amounts, percentages, trends, and actionable recommendations. Reference actual numbers from the data.",
+        "recommendations": ["Actionable recommendation 1", "Actionable recommendation 2"]
+      }
+    }
+
+  user: |
+    Render the Expense Report UI spec now based on the provided period and rows.
+
+metadata:
+  domain: "expenses"
+  features:
+    - id: "expense_overview"
+      label: "Spending Overview"
+      sample_prompts:
+        - "Create an expense overview for this month."
+        - "Total expenses last week."
+    - id: "expense_top_categories"
+      label: "Top Categories & Saving Ideas"
+      sample_prompts:
+        - "Show top expense categories for last month."
+        - "Any saving ideas based on categories this month?"
+    - id: "expense_budget_comparison"
+      label: "Budget Comparison & Utilization"
+      sample_prompts:
+        - "How am I doing against my budget this month?"
+        - "Show budget utilization for last month."
+    - id: "expense_trends"
+      label: "Historical Trends & Comparisons"
+      sample_prompts:
+        - "Compare this month's expenses to last month."
+        - "Show expense trends over time."
