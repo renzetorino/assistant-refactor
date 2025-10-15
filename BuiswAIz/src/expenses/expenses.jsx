@@ -1724,20 +1724,52 @@ function getInlineAttachmentsFromRow(row) {
         </div>
       )}
 
-      {/* Attachments panel */}
+    
+      {/* Attachments modal */}
       {selectedId && (
-        <div className="main" style={{ paddingTop: 0 }}>
-          <section className="rounded-2xl border p-4">
-              <AttachmentsPanel
-              expenseId={selectedId}
-              onClose={() => setSelectedId(null)}
-            />
+        <div
+          className="modal-overlay fancy"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Attachments"
+          tabIndex={-1}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setSelectedId(null); }}
+          onKeyDown={(e) => { if (e.key === 'Escape') setSelectedId(null); }}
+        >
+          <div
+            className="modal sheet animate-in"
+            style={{
+              maxWidth: '900px',
+              width: '95vw',
+              height: '85vh',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <div className="modal-header">
+              <h2 className="modal-title">Attachments</h2>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Close"
+                onClick={() => setSelectedId(null)}
+              >
+                ✕
+              </button>
+            </div>
 
-          </section>
+            <div className="modal-body" style={{ flex: 1, overflow: 'auto' }}>
+              <AttachmentsPanel
+                expenseId={selectedId}
+                onClose={() => setSelectedId(null)}
+              />
+            </div>
+          </div>
         </div>
       )}
-    </div>
-  );
+
+          </div>
+        );
 
 
 };
