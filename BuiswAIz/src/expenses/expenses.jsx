@@ -18,6 +18,7 @@ import BudgetCenter from "../budget/BudgetCenter";
 import ContactsCenter from "../contacts/ContactsCenter";
 import { listLabels, createLabel, deleteLabel } from '../api/labels';
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
+import ConfirmActionModal from "../components/ConfirmActionModal";
 import TaxCenter from "../tax/TaxCenter";
 import { calcTax } from "../libs/tax";
 
@@ -191,6 +192,20 @@ const ExpenseDashboard = () => {
   const [newFiles, setNewFiles] = useState([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const confirmRef = useRef({});
+
+    // Generic action-confirm (over-budget, etc.)
+  const [actionOpen, setActionOpen] = useState(false);
+  const actionRef = useRef({});
+  function confirmActionAsync({ title, message, confirmLabel, cancelLabel, tone = "warning" }) {
+    return new Promise((resolve) => {
+      actionRef.current = {
+        title, message, confirmLabel, cancelLabel, tone,
+        onConfirm: () => resolve(true),
+        onCancel:  () => resolve(false),
+      };
+      setActionOpen(true);
+    });
+  }
 
 
   const [taxType, setTaxType] = useState('NONE'); // 'VAT' | 'PERCENTAGE_TAX' | 'NONE'
@@ -535,8 +550,14 @@ async function deleteExpenseDeep(expenseId) {
         const projected = Number(spent || 0) + amountNum;
         if (projected > Number(budget)) {
           const overBy = projected - Number(budget);
-          const ok = confirm(`⚠️ This will put you over budget by ₱${overBy.toFixed(2)}.\nProceed?`);
-          if (!ok) return; // cancel create
+          const ok = await confirmActionAsync({
+            title: "Over the budget",
+            message: `This will put you over budget by ₱${overBy.toFixed(2)}.\nProceed?`,
+            confirmLabel: "Proceed anyway",
+            cancelLabel: "Keep editing",
+            tone: "warning",
+          });
+          if (!ok) return;
           // Ensure "Over budget" label is present
           const overId = await ensureLabelByName("Over budget", "#ef4444");
           if (overId && !finalLabelIds.includes(overId)) finalLabelIds.push(overId);
@@ -625,8 +646,14 @@ async function deleteExpenseDeep(expenseId) {
       const projected = Number(spent || 0) - Number(editOriginalAmount || 0) + amountNum;
       if (projected > Number(budget)) {
         const overBy = projected - Number(budget);
-        const ok = confirm(`⚠️ This change will put you over budget by ₱${overBy.toFixed(2)}.\nProceed?`);
-        if (!ok) return; // cancel update
+        const ok = await confirmActionAsync({
+          title: "Over the budget",
+          message: `This change will put you over budget by ₱${overBy.toFixed(2)}.\nProceed?`,
+          confirmLabel: "Proceed anyway",
+          cancelLabel: "Keep editing",
+          tone: "warning",
+        });
+        if (!ok) return;
         const overId = await ensureLabelByName("Over budget", "#ef4444");
         if (overId && !finalEditLabelIds.includes(overId)) finalEditLabelIds.push(overId);
       }
@@ -1157,6 +1184,18 @@ function getInlineAttachmentsFromRow(row) {
       onConfirm={confirmRef.current.onConfirm}
       />
 
+            {/* Generic confirm (over-budget etc.) */}
+      <ConfirmActionModal
+        isOpen={actionOpen}
+        title={actionRef.current.title}
+        message={actionRef.current.message}
+        confirmLabel={actionRef.current.confirmLabel}
+        cancelLabel={actionRef.current.cancelLabel}
+        tone={actionRef.current.tone}
+        onCancel={() => { setActionOpen(false); actionRef.current.onCancel?.(); }}
+        onConfirm={() => { setActionOpen(false); actionRef.current.onConfirm?.(); }}
+      />
+
 
 
 
@@ -1168,13 +1207,13 @@ function getInlineAttachmentsFromRow(row) {
           aria-modal="true"
           aria-label="Add Expense"
           tabIndex={-1}
-          onMouseDown={(e) => { if (e.target === e.currentTarget) setShowAddModal(false); }}
-          onKeyDown={(e) => { if (e.key === 'Escape') setShowAddModal(false); }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) { setShowAddModal(false); resetAddExpenseForm(); } }}
+          onKeyDown={(e) => { if (e.key === 'Escape') { setShowAddModal(false); resetAddExpenseForm(); } }}
         >
           <form className="modal sheet animate-in" onSubmit={handleSaveExpense}>
             <div className="modal-header">
               <h2 className="modal-title">Add Expense</h2>
-              <button type="button" className="icon-btn" aria-label="Close" onClick={() => setShowAddModal(false)}>✕</button>
+              <button type="button" className="icon-btn" aria-label="Close" onClick={() => { setShowAddModal(false); resetAddExpenseForm(); }}>✕</button>
             </div>
 
             <div className="modal-body">
@@ -1422,7 +1461,7 @@ function getInlineAttachmentsFromRow(row) {
             </div>
 
             <div className="modal-footer">
-              <button type="button" className="btn secondary" onClick={() => setShowAddModal(false)}>
+              <button type="button" className="btn secondary" onClick={() => { setShowAddModal(false); resetAddExpenseForm(); }}>
                 Cancel
               </button>
               <button type="submit" className="btn primary" disabled={!canSave}>
@@ -1442,8 +1481,8 @@ function getInlineAttachmentsFromRow(row) {
           aria-modal="true"
           aria-label="Edit Expense"
           tabIndex={-1}
-          onMouseDown={(e) => { if (e.target === e.currentTarget) setShowEditModal(false); }}
-          onKeyDown={(e) => { if (e.key === 'Escape') setShowEditModal(false); }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) closeEditModalAndReset(); }}
+          onKeyDown={(e) => { if (e.key === 'Escape') closeEditModalAndReset(); }}
         >
           <form className="modal sheet animate-in" onSubmit={handleUpdateExpense}>
             <div className="modal-header">
@@ -1685,20 +1724,52 @@ function getInlineAttachmentsFromRow(row) {
         </div>
       )}
 
-      {/* Attachments panel */}
+    
+      {/* Attachments modal */}
       {selectedId && (
-        <div className="main" style={{ paddingTop: 0 }}>
-          <section className="rounded-2xl border p-4">
-              <AttachmentsPanel
-              expenseId={selectedId}
-              onClose={() => setSelectedId(null)}
-            />
+        <div
+          className="modal-overlay fancy"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Attachments"
+          tabIndex={-1}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setSelectedId(null); }}
+          onKeyDown={(e) => { if (e.key === 'Escape') setSelectedId(null); }}
+        >
+          <div
+            className="modal sheet animate-in"
+            style={{
+              maxWidth: '900px',
+              width: '95vw',
+              height: '85vh',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <div className="modal-header">
+              <h2 className="modal-title">Attachments</h2>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Close"
+                onClick={() => setSelectedId(null)}
+              >
+                ✕
+              </button>
+            </div>
 
-          </section>
+            <div className="modal-body" style={{ flex: 1, overflow: 'auto' }}>
+              <AttachmentsPanel
+                expenseId={selectedId}
+                onClose={() => setSelectedId(null)}
+              />
+            </div>
+          </div>
         </div>
       )}
-    </div>
-  );
+
+          </div>
+        );
 
 
 };
