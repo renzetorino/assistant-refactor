@@ -773,7 +773,199 @@ app.get("/api/reject-order", async (req, res) => {
   }
 });
 
+// POST /api/update-defect-status
+app.post("/api/update-defect-status", async (req, res) => {
+  try {
+    const { defectiveItemId, newStatus, userId } = req.body;
+    if (!defectiveItemId || !newStatus) {
+      return res.status(400).json({ error: "Missing parameters" });
+    }
 
+    // 1️⃣ Update defect status in the database
+    const { error: updateError } = await supabase
+      .from("defectiveitems")
+      .update({ status: newStatus })
+      .eq("defectiveitemid", defectiveItemId);
+
+    if (updateError) {
+      console.error("Error updating defect status:", updateError.message);
+      return res.status(500).json({ error: "Failed to update defect status" });
+    }
+
+    // 2️⃣ Fetch defect + product + supplier + category info
+    const { data: defectData, error: defectFetchError } = await supabase
+      .from("defectiveitems")
+      .select(`
+        quantity,
+        defectdescription,
+        productcategoryid,
+        products (
+          productname,
+          supplierid
+        )
+      `)
+      .eq("defectiveitemid", defectiveItemId)
+      .single();
+
+    if (defectFetchError || !defectData) {
+      console.error("Error fetching defect product:", defectFetchError?.message);
+      return res.status(500).json({ error: "Failed to fetch defect product" });
+    }
+
+    const productName = defectData.products?.productname || "Unknown Product";
+    const supplierId = defectData.products?.supplierid;
+    const quantity = defectData.quantity || 1;
+    const defectDescription = defectData.defectdescription || "N/A";
+    const productCategoryId = defectData.productcategoryid;
+
+    // 3️⃣ Log activity
+    if (userId) {
+      await supabase.from("activitylog").insert([{
+        action_type: "update_defect_status",
+        action_desc: `updated status of ${productName} to ${newStatus}`,
+        done_user: userId,
+      }]);
+    }
+
+    // 4️⃣ If status is Returned → send email to supplier
+    if (newStatus === "Returned" && supplierId) {
+      // Fetch supplier info
+      const { data: supplierData, error: supplierFetchError } = await supabase
+        .from("suppliers")
+        .select("suppliername, supplieremail")
+        .eq("supplierid", supplierId)
+        .single();
+
+      if (supplierFetchError || !supplierData) {
+        console.error("Error fetching supplier info:", supplierFetchError?.message);
+        return res.status(500).json({ error: "Failed to fetch supplier info" });
+      }
+
+      // Fetch product category info
+      const { data: categoryData, error: categoryError } = await supabase
+        .from("productcategory")
+        .select("color, agesize")
+        .eq("productcategoryid", productCategoryId)
+        .single();
+
+      const categoryColor = categoryData?.color || "N/A";
+      const categorySize = categoryData?.agesize || "N/A";
+
+      // Build acknowledgment link
+      const ackLink = `${process.env.CONFIRM_BASE_URL}/api/acknowledge-defect?defectiveItemId=${defectiveItemId}&supplierId=${supplierId}`;
+
+      // Send email via SendGrid
+      try {
+        const msg = {
+          to: supplierData.supplieremail,
+          from: process.env.SYSTEM_EMAIL,
+          subject: `Defective Item Returned - ${productName}`,
+          text: `Hello ${supplierData.suppliername},
+
+A defective item has been returned:
+
+Product: ${productName}
+Variant: Color: ${categoryColor}, Size/Age: ${categorySize}
+Quantity: ${quantity}
+Defect Description: ${defectDescription}
+
+Please acknowledge receipt by clicking the link below:
+
+✅ Acknowledge: ${ackLink}
+
+- BuiswAIz`,
+        };
+
+        await sgMail.send(msg);
+      } catch (err) {
+        console.error("SendGrid email error:", err);
+      }
+    }
+
+    res.json({ success: true, message: `Defect status updated to ${newStatus}` });
+
+  } catch (err) {
+    console.error("updateDefectStatus error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
+// ---------------------------
+// Supplier acknowledgment
+// ---------------------------
+app.get("/api/acknowledge-defect", async (req, res) => {
+  try {
+    const { defectiveItemId, supplierId } = req.query;
+    if (!defectiveItemId || !supplierId) {
+      return res.status(400).send("Missing parameters");
+    }
+
+    // Fetch defect item
+    const { data: defectItem, error: defectFetchError } = await supabase
+      .from("defectiveitems")
+      .select("status, quantity, products(productname)")
+      .eq("defectiveitemid", defectiveItemId)
+      .single();
+
+    if (defectFetchError || !defectItem) {
+      return res.status(404).send("Defective item not found");
+    }
+
+    if (defectItem.status !== "Returned") {
+      return res.status(400).send("Defect item is not marked as Returned");
+    }
+
+    const productName = defectItem.products?.productname || "Unknown Product";
+
+    // Increment supplier defectreturned
+    const { data: supplierData, error: supplierFetchError } = await supabase
+      .from("suppliers")
+      .select("defectreturned")
+      .eq("supplierid", supplierId)
+      .single();
+
+    if (supplierFetchError || !supplierData) {
+      return res.status(500).send("Supplier not found");
+    }
+
+    const newDefectReturned = (supplierData.defectreturned || 0) + (defectItem.quantity || 1);
+
+    const { error: supplierUpdateError } = await supabase
+      .from("suppliers")
+      .update({ defectreturned: newDefectReturned })
+      .eq("supplierid", supplierId);
+
+    if (supplierUpdateError) {
+      console.error("Error updating supplier defectreturned:", supplierUpdateError.message);
+      return res.status(500).send("Failed to update supplier defect returned count");
+    }
+
+    // Delete defect item after acknowledgment
+    const { error: deleteError } = await supabase
+      .from("defectiveitems")
+      .delete()
+      .eq("defectiveitemid", defectiveItemId);
+
+    if (deleteError) {
+      console.error("Error deleting defect item:", deleteError.message);
+      return res.status(500).send("Failed to delete defect item");
+    }
+
+    // Log acknowledgment
+    await supabase.from("activitylog").insert([{
+      action_type: "acknowledge_defect",
+      action_desc: `Supplier acknowledged receipt of ${productName}`,
+      done_user: supplierId,
+    }]);
+
+    res.send(`<h2>✅ You have acknowledged receipt of ${productName}. The defect item has been removed.</h2>`);
+
+  } catch (err) {
+    console.error("acknowledgeDefect error:", err);
+    res.status(500).send("Server error");
+  }
+});
 
 
 

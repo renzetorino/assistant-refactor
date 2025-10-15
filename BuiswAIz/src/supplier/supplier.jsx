@@ -74,7 +74,7 @@ const Supplier = () => {
     try {
       const receivedAt = new Date();
 
-      // 1️⃣ Insert into restockstorage first
+      // Insert into restockstorage first
       const { error: restockError } = await supabase
         .from("restockstorage")
         .insert({
@@ -90,7 +90,7 @@ const Supplier = () => {
 
       if (restockError) throw restockError;
 
-      // 2️⃣ Insert into expenses
+      //Insert into expenses
       const actualPayment = newCost * selectedOrder.order_qty;
       const { error: expenseError } = await supabase
         .from("expenses")
@@ -105,7 +105,7 @@ const Supplier = () => {
 
       if (expenseError) throw expenseError;
 
-      // 3️⃣ Delete the order from purchase_orders
+      // Delete the order from purchase_orders
       const { error: deleteError } = await supabase
         .from("purchase_orders")
         .delete()
@@ -354,7 +354,9 @@ const Supplier = () => {
             <div className="supply-returned-panel">
               <h3>Product Returned to Supplier</h3>
               <div className="returned-container">
-                {suppliers.map(s => (
+                {suppliers
+                .sort((a, b) => (b.defectreturned || 0) - (a.defectreturned || 0))
+                .map(s => (
                   <div key={s.supplierid} className="returned-card">
                     <div className="supplier-info">
                       <span className="supplier-name">{s.suppliername}</span>

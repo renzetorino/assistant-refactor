@@ -1,21 +1,58 @@
 // inventory/DefectivePanel.jsx
 import React from "react";
-import { updateDefectStatus } from "./UpdateStatusDefect";
 import "../stylecss/DefectPanel.css";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const DefectivePanel = ({ defectiveItems, user, loadDefectiveItems, onAddDefect }) => {
+
+  const handleStatusChange = async (defectiveItemId, newStatus) => {
+    if (!user) {
+      toast.warning("User not loaded. Please wait...");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/update-defect-status`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          defectiveItemId,
+          newStatus,
+          userId: user.userid,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update status");
+      }
+
+      loadDefectiveItems();
+      toast.success(data.message || "Status updated successfully");
+    } catch (err) {
+      console.error("Update failed:", err);
+      toast.error("Failed to update status. See console for details.");
+    }
+  };
+
   return (
     <div className="defective-panel">
       <div className="panel-title-row">
-        <h3>Defective Item</h3>
+        <h3>Defective Items</h3>
         <button className="panel-action-button" onClick={onAddDefect}>+ Add Defect</button>
       </div>
+
       <div className="defective-container">
         {defectiveItems.length === 0 ? (
           <p className="no-low-stock">No defective items reported.</p>
         ) : (
           defectiveItems.map((item) => (
             <div key={item.defectiveitemid} className="defective-item">
+
               {/* Product Image */}
               {item.products?.image_url ? (
                 <img
@@ -51,22 +88,10 @@ const DefectivePanel = ({ defectiveItems, user, loadDefectiveItems, onAddDefect 
                   <select
                     className="status-dropdown"
                     value={item.status}
-                    onChange={async (e) => {
-                      if (!user) {
-                        alert("User not loaded. Please wait...");
-                        return;
-                      }
-                      try {
-                        await updateDefectStatus(item.defectiveitemid, e.target.value, user);
-                        loadDefectiveItems();
-                      } catch (err) {
-                        console.error("Update failed:", err);
-                        alert("Failed to update status. See console for details.");
-                      }
-                    }}
+                    onChange={(e) => handleStatusChange(item.defectiveitemid, e.target.value)}
                   >
                     <option value="In-Process">In-Process</option>
-                    <option value="Returned">Returned</option>  
+                    <option value="Returned">Returned</option>
                   </select>
                 </div>
               </div>

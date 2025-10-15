@@ -15,7 +15,7 @@ import ResetPassword from './ResetPassword';
 import Assistant from './Assistant/Assistant';
 import Sales from "./TablePage";
 import Dashboard from "./Dashboard";
-import ExpenseDashboard from "./Expenses/expenses";
+import ExpenseDashboard from "./expenses/expenses";
 import UploadSheets from "./components/UploadSheets";
 import BudgetHistory from "./budget/BudgetHistory";
 import PlannedPaymentsPage from "./pages/PlannedPaymentsPage";

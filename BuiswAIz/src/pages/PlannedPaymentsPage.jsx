@@ -19,7 +19,7 @@ import {
   differenceInCalendarDays,
 } from "date-fns";
 import { supabase } from "../supabase";
-import "../Expenses/ExpenseDashboard.css";            // reuse your expense page layout utilities
+import "../expenses/ExpenseDashboard.css";            // reuse your expense page layout utilities
 import "../stylecss/PlannedPayments.css";   // small component-specific styles
 import ConfirmActionModal from "../components/ConfirmActionModal";
 

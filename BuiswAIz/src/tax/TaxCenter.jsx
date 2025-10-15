@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { listTaxedExpensesBetween, monthBounds, yearBounds } from "../api/tax";
 import "../stylecss/Dashboard/Dashboard.css";
-import "./taxCenter.css";
+import "./TaxCenter.css";
 
 function currency(n, min = 2, max = 2) {
   const v = Number(n || 0);
