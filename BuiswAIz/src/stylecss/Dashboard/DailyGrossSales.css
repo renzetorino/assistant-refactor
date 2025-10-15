@@ -1,23 +1,22 @@
 .daily-sales-container {
-  width: 110%;
+  width: 100%;
   height: 100%;
-  padding: 16px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   background-color: #ffffff;
   position: relative;
+  overflow: hidden;
 }
 
 .daily-sales-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  gap: 12px;
+  gap: 5px;
 }
 
 .daily-sales-header h4 {
-  margin: 0;
   font-size: 14px;
   font-weight: 600;
   color: #374151;
@@ -85,10 +84,12 @@
   display: flex;
   align-items: stretch;
   gap: 8px;
-  min-height: 200px;
-  min-width: 500px;
+  max-height: 100%;
+  height: 100%;
+  min-width: 450px;
   width: 100%;
   position: relative;
+  overflow: hidden;
 }
 
 .chart-y-axis {
@@ -119,7 +120,8 @@
   border-bottom: 1px solid #e5e7eb;
   position: relative;
   height: 100%;
-  padding-bottom: 60px;
+  padding-bottom: 50px;
+  overflow: hidden;
 }
 
 .chart-bars-container::before {
@@ -156,8 +158,8 @@
 }
 
 .bar {
-  width: 85%;
-  max-width: 32px;
+  width: 100%;
+  max-width: 50px;
   border-radius: 4px 4px 0 0;
   position: relative;
   transition: all 0.3s ease;
@@ -193,11 +195,11 @@
 
 .bar-label {
   position: absolute;
-  bottom: -60px;
+  bottom: -50px;
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
-  min-height: 50px;
+  min-height: 45px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -292,9 +294,9 @@
 /* Sales Details Modal - Dynamic Sizing */
 .sales-details-modal {
   width: auto;
-  min-width: 650px;
-  max-width: 95vw;
-  max-height: 90vh;
+  min-width: 600px;
+  max-width: 90vw;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -335,7 +337,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 200px;
-  max-height: calc(90vh - 250px);
+  max-height: calc(85vh - 220px);
 }
 
 .sales-items-list {
@@ -479,11 +481,11 @@
 .modal-sheet {
   background: #fff;
   border-radius: 12px;
-  width: 80%;       
-  max-width: 1500px; 
-  height: 800px;  
+  width: 75%;
+  max-width: 1200px;
+  max-height: 85vh;
   box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-  overflow-y: auto; 
+  overflow-y: auto;
   padding: 20px;
   position: relative;
 }
@@ -508,6 +510,7 @@
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(4, 180, 252, 0.4);
 }
+
 
 @media (max-width: 1024px) {
   .chart-bars-container {
@@ -634,7 +637,7 @@
   gap: 12px;
   margin: 0 0 12px 0;
   padding: 10px 12px;
-  background: #0f172a0f; /* subtle slate overlay */
+  background: #0f172a0f;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
 }
@@ -646,9 +649,9 @@
   gap: 8px;
   padding: 10px 14px;
   border-radius: 9999px;
-  border: 1px solid #0ea5e9;           /* sky-500 */
-  background: #0ea5e914;                /* faint sky fill */
-  color: #0369a1;                        /* sky-700 for text/icon */
+  border: 1px solid #0ea5e9;
+  background: #0ea5e914;
+  color: #0369a1;
   font-weight: 600;
   letter-spacing: 0.2px;
   cursor: pointer;
@@ -656,7 +659,7 @@
 }
 
 .download-template-btn:hover {
-  background: #0ea5e926; /* slightly stronger */
+  background: #0ea5e926;
   box-shadow: 0 6px 20px rgba(14,165,233,0.18);
   transform: translateY(-1px);
 }
@@ -692,3 +695,4 @@
   margin-right: 4px;
   display: inline-block;
 }
+

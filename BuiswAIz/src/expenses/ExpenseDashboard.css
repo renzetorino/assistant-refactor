@@ -501,7 +501,7 @@ body {
 /* --- Make the Expenses table behave like Sales --- */
 
 /* Same scroll container as Sales */
-.expense-table .table-scroll-box {
+.expense-table .Ex-table-scroll-box {
   overflow-y: auto;
   overflow-x: auto;
   scrollbar-width: thin;

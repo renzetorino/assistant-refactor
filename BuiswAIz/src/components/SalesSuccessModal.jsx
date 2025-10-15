@@ -1,4 +1,5 @@
 import React from 'react';
+import '../stylecss/SalesSuccessModal.css';
 
 const SalesSuccessModal = ({ 
   isOpen, 

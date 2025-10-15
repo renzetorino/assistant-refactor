@@ -883,16 +883,15 @@ function getInlineAttachmentsFromRow(row) {
             <ul>
               <li onClick={() => navigate("/Dashboard")}>Dashboard</li>
               <li onClick={() => navigate("/inventory")}>Inventory</li>
-              <li onClick={() => navigate("/supplier")}>Supplier</li>
               <li onClick={() => navigate("/TablePage")}>Sales</li>
               <li className="active">Expenses</li>
-              <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li>
               <li onClick={() => navigate("/assistant")}>AI Assistant</li>
             </ul>
-            <p className="nav-header">SUPPORT</p>
+            <p className="nav-header">RELATED</p>
             <ul>
-              <li>Help</li>
-              <li>Settings</li>
+              <li onClick={() => navigate("/supplier")}>Supplier</li>
+              <li onClick={() => navigate("/pos")}>Point of Sales</li>
+              <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li>
             </ul>
           </div>
         </aside>
@@ -1057,7 +1056,7 @@ function getInlineAttachmentsFromRow(row) {
           </section>
 
           {/* Table */}
-          <div className="table-scroll-box">
+          <div className="Ex-table-scroll-box">
             <table>
               <thead>
                 <tr>

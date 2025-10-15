@@ -1,15 +1,103 @@
+.top-selling-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.headers-pp {
+  margin-top: 5px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+
+
+:focus {
+  outline: 0;
+  border-color: #2260ff;
+  box-shadow: 0 0 0 4px #b5c9fc;
+}
+
+.mydict {
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.mydict div {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 0;
+  justify-content: center;
+  gap: 0;
+}
+
+.mydict input[type="radio"] {
+  clip: rect(0 0 0 0);
+  clip-path: inset(100%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.mydict input[type="radio"]:checked + span {
+  box-shadow: 0 0 0 0.0625em #0043ed;
+  background-color: #dee7ff;
+  z-index: 1;
+  color: #0043ed;
+  font-weight: 600;
+}
+
+.mydict label {
+  margin: 0;
+}
+
+.mydict label span {
+  display: block;
+  cursor: pointer;
+  background-color: #fff;
+  padding: 0.375em 0.75em;
+  position: relative;
+  margin-left: 0.0625em;
+  box-shadow: 0 0 0 0.0625em #b5bfd9;
+  letter-spacing: 0.05em;
+  color: #3e4963;
+  text-align: center;
+  transition: background-color 0.5s ease;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.mydict label:first-child span {
+  border-radius: 0.375em 0 0 0.375em;
+  margin-left: 0;
+}
+
+.mydict label:last-child span {
+  border-radius: 0 0.375em 0.375em 0;
+}
+
+.mydict label span:hover {
+  background-color: #f0f4ff;
+}
+
+/* Existing Styles */
 .top-selling-wrapper {
   text-align: left;
   border: 1px solid #ddd;
   padding: 20px;
   background-color: #fff;
-  height: 100%;
   display: flex;
   flex-direction: column;
   font-family: 'Montserrat', sans-serif;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   overflow: hidden;
+  height: 100%;
 }
 
 .top-selling-wrapper h3 {
@@ -19,6 +107,7 @@
   font-weight: 600;
   padding-bottom: 10px;
   border-bottom: 2px solid #04B4FC;
+  flex-shrink: 0;
 }
 
 .top-selling-scroll-box {
@@ -29,10 +118,9 @@
   background-color: #fff;
   scrollbar-color: #04B4FC #f1f1f1;
   border-radius: 5px;
-  max-height: calc(100% - 50px);
+  min-height: 0;
 }
 
-/* Table styling */
 .top-selling-table {
   width: 100%;
   border-collapse: collapse;
@@ -50,7 +138,6 @@
   font-size: 12px;
 }
 
-/* Table header styling */
 .top-selling-table th {
   background-color: #f8f9fa;
   position: sticky;
@@ -61,20 +148,17 @@
   border-bottom: 2px solid #dee2e6;
 }
 
-/* Table body styling */
 .top-selling-table tbody td {
   color: rgba(0, 0, 0, 0.8);
   font-size: 11px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* Hover effect for table rows */
 .top-selling-table tbody tr:hover {
   background-color: #f8f9fa;
   transition: background-color 0.2s ease;
 }
 
-/* Product image cell styling */
 .product-image-cell {
   padding: 8px !important;
   width: 60px;
@@ -128,7 +212,6 @@
   text-align: center;
 }
 
-/* Column width adjustments */
 .top-selling-table {
   table-layout: fixed;
 }
@@ -152,7 +235,6 @@
   min-width: 80px;
 }
 
-/* Product name styling */
 .product-name {
   font-weight: 500;
   color: #333 !important;
@@ -162,14 +244,12 @@
   white-space: nowrap;
 }
 
-/* Quantity sold styling */
 .quantity-sold {
   font-weight: 600;
   color: #04B4FC !important;
   font-size: 12px !important;
 }
 
-/* Loading and error states */
 .loading-state,
 .error-state,
 .empty-state {
@@ -202,12 +282,14 @@
   100% { transform: rotate(360deg); }
 }
 
-/* Top Selling Products Scrollable Styles */
 .top-selling-scrollable {
+  flex: 1;
   height: 100%;
   width: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .top-selling-scroll-container {
@@ -217,9 +299,10 @@
   padding: 0;
   margin: 0;
   box-sizing: border-box;
+  min-height: 0;
+  max-height: 100%;
 }
 
-/* Custom scrollbar styling */
 .top-selling-scroll-container::-webkit-scrollbar {
   width: 6px;
 }
@@ -238,27 +321,27 @@
   background: #0396d4;
 }
 
-/* Individual product item */
 .top-selling-item {
   display: flex;
   align-items: center;
-  padding: 12px 8px;
-  margin-bottom: 8px;
+  padding: 10px 8px;
+  margin-bottom: 6px;
   background: #ffffff;
   transition: all 0.2s ease;
   border-radius: 8px;
+  border-bottom: 1px solid #f1f1f0;
+  box-shadow: 1px 3px 6px #0b0b0b1c;
 }
 
 .top-selling-item:last-child {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .top-selling-item:hover {
-  background: #f8f9fa;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background: #04b6fc24;
+  box-shadow: 1px 3px 6px #0b0b0b1c;
 }
 
-/* Product rank */
 .product-rank {
   font-weight: bold;
   font-size: 14px;
@@ -280,23 +363,22 @@
   color: #CD7F32;
 }
 
-/* Product image container */
 .product-image-container {
   margin-right: 12px;
   flex-shrink: 0;
 }
 
 .product-image-small {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   object-fit: cover;
   border-radius: 6px;
   border: 1px solid #e3e3e3;
 }
 
 .image-placeholder-small {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   background: #f8f9fa;
   display: flex;
   align-items: center;
@@ -308,7 +390,6 @@
   border: 1px solid #e3e3e3;
 }
 
-/* Product details */
 .product-details {
   flex: 1;
   min-width: 0;
@@ -316,7 +397,7 @@
 
 .product-name-small {
   font-weight: 500;
-  font-size: 13px;
+  font-size: 12px;
   color: #333;
   margin-bottom: 4px;
   white-space: nowrap;
@@ -332,19 +413,18 @@
 }
 
 .sales-quantity {
-  font-size: 12px;
+  font-size: 11px;
   color: #4CAF50;
   font-weight: 600;
   line-height: 1.2;
 }
 
 .times-bought {
-  font-size: 11px;
+  font-size: 10px;
   color: #666;
   line-height: 1.2;
 }
 
-/* Empty state */
 .empty-state-scroll {
   text-align: center;
   padding: 40px 20px;
@@ -360,44 +440,3 @@
   font-size: 14px;
 }
 
-/* Responsive design */
-@media (max-width: 768px) {
-  .top-selling-item {
-    padding: 10px 6px;
-    margin-bottom: 6px;
-    border-radius: 6px;
-  }
-  
-  .product-image-small, .image-placeholder-small {
-    width: 35px;
-    height: 35px;
-  }
-  
-  .product-name-small {
-    font-size: 12px;
-  }
-  
-  .sales-quantity {
-    font-size: 11px;
-  }
-  
-  .times-bought {
-    font-size: 10px;
-  }
-}
-
-@media (max-width: 480px) {
-  .top-selling-wrapper {
-    border-radius: 8px;
-  }
-  
-  .top-selling-item {
-    padding: 8px 4px;
-    border-radius: 6px;
-  }
-  
-  .product-rank {
-    min-width: 20px;
-    font-size: 12px;
-  }
-}

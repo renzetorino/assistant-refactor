@@ -8,7 +8,7 @@
   font-family: 'Montserrat', sans-serif;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
   max-height: 90vh;
-  overflow: hidden; /* Hide overflow on main container to preserve border-radius */
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
