@@ -3,7 +3,7 @@
   background-color: white;
   padding: 10px; 
   border-radius: 15px;
-  max-width: 600px;
+  max-width: 650px;
   width: 100%;
   font-family: 'Montserrat', sans-serif;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
@@ -22,205 +22,213 @@
   scrollbar-color: gray #ffffff;
 }
 
-/* Add Sale Modal - Fixed border-radius with scrollbar */
-.add-sale-modal-content {
-  background: white;
-  padding: 0; 
-  border-radius: 15px;
-  max-width: 600px;
-  width: 100%;
-  font-family: 'Montserrat', sans-serif;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  animation: slideIn 0.3s ease-out;
-  max-height: 90vh;
-  overflow: hidden; 
-  display: flex;
-  flex-direction: column;
+/* Webkit scrollbar styling */
+.invoice-modal-inner::-webkit-scrollbar {
+  width: 8px;
 }
 
-/* for scroll inner modal */
-.add-sale-modal-inner {
-  overflow-y: auto;
-  padding: 10px; 
-  max-height: 90vh;
-  scrollbar-width: thin;
-  scrollbar-color: gray #ffffff;
+.invoice-modal-inner::-webkit-scrollbar-track {
+  background: #ffffff;
 }
 
-/* Multiple Products Modal */
-.add-sale-modal-content.multiple-products {
-  max-width: 800px;
-  max-height: 85vh;
-}
-.add-sale-modal-content.multiple-products .add-sale-modal-inner {
-  max-height: 85vh;
-}
-/* Rest of your existing styles remain the same */
-.invoice-modal-content h3 {
-  margin: 20px;
-  padding-top: 20px;
-  font-size: 20px;
+.invoice-modal-inner::-webkit-scrollbar-thumb {
+  background: gray;
+  border-radius: 4px;
 }
 
-/* Invoice Details */
-.invoice-details {
-  padding: 0px 20px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+.invoice-modal-inner::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* New Invoice Layout Styles */
+.invoice-details-new {
+  padding: 30px 40px;
   background-color: white;
-}
-
-.invoice-info-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.invoice-info-row {
-  display: flex;
-  gap: 30px;
-  justify-content: space-between;
-}
-
-.invoice-info-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.invoice-info-item strong {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-}
-
-.invoice-info-item span {
-  font-size: 14px;
-  color: #555;
-  padding: 8px 0;
-}
-
-/* Invoice Items Section */
-.invoice-items-section {
-  margin: 20px 0;
-}
-
-.invoice-items-section h4 {
-  margin: 0 0 15px 0;
-  color: #333;
-  font-size: 16px;
-  font-weight: 600;
-  border-bottom: 2px solid #000000;
-  padding-bottom: 5px;
-}
-
-.invoice-items-list {
-  background-color: #f8f9fa;
-  padding: 15px;
-  border-radius: 8px;
-  border: 1px solid #e9ecef;
-}
-
-.invoice-item {
-  margin-bottom: 15px;
-}
-
-.invoice-item:last-child {
-  margin-bottom: 0;
-}
-
-.invoice-info-item.total-item {
-  border-top: 2px solid #04B4FC;
-  padding-top: 10px;
-  margin-top: 10px;
-}
-
-.item-separator {
-  border: none;
-  border-top: 1px solid #dee2e6;
-  margin: 15px 0;
-}
-
-/* Invoice Modal Payment Section Styles */
-.invoice-payment-section {
-  background-color: #f8f9fa;
-  border: 2px solid #e9ecef;
-  border-radius: 12px;
-  padding: 20px;
-  margin: 20px 0;
-}
-
-.invoice-payment-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
   font-family: 'Montserrat', sans-serif;
 }
 
-.payment-summary-row {
+/* Header */
+.invoice-header-new {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
+  margin-bottom: 10px;
+}
+
+.invoice-brand {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+}
+
+.invoice-order-no {
+  font-size: 14px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.complete-order-btn-inline {
+  padding: 6px 12px;
+  border: 2px solid #04B4FC;
   border-radius: 6px;
+  background-color: #04B4FC;
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 11px;
+  font-family: 'Montserrat', sans-serif;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(4, 180, 252, 0.3);
 }
 
-.payment-summary-row.total-row {
-  font-size: 15px;
-  color: black;
+.complete-order-btn-inline:hover {
+  background-color: #0290c4;
+  border-color: #0290c4;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(4, 180, 252, 0.4);
 }
 
-.total-amount {
-  font-size: 15px !important;
-  font-weight: bold !important;
-  color: #000000 !important;
+.invoice-divider {
+  height: 1px;
+  background-color: #ddd;
+  margin: 15px 0 25px 0;
 }
 
-.payment-summary-row.paid-row {
-  font-size: 15px;
-  color: black;
-}
-
-.paid-amount {
-  font-size: 15px;
+/* Invoice Title */
+.invoice-title-new {
+  font-size: 36px;
   font-weight: bold;
-  color: #000000;
+  margin: 0 0 20px 0;
+  color: #000;
+  letter-spacing: 1px;
 }
 
-.payment-summary-row.change-row {
-  font-size: 15px;
-  color: black;
+/* Meta Information */
+.invoice-meta-new {
+  margin-bottom: 30px;
 }
 
-.payment-summary-row strong {
+.meta-item {
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.meta-item strong {
+  font-weight: 600;
+  color: #000;
+}
+
+.status-badge-new {
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-badge-new.complete {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-badge-new.incomplete {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+/* Invoice Table */
+.invoice-table-new {
+  margin: 30px 0;
+  overflow-x: auto;
+}
+
+.invoice-table-new table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.invoice-table-new thead {
+  background-color: #f0f0f0;
+}
+
+.invoice-table-new th {
+  padding: 12px 8px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #ddd;
+}
+
+.invoice-table-new td {
+  padding: 12px 8px;
+  color: #555;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.invoice-table-new tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.invoice-table-new tbody tr:hover {
+  background-color: #fafafa;
+}
+
+/* Summary Section */
+.invoice-summary-new {
+  margin-top: 30px;
+  padding-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.summary-row-new {
+  display: flex;
+  justify-content: space-between;
+  width: 300px;
+  font-size: 14px;
+}
+
+.summary-label-new {
   font-weight: 600;
   color: #333;
 }
 
-.change-amount {
-  font-size: 15px;
-  font-weight: bold;
-  color: #000000;
+.summary-value-new {
+  font-weight: 600;
+  color: #000;
+  text-align: right;
 }
 
-/* Animation for change calculation */
-.change-row {
-  animation: changeAppear 0.3s ease-in-out;
+/* Footer */
+.invoice-footer-new {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
 }
 
-@keyframes changeAppear {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.footer-text {
+  color: #666;
 }
 
+.footer-signature {
+  color: #333;
+  font-weight: 500;
+}
+
+/* Modal Footer Buttons */
 .invoice-modal-content .modal-footer {
   display: flex;
   justify-content: flex-end;
@@ -271,65 +279,7 @@
   color: white;
   transform: translateY(-1px);
 }
-@media print {
-  .invoice-payment-section {
-    background-color: transparent !important;
-    border: 1px solid #000 !important;
-  }
-  
-  .payment-summary-row.total-row,
-  .payment-summary-row.paid-row,
-  .payment-summary-row.change-row {
-    background-color: transparent !important;
-    border: none !important;
-    border-bottom: 1px solid #ccc !important;
-  }
-  
-  .total-amount,
-  .paid-amount,
-  .change-amount {
-    color: #000 !important;
-  }
-}
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-.complete-order-btn {
-  padding: 8px 16px;
-  border: 2px solid #04B4FC;
-  border-radius: 8px;
-  background-color: #04B4FC;
-  color: white;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 12px;
-  font-family: 'Montserrat', sans-serif;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-.complete-order-btn:hover {
-  background-color: #0290c4;
-  border-color: #0290c4;
-  transform: translateY(-1px);
-}
-/* Status indicator styles */
-.status-indicator {
-  padding: 4px 8px;
-  font-size: 10px;
-  font-weight: bold;
-  text-transform: uppercase;
-}
-.status-indicator.complete {
-  color: #000000;
-}
-.status-indicator.incomplete {
-  color: #000000;
-}
+
 /* Update form section */
 .update-form-section {
   padding: 0px 20px 20px;
@@ -338,23 +288,35 @@
   gap: 20px;
   background-color: white;
 }
+
+.update-form-section h4 {
+  margin: 0;
+  padding: 20px 0 0 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+}
+
 .update-form {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
+
 .update-form .form-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
   max-width: 300px;
 }
+
 .update-form .form-group label {
   font-size: 14px;
   font-weight: 600;
   color: #333;
   margin-bottom: 5px;
 }
+
 .update-form .form-input {
   padding: 12px 15px;
   border: 2px solid #e1e1e1;
@@ -366,25 +328,30 @@
   transition: all 0.3s ease;
   outline: none;
 }
+
 .update-form .form-input:focus {
   border-color: #04B4FC;
   box-shadow: 0 0 0 3px rgba(4, 180, 252, 0.1);
   background-color: #fafafa;
 }
+
 .update-form .form-input.error {
   border-color: #dc3545;
   background-color: #ffeaea;
 }
+
 .update-form .form-input.error:focus {
   border-color: #dc3545;
   box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
 }
+
 .update-form .form-input.readonly {
   background-color: #f8f9fa;
   border-color: #dee2e6;
   color: #6c757d;
   cursor: not-allowed;
 }
+
 .update-form .error-message {
   color: #dc3545;
   font-size: 12px;
@@ -393,6 +360,108 @@
   display: block;
   padding: 2px 4px;
 }
+
+.payment-summary-section {
+  background-color: #f8f9fa;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+}
+
+.payment-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+
+.summary-row.total-row {
+  font-size: 15px;
+  color: black;
+}
+
+.total-amount {
+  font-size: 15px !important;
+  font-weight: bold !important;
+  color: #000000 !important;
+}
+
+.summary-row.change-row {
+  font-size: 15px;
+  color: black;
+}
+
+.summary-label {
+  font-weight: 600;
+  color: #333;
+}
+
+.change-amount {
+  font-size: 15px;
+  font-weight: bold;
+  color: #000000;
+}
+
+.cancel-btn {
+  padding: 12px 24px;
+  border: 2px solid #6c757d;
+  border-radius: 8px;
+  background-color: transparent;
+  color: #6c757d;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  font-family: 'Montserrat', sans-serif;
+  transition: all 0.3s ease;
+}
+
+.cancel-btn:hover {
+  background-color: #6c757d;
+  color: white;
+  transform: translateY(-1px);
+}
+
+.cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.save-btn {
+  padding: 12px 24px;
+  border: 2px solid #28a745;
+  border-radius: 8px;
+  background-color: #28a745;
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  font-family: 'Montserrat', sans-serif;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
+}
+
+.save-btn:hover {
+  background-color: #218838;
+  border-color: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+}
+
+.save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Success Modal */
 .success-overlay {
   position: fixed;
   top: 0;
@@ -405,6 +474,7 @@
   align-items: center;
   z-index: 9999;
 }
+
 .success-modal {
   background: white;
   padding: 2rem;
@@ -412,26 +482,123 @@
   text-align: center;
   max-width: 400px;
   width: 90%;
+  font-family: 'Montserrat', sans-serif;
 }
+
 .success-header {
   margin-bottom: 1rem;
 }
+
+.success-header h3 {
+  margin: 0;
+  color: #28a745;
+  font-size: 24px;
+}
+
+.success-body {
+  margin: 1.5rem 0;
+}
+
+.success-body p {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
 .success-details {
   margin: 1rem 0;
   padding: 1rem;
   background-color: #f8f9fa;
   border-radius: 4px;
 }
+
 .success-detail-row {
   display: flex;
   justify-content: space-between;
   margin-bottom: 0.5rem;
+  font-size: 14px;
 }
+
+.success-detail-row:last-child {
+  margin-bottom: 0;
+}
+
+.success-detail-row span:first-child {
+  font-weight: 600;
+  color: #333;
+}
+
+.success-detail-row span:last-child {
+  color: #000;
+  font-weight: 600;
+}
+
+.success-footer {
+  margin-top: 1.5rem;
+}
+
 .success-ok-btn {
   background-color: #007bff;
   color: white;
   border: none;
-  padding: 0.5rem 2rem;
-  border-radius: 4px;
+  padding: 0.75rem 2.5rem;
+  border-radius: 6px;
   cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  font-family: 'Montserrat', sans-serif;
+  transition: all 0.3s ease;
+}
+
+.success-ok-btn:hover {
+  background-color: #0056b3;
+  transform: translateY(-1px);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .invoice-details-new {
+    padding: 20px 20px;
+  }
+
+  .invoice-title-new {
+    font-size: 28px;
+  }
+
+  .invoice-table-new {
+    font-size: 11px;
+  }
+
+  .invoice-table-new th,
+  .invoice-table-new td {
+    padding: 8px 5px;
+  }
+
+  .summary-row-new {
+    width: 100%;
+  }
+
+  .invoice-footer-new {
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-start;
+  }
+  
+  .update-form .form-group {
+    max-width: 100%;
+  }
+}
+
+@media print {
+  .invoice-modal-content .modal-footer,
+  .complete-order-btn-inline {
+    display: none !important;
+  }
+
+  .invoice-details-new {
+    padding: 0;
+  }
+
+  .invoice-table-new table {
+    page-break-inside: avoid;
+  }
 }
