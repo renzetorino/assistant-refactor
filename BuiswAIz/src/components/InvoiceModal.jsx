@@ -267,21 +267,10 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
         }
         
         // Totals section
-        yPosition += 15;
+        yPosition += 10;
         doc.setFont(undefined, 'bold');
-        doc.text('TOTAL AMOUNT:', 135, yPosition, { align: 'right' });
-        doc.text(totalAmount.toString(), 190, yPosition, { align: 'right' });
-
-        // Add payment information if available
-        if (amountPaid !== null && amountPaid !== undefined) {
-          yPosition += 8;
-          doc.text('AMOUNT PAID:', 135, yPosition, { align: 'right' });
-          doc.text(amountPaid.toString(), 190, yPosition, { align: 'right' });
-          
-          yPosition += 8;
-          doc.text('CHANGE:', 135, yPosition, { align: 'right' });
-          doc.text(change.toString(), 190, yPosition, { align: 'right' });
-        }
+        doc.text('Total Amount', 135, yPosition, { align: 'right' });
+        doc.text(totalAmount.toString(), 165, yPosition);
 
         // Footer
         yPosition += 25;
@@ -303,7 +292,7 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     } else {
       setTimeout(generatePDF, 0);
     }
-  }, [invoice, formatDate, formatTime, formatCurrency, amountPaid, change, orderStatus, getVariantDisplay]);
+  }, [invoice, formatDate, formatTime, formatCurrency, orderStatus, getVariantDisplay]);
 
   // Optimize form handlers with useCallback and debouncing
   const handleUpdateDataChange = useCallback((e) => {
@@ -470,8 +459,8 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
                             <td>{item.products?.productname || 'N/A'}</td>
                             <td>{variantDisplay || '-'}</td>
                             <td>{item.quantity}</td>
-                            <td>{item.unitprice}</td>
-                            <td>{item.subtotal}</td>
+                            <td>P{item.unitprice}</td>
+                            <td>P{item.subtotal}</td>
                           </tr>
                         );
                       })
@@ -488,26 +477,11 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
                 </table>
               </div>
 
-              {/* Payment Summary */}
-              <div className="invoice-summary-new">
-                <div className="summary-row-new">
-                  <span className="summary-label-new">TOTAL AMOUNT:</span>
-                  <span className="summary-value-new">{calculatedTotal}</span>
+              <div className="invoice-total-section">
+                <div className="total-amount-row-new">
+                  <span className="total-label">Total Amount</span>
+                  <span className="total-value">P{calculatedTotal}</span>
                 </div>
-                
-                {amountPaid !== null && amountPaid !== undefined && (
-                  <>
-                    <div className="summary-row-new">
-                      <span className="summary-label-new">AMOUNT PAID:</span>
-                      <span className="summary-value-new">{amountPaid}</span>
-                    </div>
-                    
-                    <div className="summary-row-new">
-                      <span className="summary-label-new">CHANGE:</span>
-                      <span className="summary-value-new">{change}</span>
-                    </div>
-                  </>
-                )}
               </div>
 
               {/* Footer */}
