@@ -1004,6 +1004,187 @@ app.get("/api/acknowledge-defect", async (req, res) => {
   }
 });
 
+app.get("/api/exchange-products", async (req, res) => {
+  try {
+    const { supplierid } = req.query;
+    if (!supplierid) return res.status(400).json({ error: "supplier_id required" });
+
+    const { data: products, error } = await supabase
+      .from("products")
+      .select("productid, productname, supplierid")
+      .eq("supplierid", supplierid); // <-- use the correct column name
+
+    if (error) {
+      console.error("Supabase fetch error:", error);
+      return res.status(500).json({ error: "Failed to fetch products" });
+    }
+
+    res.json(products);
+  } catch (err) {
+    console.error("Server error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
+app.post("/api/product-exchange", async (req, res) => {
+  try {
+    const {
+      supplier_id,
+      old_product,
+      old_product_category,
+      new_product,
+      new_product_category,
+      quantity,
+      reason,
+      user_id, // simplified
+    } = req.body;
+
+    // Validate required fields
+    if (
+      !supplier_id ||
+      !old_product ||
+      !old_product_category ||
+      !new_product ||
+      !new_product_category ||
+      !quantity ||
+      !reason
+    ) {
+      return res.status(400).json({ error: "All fields are required." });
+    }
+
+    // Insert exchange request
+    const { data: exchangeData, error: insertError } = await supabase
+      .from("productExchange")
+      .insert([{
+        supplier_id,
+        old_product,
+        old_product_category,
+        new_product,
+        new_product_category,
+        quantity: Number(quantity),
+        reason,
+        status: "Pending",
+        requested_at: new Date(),
+      }])
+      .select("exchangeid")
+      .single();
+
+    if (insertError || !exchangeData) {
+      console.error("Insert exchange error:", insertError);
+      return res.status(500).json({ error: "Failed to submit exchange." });
+    }
+
+    // Update old product category stock
+    const { data: oldCatStockData, error: oldCatStockError } = await supabase
+      .from("productcategory")
+      .select("currentstock")
+      .eq("productcategoryid", old_product_category)
+      .single();
+
+    if (oldCatStockError || !oldCatStockData) {
+      console.error("Fetch old product category stock error:", oldCatStockError);
+    } else {
+      await supabase
+        .from("productcategory")
+        .update({ currentstock: oldCatStockData.currentstock - Number(quantity) })
+        .eq("productcategoryid", old_product_category);
+    }
+
+    // Fetch supplier info
+    const { data: supplierData, error: supplierFetchError } = await supabase
+      .from("suppliers")
+      .select("suppliername, supplieremail")
+      .eq("supplierid", supplier_id)
+      .single();
+
+    if (supplierFetchError || !supplierData) {
+      console.error("Fetch supplier error:", supplierFetchError);
+      return res.status(500).json({ error: "Failed to fetch supplier info." });
+    }
+
+    // Fetch product and category names
+    const oldProd = await supabase.from("products").select("productname").eq("productid", old_product).single();
+    const oldCat = await supabase.from("productcategory").select("color, agesize, currentstock").eq("productcategoryid", old_product_category).single();
+    const newProd = await supabase.from("products").select("productname").eq("productid", new_product).single();
+    const newCat = await supabase.from("productcategory").select("color, agesize, currentstock").eq("productcategoryid", new_product_category).single();
+
+    // Send confirmation email
+    const confirmLink = `${process.env.CONFIRM_BASE_URL}/api/confirm-exchange?exchangeid=${exchangeData.exchangeid}`;
+    const msg = {
+      to: supplierData.supplieremail,
+      from: process.env.SYSTEM_EMAIL,
+      subject: "Product Exchange Request",
+      text: `Hello ${supplierData.suppliername},
+
+A product exchange request has been submitted:
+
+Old Product: ${oldProd.data.productname} (${oldCat.data.color} ${oldCat.data.agesize})
+New Product: ${newProd.data.productname} (${newCat.data.color} ${newCat.data.agesize})
+Quantity: ${quantity}
+Reason: ${reason}
+
+Please confirm the exchange:
+✅ Confirm: ${confirmLink}
+
+- BuiswAIz`,
+    };
+    await sgMail.send(msg);
+
+    // Log activity if user_id is provided
+    if (user_id) {
+      await supabase.from("activitylog").insert([{
+        action_type: "submit_exchange",
+        action_desc: `User submitted exchange request for ${oldProd.data.productname} → ${newProd.data.productname}`,
+        done_user: user_id,
+      }]);
+    }
+
+    res.json({ success: true, message: "Exchange submitted and supplier notified.", exchange: exchangeData });
+
+  } catch (err) {
+    console.error("Exchange API error:", err);
+    res.status(500).json({ error: "Server error." });
+  }
+});
+
+
+// 2️⃣ Supplier confirms exchange
+app.get("/api/confirm-exchange", async (req, res) => {
+  try {
+    const { exchangeid } = req.query;
+    if (!exchangeid) return res.status(400).send("Missing exchange ID");
+
+    const exchangeIdNum = Number(exchangeid);
+
+    const { data: exchange, error: fetchError } = await supabase
+      .from("productExchange")
+      .select("*")
+      .eq("exchangeid", exchangeIdNum)
+      .single();
+
+    if (fetchError || !exchange) return res.status(404).send("Exchange not found");
+
+    if (exchange.status !== "Pending") {
+      return res.status(400).send(`Cannot confirm exchange. Current status: ${exchange.status}`);
+    }
+
+    const { error: updateError } = await supabase
+      .from("productExchange")
+      .update({ status: "Confirmed", confirmed_at: new Date() })
+      .eq("exchangeid", exchangeIdNum);
+
+    if (updateError) {
+      console.error("Update confirm status error:", updateError);
+      return res.status(500).send("Failed to confirm exchange");
+    }
+
+    res.send(`<h2>✅ Exchange ${exchangeIdNum} confirmed successfully by supplier!</h2>`);
+  } catch (err) {
+    console.error("Confirm exchange error:", err);
+    res.status(500).send("Server error.");
+  }
+});
 
 
 

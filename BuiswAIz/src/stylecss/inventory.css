@@ -211,6 +211,7 @@ tbody td {
 /* Buttons */
 .add-product-button,
 .restock-storage-button,
+.exchange-product-button,
 .panel-action-button {
   background-color: #04B4FC;
   color: #fff;
@@ -226,6 +227,7 @@ tbody td {
 
 .add-product-button:hover,
 .restock-storage-button:hover,
+.exchange-product-button:hover,
 .panel-action-button:hover {
   background-color: #91c3d7;
   transform: translateY(-2px);
