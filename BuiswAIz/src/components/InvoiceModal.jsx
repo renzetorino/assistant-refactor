@@ -213,9 +213,14 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
         doc.text('Status:', 20, 60);
         doc.setFont(undefined, 'normal');
         doc.text(orderStatus, 38, 60);
+
+        doc.setFont(undefined, 'bold');
+        doc.text('Store Location:', 20, 68);
+        doc.setFont(undefined, 'normal');
+        doc.text('98 E. Santos St. Concepcion Uno Marikina City', 50, 68);
         
         // Items table header
-        let yPosition = 75;
+        let yPosition = 83;
         doc.setFontSize(9);
         doc.setFont(undefined, 'bold');
         doc.setFillColor(240, 240, 240);
@@ -437,6 +442,9 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
                 </div>
                 <div className="meta-item">
                   <strong>Status:</strong> <span className={`status-badge-new ${orderStatus.toLowerCase()}`}>{orderStatus}</span>
+                </div>
+                <div className="meta-item">
+                  <strong>Store Location:</strong> 98 E. Santos St. Concepcion Uno Marikina City
                 </div>
               </div>
 
