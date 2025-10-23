@@ -113,13 +113,19 @@ const SalesReceipt = ({ orderId, onClose }) => {
       // Info Section
       doc.setFontSize(10);
       let yPos = 45;
-      doc.text('Address: [To be provided]', 20, yPos);
+      doc.text('Address: 98 E. Santos St. Concepcion Uno Marikina City', 20, yPos);
       yPos += 6;
       doc.text('Phone No.: [To be provided]', 20, yPos);
       yPos += 6;
       doc.text(`Date: ${date}`, 20, yPos);
       yPos += 6;
       doc.text(`Time: ${time}`, 20, yPos);
+      yPos += 10;
+
+      // "Not official receipt" notice
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(8);
+      doc.text('- - - - - - - - - - - - This is not the official receipt - - - - - - - - - - - -', 105, yPos, { align: 'center' });
       yPos += 10;
       
       // Items Header
@@ -187,20 +193,17 @@ const SalesReceipt = ({ orderId, onClose }) => {
       doc.text(`P${receiptData.order.change.toFixed(2)}`, 190, yPos, { align: 'right' });
       yPos += 12;
       
-      // Signature Section
       doc.setFont('courier', 'bold');
       doc.setFontSize(9);
       doc.text('Signature:', 20, yPos);
       yPos += 20;
       
-      // Signature line
       doc.line(20, yPos, 100, yPos);
       yPos += 5;
       doc.setFont('courier', 'normal');
       doc.setFontSize(8);
       doc.text('[Signature]', 60, yPos, { align: 'center' });
       
-      // Save the PDF
       doc.save(`Receipt_Order_${orderId}.pdf`);
       
     } catch (error) {
@@ -242,11 +245,13 @@ const SalesReceipt = ({ orderId, onClose }) => {
               </div>
 
               <div className="info-section">
-                <div><span className="info-label">Address:</span> [To be provided]</div>
+                <div><span className="info-label">Address:</span> 98 E. Santos St. Concepcion Uno Marikina City
+</div>
                 <div><span className="info-label">Phone No.:</span> [To be provided]</div>
                 <div><span className="info-label">Date:</span> {date}</div>
                 <div><span className="info-label">Time:</span> {time}</div>
               </div>
+              <h5 className='not-off'>- - - - - - - - - - - - This is not the official receipt - - - - - - - - - - - -</h5>
 
               <div className="items-table">
                 <div className="items-header">
