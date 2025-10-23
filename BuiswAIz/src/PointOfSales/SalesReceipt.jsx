@@ -115,8 +115,6 @@ const SalesReceipt = ({ orderId, onClose }) => {
       let yPos = 45;
       doc.text('Address: 98 E. Santos St. Concepcion Uno Marikina City', 20, yPos);
       yPos += 6;
-      doc.text('Phone No.: [To be provided]', 20, yPos);
-      yPos += 6;
       doc.text(`Date: ${date}`, 20, yPos);
       yPos += 6;
       doc.text(`Time: ${time}`, 20, yPos);
@@ -247,7 +245,6 @@ const SalesReceipt = ({ orderId, onClose }) => {
               <div className="info-section">
                 <div><span className="info-label">Address:</span> 98 E. Santos St. Concepcion Uno Marikina City
 </div>
-                <div><span className="info-label">Phone No.:</span> [To be provided]</div>
                 <div><span className="info-label">Date:</span> {date}</div>
                 <div><span className="info-label">Time:</span> {time}</div>
               </div>
