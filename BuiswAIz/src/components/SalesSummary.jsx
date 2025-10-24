@@ -2,11 +2,37 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase';
 import '../stylecss/Sales/SalesSummary.css';
 
-const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selectedDay }) => {
+const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selectedWeek, selectedDay, startDate, endDate }) => {
   const [expenses, setExpenses] = useState([]);
   const [_loading, setLoading] = useState(true);
   const [isTransactionsExpanded, setIsTransactionsExpanded] = useState(false);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
+
+  const getWeekRange = useCallback((weekStartDate) => {
+    const start = new Date(weekStartDate);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return { start, end };
+  }, []);
+
+  // Helper function to extract date in YYYY-MM-DD format
+  const getLocalDateString = useCallback((dateString) => {
+    if (!dateString) return null;
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return null;
+      
+      // Extract local year, month, day
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      
+      return `${year}-${month}-${day}`;
+    } catch (error) {
+      return null;
+    }
+  }, []);
 
   // Fetch expenses data
   useEffect(() => {
@@ -16,7 +42,11 @@ const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selec
           .from('expenses')
           .select('amount, occurred_on');
 
-        if (!error) setExpenses(data || []);
+        if (!error) {
+          setExpenses(data || []);
+        }
+      } catch (error) {
+        // Silent error handling
       } finally {
         setLoading(false);
       }
@@ -27,30 +57,53 @@ const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selec
 
   // Filter expenses based on calendar selection
   const filteredExpenses = useMemo(() => {
-    return expenses.filter(expense => {
+    const filtered = expenses.filter(expense => {
       const occurredOn = expense.occurred_on;
       if (!occurredOn) return false;
 
-      const date = new Date(occurredOn);
-      if (isNaN(date.getTime())) return false;
+      // Get standardized date string
+      const itemDateStr = getLocalDateString(occurredOn);
+      if (!itemDateStr) return false;
+
+      // Extract year, month, day from the date string
+      const [year, month] = itemDateStr.split('-').map(Number);
 
       switch (rangeMode) {
+        case 'all':
+          return true;
+        
         case 'year':
-          return date.getFullYear() === selectedYear;
+          return year === selectedYear;
         
         case 'month': {
           const [y, m] = selectedMonth.split('-').map(Number);
-          return date.getFullYear() === y && date.getMonth() + 1 === m;
+          return year === y && month === m;
         }
         
-        case 'day':
-          return date.toISOString().slice(0, 10) === selectedDay;
+        case 'week': {
+          const { start, end } = getWeekRange(selectedWeek);
+          const startDateStr = getLocalDateString(start.toISOString());
+          const endDateStr = getLocalDateString(end.toISOString());
+          
+          return itemDateStr >= startDateStr && itemDateStr <= endDateStr;
+        }
+        
+        case 'day': {
+          return itemDateStr === selectedDay;
+        }
+        
+        case 'range': {
+          if (!startDate || !endDate) return false;
+          return itemDateStr >= startDate && itemDateStr <= endDate;
+        }
         
         default:
           return true;
       }
     });
-  }, [expenses, rangeMode, selectedYear, selectedMonth, selectedDay]);
+
+    return filtered;
+  }, [expenses, rangeMode, selectedYear, selectedMonth, selectedWeek, selectedDay, startDate, endDate, getWeekRange, getLocalDateString]);
 
   // Get filtered orders for transactions display
   const getFilteredOrders = useCallback(() => {
@@ -76,12 +129,14 @@ const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selec
   // Calculate financial metrics
   const financialMetrics = useMemo(() => {
     if (!orderData.length) {
+      const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+      
       return {
         netSales: 0,
         cogs: 0,
         grossProfit: 0,
-        totalExpenses: 0,
-        netProfit: 0,
+        totalExpenses,
+        netProfit: -totalExpenses,
         totalCustomers: 0,
         transactions: []
       };
@@ -147,6 +202,21 @@ const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selec
   };
 
   const getPeriodLabel = () => {
+    const formatWeekDisplay = (weekStartDate) => {
+      const { start, end } = getWeekRange(weekStartDate);
+      const startMonth = start.toLocaleString('en-US', { month: 'long' });
+      const endMonth = end.toLocaleString('en-US', { month: 'short' });
+      const startDay = start.getDate();
+      const endDay = end.getDate();
+      const year = end.getFullYear();
+
+      if (start.getMonth() === end.getMonth()) {
+        return `${startMonth} ${startDay} - ${endDay}, ${year}`;
+      } else {
+        return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
+      }
+    };
+
     switch (rangeMode) {
       case 'year':
         return `Year ${selectedYear}`;
@@ -154,12 +224,29 @@ const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selec
         const [y, m] = selectedMonth.split('-');
         return `${new Date(y, m - 1).toLocaleString('default', { month: 'long' })} ${y}`;
       }
+      case 'week':
+        return formatWeekDisplay(selectedWeek);
       case 'day':
         return new Date(selectedDay).toLocaleDateString('en-US', { 
           year: 'numeric', 
           month: 'long', 
           day: 'numeric' 
         });
+      case 'range':
+        if (startDate && endDate) {
+          const start = new Date(startDate).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          });
+          const end = new Date(endDate).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          });
+          return `${start} - ${end}`;
+        }
+        return 'Select Date Range';
       default:
         return 'All Time';
     }
