@@ -62,6 +62,7 @@ const ItemsPanel = ({
           </select>
         </div>
         <div className="pos-categories">
+          <h3> Filter by Age Category: </h3>
           {categories.map(category => (
             <button
               key={category}

@@ -2,16 +2,37 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase';
 import '../stylecss/Sales/SalesSummary.css';
 
-const SalesSummary = ({ orderData, statsFilter }) => {
+const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selectedWeek, selectedDay, startDate, endDate }) => {
   const [expenses, setExpenses] = useState([]);
   const [_loading, setLoading] = useState(true);
-  const [localFilter, setLocalFilter] = useState(statsFilter || 'all');
-  const [_previousEarnings, setPreviousEarnings] = useState(0);
-  const [percentageChange, setPercentageChange] = useState(0);
-  const [isIncreasing, setIsIncreasing] = useState(null);
   const [isTransactionsExpanded, setIsTransactionsExpanded] = useState(false);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
-  
+
+  const getWeekRange = useCallback((weekStartDate) => {
+    const start = new Date(weekStartDate);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return { start, end };
+  }, []);
+
+  // Helper function to extract date in YYYY-MM-DD format
+  const getLocalDateString = useCallback((dateString) => {
+    if (!dateString) return null;
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return null;
+      
+      // Extract local year, month, day
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      
+      return `${year}-${month}-${day}`;
+    } catch (error) {
+      return null;
+    }
+  }, []);
 
   // Fetch expenses data
   useEffect(() => {
@@ -21,7 +42,11 @@ const SalesSummary = ({ orderData, statsFilter }) => {
           .from('expenses')
           .select('amount, occurred_on');
 
-        if (!error) setExpenses(data || []);
+        if (!error) {
+          setExpenses(data || []);
+        }
+      } catch (error) {
+        // Silent error handling
       } finally {
         setLoading(false);
       }
@@ -30,68 +55,60 @@ const SalesSummary = ({ orderData, statsFilter }) => {
     fetchExpenses();
   }, []);
 
-  // Sync localFilter with statsFilter prop
-  useEffect(() => {
-    setLocalFilter(statsFilter || 'all');
-  }, [statsFilter]);
+  // Filter expenses based on calendar selection
+  const filteredExpenses = useMemo(() => {
+    const filtered = expenses.filter(expense => {
+      const occurredOn = expense.occurred_on;
+      if (!occurredOn) return false;
 
-  // Get available years from orderData
-  const getAvailableYears = () => {
-    const years = new Set();
-    const currentYear = new Date().getFullYear();
-    orderData.forEach(item => {
-      const orderDate = item.orders?.orderdate;
-      if (!orderDate) return;
-      const date = new Date(orderDate);
-      if (!isNaN(date.getTime())) {
-        years.add(date.getFullYear());
-      }
-    });
-    return Array.from(years).sort((a, b) => b - a).map(year => ({
-      value: `year-${year}`,
-      label: year === currentYear ? 'This Year' : year.toString()
-    }));
-  };
+      // Get standardized date string
+      const itemDateStr = getLocalDateString(occurredOn);
+      if (!itemDateStr) return false;
 
-  const availableYears = getAvailableYears();
+      // Extract year, month, day from the date string
+      const [year, month] = itemDateStr.split('-').map(Number);
 
-  // Get filtered orders for transactions display - converted to useCallback
-  const getFilteredOrders = useCallback(() => {
-    const now = new Date();
-    const currentFilter = localFilter;
-
-    const filteredOrderData = orderData.filter(item => {
-      const orderDate = item.orders?.orderdate;
-      if (!orderDate) return false;
-
-      const date = new Date(orderDate);
-
-      if (currentFilter.startsWith('year-')) {
-        const year = parseInt(currentFilter.replace('year-', ''));
-        return date.getFullYear() === year;
-      }
-
-      switch (currentFilter) {
+      switch (rangeMode) {
         case 'all':
           return true;
-        case 'today':
-          return date.toDateString() === now.toDateString();
-        case 'week1':
-          return date.getDate() <= 7 && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-        case 'week2':
-          return date.getDate() > 7 && date.getDate() <= 14 && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-        case 'week3':
-          return date.getDate() > 14 && date.getDate() <= 21 && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-        case 'month':
-          return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+        
+        case 'year':
+          return year === selectedYear;
+        
+        case 'month': {
+          const [y, m] = selectedMonth.split('-').map(Number);
+          return year === y && month === m;
+        }
+        
+        case 'week': {
+          const { start, end } = getWeekRange(selectedWeek);
+          const startDateStr = getLocalDateString(start.toISOString());
+          const endDateStr = getLocalDateString(end.toISOString());
+          
+          return itemDateStr >= startDateStr && itemDateStr <= endDateStr;
+        }
+        
+        case 'day': {
+          return itemDateStr === selectedDay;
+        }
+        
+        case 'range': {
+          if (!startDate || !endDate) return false;
+          return itemDateStr >= startDate && itemDateStr <= endDate;
+        }
+        
         default:
           return true;
       }
     });
 
-    // Group by orderid to get unique transactions with dates
+    return filtered;
+  }, [expenses, rangeMode, selectedYear, selectedMonth, selectedWeek, selectedDay, startDate, endDate, getWeekRange, getLocalDateString]);
+
+  // Get filtered orders for transactions display
+  const getFilteredOrders = useCallback(() => {
     const uniqueTransactions = new Map();
-    filteredOrderData.forEach(item => {
+    orderData.forEach(item => {
       if (!uniqueTransactions.has(item.orderid)) {
         uniqueTransactions.set(item.orderid, {
           orderid: item.orderid,
@@ -102,92 +119,33 @@ const SalesSummary = ({ orderData, statsFilter }) => {
       }
     });
 
-    // Convert to array and sort by date (newest first)
     return Array.from(uniqueTransactions.values()).sort((a, b) => {
       const dateA = new Date(a.date);
       const dateB = new Date(b.date);
       return dateB - dateA;
     });
-  }, [orderData, localFilter]);
+  }, [orderData]);
 
-  // Calculate financial metrics including total customers
+  // Calculate financial metrics
   const financialMetrics = useMemo(() => {
     if (!orderData.length) {
+      const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+      
       return {
         netSales: 0,
         cogs: 0,
         grossProfit: 0,
-        totalExpenses: 0,
-        netProfit: 0,
+        totalExpenses,
+        netProfit: -totalExpenses,
         totalCustomers: 0,
         transactions: []
       };
     }
 
     const transactions = getFilteredOrders();
-    const now = new Date();
-    const currentFilter = localFilter;
-
-    const filteredOrderData = orderData.filter(item => {
-      const orderDate = item.orders?.orderdate;
-      if (!orderDate) return false;
-
-      const date = new Date(orderDate);
-
-      if (currentFilter.startsWith('year-')) {
-        const year = parseInt(currentFilter.replace('year-', ''));
-        return date.getFullYear() === year;
-      }
-
-      switch (currentFilter) {
-        case 'all':
-          return true;
-        case 'today':
-          return date.toDateString() === now.toDateString();
-        case 'week1':
-          return date.getDate() <= 7 && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-        case 'week2':
-          return date.getDate() > 7 && date.getDate() <= 14 && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-        case 'week3':
-          return date.getDate() > 14 && date.getDate() <= 21 && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-        case 'month':
-          return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-        default:
-          return true;
-      }
-    });
-
-    const filteredExpenses = expenses.filter(expense => {
-      const occurredOn = expense.occurred_on;
-      if (!occurredOn) return false;
-
-      const date = new Date(occurredOn);
-
-      if (currentFilter.startsWith('year-')) {
-        const year = parseInt(currentFilter.replace('year-', ''));
-        return date.getFullYear() === year;
-      }
-
-      switch (currentFilter) {
-        case 'all':
-          return true;
-        case 'today':
-          return date.toDateString() === now.toDateString();
-        case 'week1':
-          return date.getDate() <= 7 && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-        case 'week2':
-          return date.getDate() > 7 && date.getDate() <= 14 && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-        case 'week3':
-          return date.getDate() > 14 && date.getDate() <= 21 && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-        case 'month':
-          return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-        default:
-          return true;
-      }
-    });
 
     const uniqueOrders = new Map();
-    filteredOrderData.forEach(item => {
+    orderData.forEach(item => {
       if (!uniqueOrders.has(item.orderid)) {
         uniqueOrders.set(item.orderid, item.orders?.totalamount || 0);
       }
@@ -195,7 +153,7 @@ const SalesSummary = ({ orderData, statsFilter }) => {
     const netSales = Array.from(uniqueOrders.values()).reduce((sum, amount) => sum + amount, 0);
     const totalCustomers = uniqueOrders.size;
 
-    const cogs = filteredOrderData.reduce((sum, item) => {
+    const cogs = orderData.reduce((sum, item) => {
       const cost = item.productcategory?.cost || 0;
       const quantity = item.quantity || 0;
       return sum + (cost * quantity);
@@ -214,163 +172,7 @@ const SalesSummary = ({ orderData, statsFilter }) => {
       totalCustomers,
       transactions
     };
-  }, [orderData, expenses, localFilter, getFilteredOrders]);
-
-  // Calculate sales trend (percentage change from previous period)
-  useEffect(() => {
-    if (localFilter === 'all') {
-      setPercentageChange(0);
-      setIsIncreasing(null);
-    } else if (orderData && orderData.length > 0) {
-      calculatePreviousPeriodEarnings();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderData, localFilter, financialMetrics.netSales]);
-
-  const calculatePreviousPeriodEarnings = () => {
-    const now = new Date();
-    let previousPeriodData = [];
-
-    if (localFilter.startsWith('year-')) {
-      const selectedYear = parseInt(localFilter.replace('year-', ''));
-      const previousYear = selectedYear - 1;
-      
-      previousPeriodData = orderData.filter(item => {
-        const orderDate = item.orders?.orderdate;
-        if (!orderDate) return false;
-        const date = new Date(orderDate);
-        return date.getFullYear() === previousYear;
-      });
-    } else {
-      switch (localFilter) {
-        case 'today': {
-          const yesterday = new Date(now);
-          yesterday.setDate(yesterday.getDate() - 1);
-          previousPeriodData = orderData.filter(item => {
-            const orderDate = item.orders?.orderdate;
-            if (!orderDate) return false;
-            const date = new Date(orderDate);
-            return date.toDateString() === yesterday.toDateString();
-          });
-          break;
-        }
-
-        case 'week1': {
-          const lastMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
-          const lastYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-          
-          previousPeriodData = orderData.filter(item => {
-            const orderDate = item.orders?.orderdate;
-            if (!orderDate) return false;
-            const date = new Date(orderDate);
-            return date.getDate() <= 7 && 
-                   date.getMonth() === lastMonth && 
-                   date.getFullYear() === lastYear;
-          });
-          break;
-        }
-
-        case 'week2': {
-          previousPeriodData = orderData.filter(item => {
-            const orderDate = item.orders?.orderdate;
-            if (!orderDate) return false;
-            const date = new Date(orderDate);
-            return date.getDate() <= 7 && 
-                   date.getMonth() === now.getMonth() && 
-                   date.getFullYear() === now.getFullYear();
-          });
-          break;
-        }
-
-        case 'week3': {
-          previousPeriodData = orderData.filter(item => {
-            const orderDate = item.orders?.orderdate;
-            if (!orderDate) return false;
-            const date = new Date(orderDate);
-            return date.getDate() > 7 && date.getDate() <= 14 && 
-                   date.getMonth() === now.getMonth() && 
-                   date.getFullYear() === now.getFullYear();
-          });
-          break;
-        }
-
-        case 'month': {
-          const lastMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
-          const lastYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-          
-          previousPeriodData = orderData.filter(item => {
-            const orderDate = item.orders?.orderdate;
-            if (!orderDate) return false;
-            const date = new Date(orderDate);
-            return date.getMonth() === lastMonth && 
-                   date.getFullYear() === lastYear;
-          });
-          break;
-        }
-
-        default:
-          break;
-      }
-    }
-
-    const uniqueOrders = new Map();
-    previousPeriodData.forEach(item => {
-      if (!uniqueOrders.has(item.orderid)) {
-        uniqueOrders.set(item.orderid, item.orders?.totalamount || 0);
-      }
-    });
-    const previousTotal = Array.from(uniqueOrders.values()).reduce((sum, amount) => sum + amount, 0);
-    setPreviousEarnings(previousTotal);
-
-    if (previousTotal === 0) {
-      if (financialMetrics.netSales > 0) {
-        setPercentageChange(100);
-        setIsIncreasing(true);
-      } else {
-        setPercentageChange(0);
-        setIsIncreasing(null);
-      }
-    } else {
-      const change = ((financialMetrics.netSales - previousTotal) / previousTotal) * 100;
-      setPercentageChange(Math.abs(change));
-      setIsIncreasing(financialMetrics.netSales > previousTotal);
-    }
-  };
-
-  const getPeriodLabel = () => {
-    if (localFilter.startsWith('year-')) {
-      const selectedYear = parseInt(localFilter.replace('year-', ''));
-      return `vs ${selectedYear - 1}`;
-    }
-
-    switch (localFilter) {
-      case 'today': return 'vs Yesterday';
-      case 'week1': return 'vs Last Month (7 Days)';
-      case 'week2': return 'vs Last 7 Days';
-      case 'week3': return 'vs Last 14 Days';
-      case 'month': return 'vs Last 21 Days';
-      case 'all': return 'All Time Data';
-      default: return 'vs Previous Period';
-    }
-  };
-
-  const getTrendIcon = () => {
-    if (isIncreasing === null) return null;
-    
-    return isIncreasing 
-      ? "https://cdn-icons-png.freepik.com/256/5412/5412850.png"
-      : "https://cdn-icons-png.freepik.com/512/8438/8438640.png";
-  };
-
-  const getTrendColor = () => {
-    if (isIncreasing === null) return '#666';
-    return isIncreasing ? '#28a745' : '#dc3545';
-  };
-
-  const getTrendText = () => {
-    if (isIncreasing === null) return 'No Data';
-    return isIncreasing ? 'Increase' : 'Decrease';
-  };
+  }, [orderData, filteredExpenses, getFilteredOrders]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-PH', {
@@ -391,10 +193,6 @@ const SalesSummary = ({ orderData, statsFilter }) => {
     });
   };
 
-  const handleFilterChange = (e) => {
-    setLocalFilter(e.target.value);
-  };
-
   const toggleTransactions = () => {
     setIsTransactionsExpanded(!isTransactionsExpanded);
   };
@@ -403,10 +201,61 @@ const SalesSummary = ({ orderData, statsFilter }) => {
     setIsSummaryExpanded(!isSummaryExpanded);
   };
 
+  const getPeriodLabel = () => {
+    const formatWeekDisplay = (weekStartDate) => {
+      const { start, end } = getWeekRange(weekStartDate);
+      const startMonth = start.toLocaleString('en-US', { month: 'long' });
+      const endMonth = end.toLocaleString('en-US', { month: 'short' });
+      const startDay = start.getDate();
+      const endDay = end.getDate();
+      const year = end.getFullYear();
+
+      if (start.getMonth() === end.getMonth()) {
+        return `${startMonth} ${startDay} - ${endDay}, ${year}`;
+      } else {
+        return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
+      }
+    };
+
+    switch (rangeMode) {
+      case 'year':
+        return `Year ${selectedYear}`;
+      case 'month': {
+        const [y, m] = selectedMonth.split('-');
+        return `${new Date(y, m - 1).toLocaleString('default', { month: 'long' })} ${y}`;
+      }
+      case 'week':
+        return formatWeekDisplay(selectedWeek);
+      case 'day':
+        return new Date(selectedDay).toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      case 'range':
+        if (startDate && endDate) {
+          const start = new Date(startDate).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          });
+          const end = new Date(endDate).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          });
+          return `${start} - ${end}`;
+        }
+        return 'Select Date Range';
+      default:
+        return 'All Time';
+    }
+  };
+
   return (
     <div className={`net-income-container ${isSummaryExpanded ? 'expanded' : ''}`}>
       <div className="net-income-header">
-        <h3>Sales Summary</h3>
+        <h3>Sales Summary - {getPeriodLabel()}</h3>
         <div className="header-controls">
           <button 
             className="summary-expand-btn" 
@@ -415,21 +264,6 @@ const SalesSummary = ({ orderData, statsFilter }) => {
           >
             {isSummaryExpanded ? '🗙' : '☰'}
           </button>
-          <select 
-            className="filter-dropdown" 
-            value={localFilter} 
-            onChange={handleFilterChange}
-          >
-            <option value="all">All Time</option>
-            <option value="today">Today</option>
-            <option value="week1">1st Week</option>
-            <option value="week2">2nd Week</option>
-            <option value="week3">3rd Week</option>
-            <option value="month">This Month</option>
-            {availableYears.map(yearObj => (
-              <option key={yearObj.value} value={yearObj.value}>{yearObj.label}</option>
-            ))}
-          </select>
         </div>
       </div>
 
@@ -521,41 +355,8 @@ const SalesSummary = ({ orderData, statsFilter }) => {
           )}
         </div>
 
-        <div className="metric-card sales-trend-card">
-          <div className="metric-content">
-            <div className="metric-header-with-icon">
-              {getTrendIcon() && localFilter !== 'all' && (
-                <img 
-                  src={getTrendIcon()} 
-                  alt={`Sales ${getTrendText()}`}
-                  className="metric-icon trend-icon"
-                />
-              )}
-              <p className="metric-label">Sales Trend</p>
-            </div>
-            {localFilter === 'all' ? (
-              <div className="trend-content">
-                <p className="metric-value">Total Historical Data</p>
-                <p className="metric-description">No comparison available</p>
-              </div>
-            ) : (
-              <div className="trend-content">
-                <p className="metric-value" style={{ color: getTrendColor(), fontSize: '1.5rem' }}>
-                  {percentageChange.toFixed(1)}%
-                </p>
-                <span className="trend-status" style={{ color: getTrendColor(), fontWeight: '600' }}>
-                  {getTrendText()}
-                </span>
-                <p className="metric-description" style={{ marginTop: '5px' }}>
-                  {getPeriodLabel()}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
         {isSummaryExpanded && (
-          <>
+          <div className="expanded-summary-container">
             <div className="metric-card net-profit-card featured">
               <div className="metric-content">
                 <p className="metric-label">Net Profit</p>
@@ -608,7 +409,7 @@ const SalesSummary = ({ orderData, statsFilter }) => {
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>

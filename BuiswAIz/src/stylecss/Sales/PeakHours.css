@@ -151,3 +151,257 @@
   font-weight: 600;
   color: #333;
 }
+
+/* Modal Overlay */
+.peak-hours-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  padding: 20px;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Modal Container */
+.peak-hours-modal {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 1000px;
+  width: 100%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Montserrat', sans-serif;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Modal Header */
+.peak-hours-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 28px;
+  border-bottom: 2px solid #e0e0e0;
+  border-radius: 16px 16px 0 0;
+}
+
+.peak-hours-modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: rgb(0, 0, 0);
+}
+
+.peak-hours-modal-close {
+  background: #04B4FC;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  color: rgb(255, 255, 255);
+  padding: 10px 20px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.25);
+}
+
+.peak-hours-modal-close:hover {
+  background: #ff0000;
+  transform: translateY(-1px);
+  box-shadow: 3px 3px 5px rgba(0, 0, 0, 0.25);
+}
+
+/* Modal Summary */
+.peak-hours-modal-summary {
+  display: flex;
+  gap: 20px;
+  padding: 20px 28px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.modal-summary-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.modal-summary-label {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.modal-summary-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #04B4FC;
+}
+
+/* Modal Content */
+.peak-hours-modal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
+}
+
+.peak-hours-modal-content h3 {
+  margin: 0 0 20px 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #04B4FC;
+  padding-bottom: 10px;
+}
+
+/* Products List */
+.peak-hours-products-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Product Section */
+.product-section {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #e0e0e0;
+}
+
+.product-header {
+  font-size: 14px;
+  margin-bottom: 12px;
+  color: #333;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #04B4FC;
+}
+
+.product-header strong {
+  color: #04B4FC;
+  margin-right: 8px;
+}
+
+/* Product Orders Table */
+.product-orders-table {
+  width: 100%;
+  background: white;
+  border-radius: 6px;
+  overflow: hidden;
+  border-collapse: collapse;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.product-orders-table thead {
+  background: linear-gradient(135deg, #04B4FC 0%, #0396d6 100%);
+}
+
+.product-orders-table thead th {
+  padding: 12px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgb(0, 0, 0);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.product-orders-table tbody tr {
+  border-bottom: 1px solid #e9ecef;
+  transition: background-color 0.2s;
+}
+
+.product-orders-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.product-orders-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.product-orders-table tbody td {
+  padding: 12px;
+  font-size: 13px;
+  color: #333;
+}
+
+.product-orders-table tbody td.subtotal-cell {
+  font-weight: 600;
+  color: #04B4FC;
+}
+
+/* Scrollbar Styling */
+.peak-hours-modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.peak-hours-modal-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.peak-hours-modal-content::-webkit-scrollbar-thumb {
+  background: #04B4FC;
+  border-radius: 10px;
+}
+
+.peak-hours-modal-content::-webkit-scrollbar-thumb:hover {
+  background: #0396d6;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .peak-hours-modal {
+    max-height: 90vh;
+  }
+  
+  .peak-hours-modal-header h2 {
+    font-size: 1.2rem;
+  }
+  
+  .modal-summary-value {
+    font-size: 20px;
+  }
+  
+  .product-orders-table {
+    font-size: 11px;
+  }
+  
+  .product-orders-table thead th,
+  .product-orders-table tbody td {
+    padding: 8px;
+  }
+}
