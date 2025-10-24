@@ -196,7 +196,7 @@ const Notifications = () => {
       // 4. BUDGET: Over budget / threshold alerts
       try {
         const THRESHOLD_PCT = 80;
-        const DEBUG_BUDGET = true;
+        const DEBUG_BUDGET = !!import.meta.env.DEV;
         const FORCE_BUDGET_TEST = false;
 
         const now = new Date();
@@ -256,18 +256,20 @@ const Notifications = () => {
         }
 
         const createdTs = currentMonthBudget?.created_at ? new Date(currentMonthBudget.created_at) : null;
-        const clampToNow = (d) => (d && d > nowTs ? nowTs : d);
-
-        // If there is an expense dated today (PH), show it as "now" to feel immediate.
-        // Otherwise, fall back to the latest expense noon, or budget created_at, or now.
-        const effectiveTs = hasExpenseToday
-          ? nowTs
-          : (clampToNow(latestExpenseTs) || clampToNow(createdTs) || nowTs);
+         
+        // Use the true event time:
+        // 1) if there was a recent expense, prefer that exact time
+        // 2) else, fall back to budget creation time
+        // 3) finally, as a last resort only, use nowTs
+        const effectiveTs =
+         hasExpenseToday
+          ? (latestExpenseTs ?? createdTs ?? nowTs)
+          : (latestExpenseTs ?? createdTs ?? nowTs);        
 
 
         if (DEBUG_BUDGET) {
-          console.log('[BUDGET] spent:', spent, 'allocated:', allocated, 'usedPct:', usedPct);
-          console.log('[BUDGET] effectiveTs:', effectiveTs);
+        console.log("[BUDGET] spent:", spent, "allocated:", allocated, "usedPct:", Math.floor((spent/allocated)*100));
+        console.log("[BUDGET] effectiveTs:", new Date(effectiveTs)); // true event time
         }
 
         if (FORCE_BUDGET_TEST) {

@@ -6,6 +6,7 @@ import AddProduct from "../inventory/AddProduct";
 import ViewProduct from "../inventory/ViewProduct";
 import AddDefect from "../inventory/AddDefect";
 import RestockStorage from "../inventory/RestockStorage";
+import ProductExchange from "../inventory/productExchange";
 import { useNavigate } from "react-router-dom";
 import { fetchLowStockProducts } from "../inventory/fetchLowStockProduct";
 import { fetchDefectiveItems } from "../inventory/fetchdefectitem";
@@ -26,6 +27,7 @@ const Inventory = () => {
   const [activityLogs, setActivityLogs] = useState([]);
   const navigate = useNavigate();
   const [restockStorage, setrestockStorage] = useState(false);
+  const [showExchangeModal, setShowExchangeModal] = useState(false);
 
   const loadProducts = async () => {
     try {
@@ -134,7 +136,6 @@ const Inventory = () => {
               <li className="active">Inventory</li>
               <li onClick={() => navigate("/TablePage")}>Sales</li>
               <li onClick={() => navigate("/expenses")}>Expenses</li>
-              
               <li onClick={() => navigate("/assistant")}>AI Assistant</li>
             </ul>
             <p className="nav-header">RELATED</p>
@@ -153,7 +154,10 @@ const Inventory = () => {
               <h2 className="panel-title">Inventory</h2>
               <div className="panel-actions">
                 <input id="inventorySearch" className="inventory-search" type="text" placeholder="Search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                <button className="restock-storage-button" onClick={() => setrestockStorage(true)}> Restock Storage</button> 
+                <button className="restock-storage-button" onClick={() => setrestockStorage(true)}> Restock Storage</button>
+                <button className="exchange-product-button" onClick={() => setShowExchangeModal(true)}>
+                  ↔ Product Exchange
+                  </button>
                 <button className="add-product-button" onClick={() => setShowModal(true)}>
                   + Add Product
                 </button>
@@ -253,6 +257,16 @@ const Inventory = () => {
             loadActivityLogs();
           }}
            user={user}
+        />
+      )}
+
+      {showExchangeModal && (
+        <ProductExchange
+          onClose={() => {
+            setShowExchangeModal(false);
+            loadProducts();
+          }}
+          user={user}
         />
       )}
 

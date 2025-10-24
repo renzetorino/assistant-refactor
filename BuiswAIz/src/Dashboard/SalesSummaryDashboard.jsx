@@ -216,7 +216,7 @@ const SalesSummaryDashboard = () => {
   return (
     <div className="sales-summary-container">
       <div className="sales-summary-header">
-        <h3>Sales Summary</h3>
+        <h3>Business summary</h3>
         <button className="download-csv-btn" onClick={downloadCSV} title="Download as CSV">
           Download Summary
         </button>

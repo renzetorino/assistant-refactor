@@ -25,6 +25,7 @@
   flex: 1;
   overflow-x: auto;
   overflow-y: auto;
+  max-height: 350px;
   border-radius: 14px;
   border: 1px solid #e0e6f0;
   background: #fafcff;

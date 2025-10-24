@@ -205,9 +205,16 @@ app.post("/api/update-product", upload.single("image"), async (req, res) => {
 
       // 2. Delete old image from Supabase storage
       if (oldProduct?.image_url) {
-        const oldPath = oldProduct.image_url.split("/").pop(); // extract filename
-        await supabase.storage.from("product-images").remove([oldPath]);
+      // ✅ Extract the correct file path after the bucket name
+        const oldPath = oldProduct.image_url.split("/product-images/")[1];
+
+        if (oldPath) {
+          const {} = await supabase.storage
+            .from("product-images")
+            .remove([oldPath]);
+        }
       }
+
 
       // 3. Compress and upload new image
       const compressedBuffer = await sharp(req.file.buffer)
@@ -333,6 +340,19 @@ app.post("/api/delete-product", async (req, res) => {
     if (fetchError || !productData) {
       return res.status(404).json({ error: "Product not found." });
     }
+    
+     const { data: oldProduct, error: oldError } = await supabase
+      .from("products")
+      .select("image_url")
+      .eq("productid", productid)
+      .single();
+
+    if (oldProduct?.image_url) {
+      const oldPath = oldProduct.image_url.split("/product-images/")[1];
+      if (oldPath) {
+        await supabase.storage.from("product-images").remove([oldPath]);
+      }
+    }
 
     // Delete product
     const { error: deleteError } = await supabase
@@ -451,7 +471,15 @@ app.get("/api/products", async (req, res) => {
 // Add defective item
 app.post("/api/add-defective-item", async (req, res) => {
   try {
-    const { productid, productcategoryid, quantity, status, defectdescription, reporteddate, userid } = req.body;
+    const {
+      productid,
+      productcategoryid,
+      quantity,
+      status,
+      defectdescription,
+      reporteddate,
+      userid, // user submitting the report
+    } = req.body;
 
     if (!productid || !productcategoryid || !quantity || !status || !reporteddate) {
       return res.status(400).json({ error: "Missing required fields." });
@@ -464,25 +492,30 @@ app.post("/api/add-defective-item", async (req, res) => {
       .eq("productcategoryid", productcategoryid)
       .single();
 
-    if (catErr || !category) return res.status(400).json({ error: "Category not found." });
+    if (catErr || !category)
+      return res.status(400).json({ error: "Category not found." });
 
     if (parseInt(quantity) > category.currentstock) {
       return res.status(400).json({ error: "Quantity exceeds current stock." });
     }
 
-    // Insert defective item
-    const { error: insertErr } = await supabase
-      .from("defectiveitems")
-      .insert([{
+    // Insert defective item — include reportedbyuserid here ✅
+    const { error: insertErr } = await supabase.from("defectiveitems").insert([
+      {
         productid,
-        productcategoryid, // use correct column name
+        productcategoryid,
         quantity,
         status,
         defectdescription,
-        reporteddate
-      }]);
+        reporteddate,
+        reportedbyuserid: userid, // ✅ new column included
+      },
+    ]);
 
-    if (insertErr) return res.status(500).json({ error: insertErr.message || JSON.stringify(insertErr) });
+    if (insertErr)
+      return res
+        .status(500)
+        .json({ error: insertErr.message || JSON.stringify(insertErr) });
 
     // Update stock
     const { error: updateErr } = await supabase
@@ -490,19 +523,23 @@ app.post("/api/add-defective-item", async (req, res) => {
       .update({ currentstock: category.currentstock - quantity })
       .eq("productcategoryid", productcategoryid);
 
-    if (updateErr) return res.status(500).json({ error: updateErr.message || JSON.stringify(updateErr) });
+    if (updateErr)
+      return res
+        .status(500)
+        .json({ error: updateErr.message || JSON.stringify(updateErr) });
 
     // Log activity
     if (userid) {
-      await supabase.from("activitylog").insert([{
-        action_type: "add_defect",
-        action_desc: `added ${quantity} defective item(s) for product ${productid}, category ${productcategoryid}`,
-        done_user: userid
-      }]);
+      await supabase.from("activitylog").insert([
+        {
+          action_type: "add_defect",
+          action_desc: `added ${quantity} defective item(s) for product ${productid}, category ${productcategoryid}`,
+          done_user: userid,
+        },
+      ]);
     }
 
     res.status(200).json({ message: "Defective item added successfully." });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Server error." });
@@ -967,6 +1004,187 @@ app.get("/api/acknowledge-defect", async (req, res) => {
   }
 });
 
+app.get("/api/exchange-products", async (req, res) => {
+  try {
+    const { supplierid } = req.query;
+    if (!supplierid) return res.status(400).json({ error: "supplier_id required" });
+
+    const { data: products, error } = await supabase
+      .from("products")
+      .select("productid, productname, supplierid")
+      .eq("supplierid", supplierid); // <-- use the correct column name
+
+    if (error) {
+      console.error("Supabase fetch error:", error);
+      return res.status(500).json({ error: "Failed to fetch products" });
+    }
+
+    res.json(products);
+  } catch (err) {
+    console.error("Server error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
+app.post("/api/product-exchange", async (req, res) => {
+  try {
+    const {
+      supplier_id,
+      old_product,
+      old_product_category,
+      new_product,
+      new_product_category,
+      quantity,
+      reason,
+      user_id, // simplified
+    } = req.body;
+
+    // Validate required fields
+    if (
+      !supplier_id ||
+      !old_product ||
+      !old_product_category ||
+      !new_product ||
+      !new_product_category ||
+      !quantity ||
+      !reason
+    ) {
+      return res.status(400).json({ error: "All fields are required." });
+    }
+
+    // Insert exchange request
+    const { data: exchangeData, error: insertError } = await supabase
+      .from("productExchange")
+      .insert([{
+        supplier_id,
+        old_product,
+        old_product_category,
+        new_product,
+        new_product_category,
+        quantity: Number(quantity),
+        reason,
+        status: "Pending",
+        requested_at: new Date(),
+      }])
+      .select("exchangeid")
+      .single();
+
+    if (insertError || !exchangeData) {
+      console.error("Insert exchange error:", insertError);
+      return res.status(500).json({ error: "Failed to submit exchange." });
+    }
+
+    // Update old product category stock
+    const { data: oldCatStockData, error: oldCatStockError } = await supabase
+      .from("productcategory")
+      .select("currentstock")
+      .eq("productcategoryid", old_product_category)
+      .single();
+
+    if (oldCatStockError || !oldCatStockData) {
+      console.error("Fetch old product category stock error:", oldCatStockError);
+    } else {
+      await supabase
+        .from("productcategory")
+        .update({ currentstock: oldCatStockData.currentstock - Number(quantity) })
+        .eq("productcategoryid", old_product_category);
+    }
+
+    // Fetch supplier info
+    const { data: supplierData, error: supplierFetchError } = await supabase
+      .from("suppliers")
+      .select("suppliername, supplieremail")
+      .eq("supplierid", supplier_id)
+      .single();
+
+    if (supplierFetchError || !supplierData) {
+      console.error("Fetch supplier error:", supplierFetchError);
+      return res.status(500).json({ error: "Failed to fetch supplier info." });
+    }
+
+    // Fetch product and category names
+    const oldProd = await supabase.from("products").select("productname").eq("productid", old_product).single();
+    const oldCat = await supabase.from("productcategory").select("color, agesize, currentstock").eq("productcategoryid", old_product_category).single();
+    const newProd = await supabase.from("products").select("productname").eq("productid", new_product).single();
+    const newCat = await supabase.from("productcategory").select("color, agesize, currentstock").eq("productcategoryid", new_product_category).single();
+
+    // Send confirmation email
+    const confirmLink = `${process.env.CONFIRM_BASE_URL}/api/confirm-exchange?exchangeid=${exchangeData.exchangeid}`;
+    const msg = {
+      to: supplierData.supplieremail,
+      from: process.env.SYSTEM_EMAIL,
+      subject: "Product Exchange Request",
+      text: `Hello ${supplierData.suppliername},
+
+A product exchange request has been submitted:
+
+Old Product: ${oldProd.data.productname} (${oldCat.data.color} ${oldCat.data.agesize})
+New Product: ${newProd.data.productname} (${newCat.data.color} ${newCat.data.agesize})
+Quantity: ${quantity}
+Reason: ${reason}
+
+Please confirm the exchange:
+✅ Confirm: ${confirmLink}
+
+- BuiswAIz`,
+    };
+    await sgMail.send(msg);
+
+    // Log activity if user_id is provided
+    if (user_id) {
+      await supabase.from("activitylog").insert([{
+        action_type: "submit_exchange",
+        action_desc: `User submitted exchange request for ${oldProd.data.productname} → ${newProd.data.productname}`,
+        done_user: user_id,
+      }]);
+    }
+
+    res.json({ success: true, message: "Exchange submitted and supplier notified.", exchange: exchangeData });
+
+  } catch (err) {
+    console.error("Exchange API error:", err);
+    res.status(500).json({ error: "Server error." });
+  }
+});
+
+
+// 2️⃣ Supplier confirms exchange
+app.get("/api/confirm-exchange", async (req, res) => {
+  try {
+    const { exchangeid } = req.query;
+    if (!exchangeid) return res.status(400).send("Missing exchange ID");
+
+    const exchangeIdNum = Number(exchangeid);
+
+    const { data: exchange, error: fetchError } = await supabase
+      .from("productExchange")
+      .select("*")
+      .eq("exchangeid", exchangeIdNum)
+      .single();
+
+    if (fetchError || !exchange) return res.status(404).send("Exchange not found");
+
+    if (exchange.status !== "Pending") {
+      return res.status(400).send(`Cannot confirm exchange. Current status: ${exchange.status}`);
+    }
+
+    const { error: updateError } = await supabase
+      .from("productExchange")
+      .update({ status: "Confirmed", confirmed_at: new Date() })
+      .eq("exchangeid", exchangeIdNum);
+
+    if (updateError) {
+      console.error("Update confirm status error:", updateError);
+      return res.status(500).send("Failed to confirm exchange");
+    }
+
+    res.send(`<h2>✅ Exchange ${exchangeIdNum} confirmed successfully by supplier!</h2>`);
+  } catch (err) {
+    console.error("Confirm exchange error:", err);
+    res.status(500).send("Server error.");
+  }
+});
 
 
 
