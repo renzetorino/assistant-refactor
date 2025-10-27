@@ -255,7 +255,7 @@ const SalesReceipt = ({ orderId, onClose }) => {
       currentHeight += 4;
       doc.setFont('courier', 'normal');
       doc.setFontSize(7);
-      doc.text('Customer Signature', pageWidth / 2, currentHeight, { align: 'center' });
+      doc.text(' Signature', pageWidth / 2, currentHeight, { align: 'center' });
       currentHeight += 8;
       
       // Footer
