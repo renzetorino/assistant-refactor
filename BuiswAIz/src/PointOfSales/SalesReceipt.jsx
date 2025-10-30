@@ -89,10 +89,25 @@ const SalesReceipt = ({ orderId, onClose }) => {
       }
 
       const { jsPDF } = window.jspdf;
+      
+      // 80mm width thermal paper (3.15 inches)
+      const pageWidth = 80; // mm
+      const margin = 5; // mm
+      const contentWidth = pageWidth - (margin * 2);
+      
+      // Calculate initial height (will add pages if needed)
+      let currentHeight = 10;
+      
+      // Calculate approximate final height first
+      let estimatedHeight = 100; // Base height for header, footer, etc.
+      estimatedHeight += receiptData.items.length * 20; // Approximate per item
+      const finalHeight = Math.max(Math.min(estimatedHeight, 300), 200); // Between 200-300mm
+      
+      // Create document with custom dimensions
       const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
-        format: 'a4'
+        format: [pageWidth, finalHeight]
       });
 
       const { date, time } = formatDateTime(receiptData.order.orderdate);
@@ -101,107 +116,155 @@ const SalesReceipt = ({ orderId, onClose }) => {
       doc.setFont('courier');
       
       // Header - Business Name
-      doc.setFontSize(20);
+      doc.setFontSize(14);
       doc.setFont('courier', 'bold');
-      doc.text('BuiswAIz', 105, 20, { align: 'center' });
+      doc.text('BuiswAIz', pageWidth / 2, currentHeight, { align: 'center' });
+      currentHeight += 7;
       
       // Order ID
-      doc.setFontSize(14);
+      doc.setFontSize(10);
       doc.setFont('courier', 'normal');
-      doc.text(`Order ID: #${orderId}`, 105, 30, { align: 'center' });
+      doc.text(`Order ID: #${orderId}`, pageWidth / 2, currentHeight, { align: 'center' });
+      currentHeight += 8;
       
       // Info Section
-      doc.setFontSize(10);
-      let yPos = 45;
-      doc.text('Address: 98 E. Santos St. Concepcion Uno Marikina City', 20, yPos);
-      yPos += 6;
-      doc.text(`Date: ${date}`, 20, yPos);
-      yPos += 6;
-      doc.text(`Time: ${time}`, 20, yPos);
-      yPos += 10;
+      doc.setFontSize(8);
+      doc.text('Address:', margin, currentHeight);
+      currentHeight += 4;
+      doc.text('98 E. Santos St.', margin, currentHeight);
+      currentHeight += 4;
+      doc.text('Concepcion Uno', margin, currentHeight);
+      currentHeight += 4;
+      doc.text('Marikina City', margin, currentHeight);
+      currentHeight += 5;
+      
+      doc.text(`Date: ${date}`, margin, currentHeight);
+      currentHeight += 4;
+      doc.text(`Time: ${time}`, margin, currentHeight);
+      currentHeight += 7;
+
+      // Separator line
+      doc.setLineWidth(0.3);
+      doc.line(margin, currentHeight, pageWidth - margin, currentHeight);
+      currentHeight += 5;
 
       // "Not official receipt" notice
       doc.setFont('courier', 'normal');
-      doc.setFontSize(8);
-      doc.text('- - - - - - - - - - - - This is not the official receipt - - - - - - - - - - - -', 105, yPos, { align: 'center' });
-      yPos += 10;
+      doc.setFontSize(7);
+      const noticeText = 'This is not the official receipt';
+      doc.text(noticeText, pageWidth / 2, currentHeight, { align: 'center' });
+      currentHeight += 5;
+      
+      // Separator line
+      doc.line(margin, currentHeight, pageWidth - margin, currentHeight);
+      currentHeight += 5;
       
       // Items Header
       doc.setFont('courier', 'bold');
-      doc.setFontSize(9);
-      doc.text('Product', 20, yPos);
-      doc.text('Qty', 135, yPos, { align: 'right' });
-      doc.text('Price', 160, yPos, { align: 'right' });
-      doc.text('Item#', 185, yPos, { align: 'right' });
-      yPos += 6;
+      doc.setFontSize(8);
+      doc.text('Item', margin, currentHeight);
+      doc.text('Qty', pageWidth - margin - 25, currentHeight, { align: 'left' });
+      doc.text('Price', pageWidth - margin, currentHeight, { align: 'right' });
+      currentHeight += 4;
+      
+      // Separator line
+      doc.setLineWidth(0.1);
+      doc.line(margin, currentHeight, pageWidth - margin, currentHeight);
+      currentHeight += 4;
       
       // Items
       doc.setFont('courier', 'normal');
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       
-      receiptData.items.forEach((item) => {
-        // Check if we need a new page
-        if (yPos > 250) {
-          doc.addPage();
-          yPos = 20;
-        }
-        
-        // Product name
+      receiptData.items.forEach((item, index) => {
+        // Product name (wrap if too long)
         const productName = item.products?.productname || 'Unknown Product';
-        doc.setFont('courier', 'bold');
-        doc.text(productName, 20, yPos);
-        yPos += 5;
+        const maxWidth = contentWidth - 5;
+        const lines = doc.splitTextToSize(productName, maxWidth);
+        
+        lines.forEach((line) => {
+          doc.text(line, margin, currentHeight);
+          currentHeight += 4;
+        });
         
         // Variant info
         if (item.productcategory?.agesize || item.productcategory?.color) {
           const variant = [item.productcategory?.agesize, item.productcategory?.color]
             .filter(Boolean)
             .join(' - ');
-          doc.setFont('courier', 'normal');
+          doc.setFontSize(7);
+          doc.text(`(${variant})`, margin + 2, currentHeight);
+          currentHeight += 4;
           doc.setFontSize(8);
-          doc.text(`(${variant})`, 20, yPos);
-          yPos += 5;
         }
         
-        // Quantity, Price, Item#
-        doc.setFontSize(9);
-        doc.text(item.quantity.toString(), 135, yPos - (item.productcategory?.agesize || item.productcategory?.color ? 5 : 0), { align: 'right' });
-        doc.text(`P${item.unitprice.toFixed(2)}`, 160, yPos - (item.productcategory?.agesize || item.productcategory?.color ? 5 : 0), { align: 'right' });
-        doc.text(item.orderitemid.toString(), 185, yPos - (item.productcategory?.agesize || item.productcategory?.color ? 5 : 0), { align: 'right' });
+        // Quantity and Price on same line
+        const qtyY = currentHeight;
+        doc.text(`${item.quantity}x`, pageWidth - margin - 25, qtyY);
+        doc.text(`P${item.unitprice.toFixed(2)}`, pageWidth - margin, qtyY, { align: 'right' });
+        currentHeight += 4;
         
-        yPos += 6;
+        // Subtotal
+        doc.setFont('courier', 'bold');
+        doc.text(`P${item.subtotal.toFixed(2)}`, pageWidth - margin, currentHeight, { align: 'right' });
+        doc.setFont('courier', 'normal');
+        currentHeight += 5;
+        
+        // Add space between items
+        if (index < receiptData.items.length - 1) {
+          currentHeight += 2;
+        }
       });
       
-      yPos += 5;
+      currentHeight += 3;
+      
+      // Separator line
+      doc.setLineWidth(0.3);
+      doc.line(margin, currentHeight, pageWidth - margin, currentHeight);
+      currentHeight += 5;
       
       // Totals Section
       doc.setFont('courier', 'bold');
-      doc.setFontSize(11);
-      doc.text('TOTAL AMOUNT:', 20, yPos);
-      doc.text(`P${receiptData.order.totalamount.toFixed(2)}`, 190, yPos, { align: 'right' });
-      yPos += 8;
-      
-      doc.setFontSize(10);
-      doc.setFont('courier', 'normal');
-      doc.text('AMOUNT PAID:', 20, yPos);
-      doc.text(`P${receiptData.order.amount_paid.toFixed(2)}`, 190, yPos, { align: 'right' });
-      yPos += 7;
-      
-      doc.text('CHANGE:', 20, yPos);
-      doc.text(`P${receiptData.order.change.toFixed(2)}`, 190, yPos, { align: 'right' });
-      yPos += 12;
-      
-      doc.setFont('courier', 'bold');
       doc.setFontSize(9);
-      doc.text('Signature:', 20, yPos);
-      yPos += 20;
+      doc.text('TOTAL:', margin, currentHeight);
+      doc.text(`P${receiptData.order.totalamount.toFixed(2)}`, pageWidth - margin, currentHeight, { align: 'right' });
+      currentHeight += 6;
       
-      doc.line(20, yPos, 100, yPos);
-      yPos += 5;
-      doc.setFont('courier', 'normal');
       doc.setFontSize(8);
-      doc.text('[Signature]', 60, yPos, { align: 'center' });
+      doc.setFont('courier', 'normal');
+      doc.text('PAID:', margin, currentHeight);
+      doc.text(`P${receiptData.order.amount_paid.toFixed(2)}`, pageWidth - margin, currentHeight, { align: 'right' });
+      currentHeight += 5;
       
+      doc.text('CHANGE:', margin, currentHeight);
+      doc.text(`P${receiptData.order.change.toFixed(2)}`, pageWidth - margin, currentHeight, { align: 'right' });
+      currentHeight += 8;
+      
+      // Separator line
+      doc.line(margin, currentHeight, pageWidth - margin, currentHeight);
+      currentHeight += 6;
+      
+      // Signature section
+      doc.setFont('courier', 'bold');
+      doc.setFontSize(8);
+      doc.text('Signature:', margin, currentHeight);
+      currentHeight += 8;
+      
+      doc.setLineWidth(0.1);
+      doc.line(margin, currentHeight, pageWidth - margin, currentHeight);
+      currentHeight += 4;
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(7);
+      doc.text(' Signature', pageWidth / 2, currentHeight, { align: 'center' });
+      currentHeight += 8;
+      
+      // Footer
+      doc.setFontSize(7);
+      doc.text('Thank you for your purchase!', pageWidth / 2, currentHeight, { align: 'center' });
+      currentHeight += 4;
+      doc.text('Please come again', pageWidth / 2, currentHeight, { align: 'center' });
+      
+      // Save the PDF
       doc.save(`Receipt_Order_${orderId}.pdf`);
       
     } catch (error) {
