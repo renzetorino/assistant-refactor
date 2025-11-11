@@ -155,8 +155,10 @@ const ExpenseDashboard = () => {
   const navigate = useNavigate();
 
   // ======== State ========
+  
 
   const [budget, setBudget] = useState(0);
+
 
   const [editId, setEditId] = useState(null);
   const [editFiles, setEditFiles] = useState([]);
@@ -192,6 +194,7 @@ const ExpenseDashboard = () => {
   const [newFiles, setNewFiles] = useState([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const confirmRef = useRef({});
+  const [selectedDay, setSelectedDay] = useState(null);
 
     // Generic action-confirm (over-budget, etc.)
   const [actionOpen, setActionOpen] = useState(false);
@@ -414,8 +417,13 @@ async function deleteExpenseDeep(expenseId) {
   const statusOrder = { uncleared: 0, cleared: 1, reconciled: 2 };
   const primaryLabel = (e) => (e?.label_badges?.[0]?.name || '').toLowerCase();
 
-  const visibleExpenses = useMemo(() => {
-    const arr = [...filteredByCategory];
+const visibleExpenses = useMemo(() => {
+    // Filter by the selectedDay *first* if it exists
+    const filteredByDate = selectedDay
+      ? filteredByCategory.filter(e => (e.occurred_on || '').startsWith(selectedDay))
+      : filteredByCategory;
+
+    const arr = [...filteredByDate];
     arr.sort((a, b) => {
       switch (sortMode) {
         case 'date_desc':
@@ -443,7 +451,7 @@ async function deleteExpenseDeep(expenseId) {
       }
     });
     return arr;
-  }, [filteredByCategory, sortMode]);
+  }, [filteredByCategory, sortMode, selectedDay]);
 
   const selectedDateStr = calendarDate.toLocaleDateString('en-CA');
   const dailyTotal = rows
@@ -796,13 +804,14 @@ async function deleteExpenseDeep(expenseId) {
     }
   }
 
-  function onCalendarStartDateChange({ activeStartDate, view }) {
+function onCalendarStartDateChange({ activeStartDate, view }) {
     if (view === 'month') {
       const yymm = formatYYYYMM(activeStartDate);
       setSelectedMonth(yymm);
       const ms = new Date(`${yymm}-01`);
       const me = new Date(ms.getFullYear(), ms.getMonth()+1, 0);
       if (calendarDate < ms || calendarDate > me) setCalendarDate(ms);
+      setSelectedDay(null); 
     }
   }
 
@@ -1154,22 +1163,39 @@ function getInlineAttachmentsFromRow(row) {
                 </LineChart>
               </ResponsiveContainer>
             </div>
+
+
+
             <div className="calendar-container">
-              <h3>Calendar</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3>Calendar</h3>
+                {selectedDay && (
+                  <button
+                    className="btn xs outline"
+                    onClick={() => setSelectedDay(null)}
+                    style={{ marginBottom: 0 }}
+                  >
+                    Show full month
+                  </button>
+                )}
+              </div>
               <Calendar
                 value={calendarDate}
-                onChange={setCalendarDate}
+                onChange={(date) => {
+                  setCalendarDate(date); // Keep highlighting the clicked day
+                  const dayStr = date.toLocaleDateString('en-CA'); // 'YYYY-MM-DD'
+                  
+                  // Toggle filter: click on, click off
+                  if (selectedDay === dayStr) {
+                    setSelectedDay(null); // Clear filter if clicking same day
+                  } else {
+                    setSelectedDay(dayStr); // Set filter to clicked day
+                  }
+                }}
                 minDetail="month"
                 maxDetail="month"
                 activeStartDate={monthStart}
                 onActiveStartDateChange={onCalendarStartDateChange}
-                minDate={monthStart}
-                maxDate={monthEnd}
-                tileDisabled={({ date, view }) =>
-                  view === 'month' &&
-                  (date.getMonth() !== monthStart.getMonth() ||
-                  date.getFullYear() !== monthStart.getFullYear())
-                }
               />
             </div>
           </div>

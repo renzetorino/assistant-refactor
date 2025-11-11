@@ -1,55 +1,40 @@
-// UploadSheets.jsx
+// UploadInventory.jsx
 import React, { useState, useMemo, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { toast } from "react-toastify";
-import { validateSpreadsheetRows, uploadValidatedData } from "../services/supabaseUploader";
+// ⬇️ IMPORTANT: You must create these new service functions!
+import { validateInventoryRows, uploadInventoryData } from "../services/supabaseUploader"; 
 import "../stylecss/UploadSheets.css";
 
-// Replace your single REQUIRED_COLUMNS with:
+// ⬇️ Changed: New column definitions for inventory
 const REQUIRED_COLUMNS = [
-  "orderid",
   "productname",
-  "quantity",
-  "unitprice",
-  "amountpaid",
-  "orderdate",
-  // "subtotal" stays logically required for upload, BUT we can now compute it if absent
+  "suppliername",
+  "cost",
+  "price",
+  "stock",
 ];
 
 const OPTIONAL_COLUMNS = [
+  "description",
   "color",
   "agesize",
-  "subtotal", // optional in mapping; we’ll compute if missing
+  "reorderpoint",
 ];
 
+// ⬇️ Changed: New synonyms for inventory fields
 const FIELD_SYNONYMS = {
-  orderid: ["order id","order no","order number","invoice","invoice no","so#","order#","ref no"],
-  productname: ["product","item","item name","description","sku name","sku"],
+  productname: ["product","item","item name","product name","sku name","sku"],
+  suppliername: ["supplier", "vendor", "supplier name"],
+  description: ["desc", "product description", "details"],
   color: ["colour","variant color","color/variant","shade"],
   agesize: ["age/size","size","age size","dimension"],
-  quantity: ["qty","qty.","quantity ordered","units","pcs","pieces"],
-  unitprice: ["unit price","price","unit cost","cost/unit","price ea","price each","rate"],
-  subtotal: ["line total","amount","gross","total (no tax)","net amount","row total"],
-  amountpaid: ["paid","amount paid","payment","received","collected"],
-  orderdate: ["date","order date","invoice date","txn date","sales date"]
+  cost: ["cost price", "unit cost", "purchase price", "your cost"],
+  price: ["selling price", "unit price", "retail price", "srp", "price each"],
+  stock: ["quantity", "qty", "on hand", "current stock", "inventory", "stock level", "qty.", "pcs", "pieces"],
+  reorderpoint: ["reorder point", "reorder level", "min stock", "minimum stock"]
 };
 
-
-function toISODate(d) {
-  // Ensures YYYY-MM-DD (no time)
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-// Excel serial -> Date
-function fromExcelSerial(n) {
-  // Excel's day 1 is 1899-12-31; Excel incorrectly treats 1900 as leap year.
-  const base = new Date(Date.UTC(1899, 11, 30)); // 1899-12-30 UTC handles the bug offset
-  const ms = n * 86400000;
-  return new Date(base.getTime() + ms);
-}
 
 function coerceNumber(val) {
   if (val == null) return null;
@@ -62,89 +47,74 @@ function coerceNumber(val) {
   return isFinite(n) ? n : null;
 }
 
-function parseDateFlexible(v) {
-  if (v == null || v === "") return null;
-
-  // 1) Numbers: Excel serials
-  if (typeof v === "number") {
-    const d = fromExcelSerial(v);
-    return toISODate(d);
-  }
-
-  // 2) Date object
-  if (v instanceof Date && !isNaN(v)) {
-    return toISODate(v);
-  }
-
-  // 3) Strings: try common formats
-  const s = String(v).trim();
-
-  // If already ISO-ish YYYY-MM-DD
-  const isoMatch = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
-  if (isoMatch) {
-    const d = new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]));
-    if (!isNaN(d)) return toISODate(d);
-  }
-
-  // MM/DD/YY or MM/DD/YYYY (also accepts -)
-  const mdys = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})$/);
-  if (mdys) {
-    let yy = Number(mdys[3]);
-    if (yy < 100) yy += (yy >= 70 ? 1900 : 2000); // pivot at 1970
-    const d = new Date(yy, Number(mdys[1]) - 1, Number(mdys[2]));
-    if (!isNaN(d)) return toISODate(d);
-  }
-
-  // Fallback: Date.parse
-  const d = new Date(s);
-  if (!isNaN(d)) return toISODate(d);
-
-  return null; // let validator flag it
-}
-
+// ⬇️ Changed: Use a different key for inventory mapping
+function saveMap(map){ try{ localStorage.setItem("upload_inventory_map_v1", JSON.stringify(map)); }catch{} }
+function loadMap(){ try{ return JSON.parse(localStorage.getItem("upload_inventory_map_v1")||"null"); }catch{ return null; } }
 
 
 function normalizeHeader(h) {
   return String(h || "").trim().toLowerCase();
 }
 
-function saveMap(map){ try{ localStorage.setItem("upload_header_map_v1", JSON.stringify(map)); }catch{} }
-function loadMap(){ try{ return JSON.parse(localStorage.getItem("upload_header_map_v1")||"null"); }catch{ return null; } }
-
-
-// ⬇️ Changed: make this a named export
-export function downloadTemplate() {
+// ⬇️ Changed: New template function for inventory
+export function downloadInventoryTemplate() {
   const headers = [
-    "orderid",
-    "orderdate",
     "productname",
+    "suppliername",
+    "description",
     "color",
     "agesize",
-    "quantity",
-    "unitprice",
-    "subtotal",
-    "amountpaid",
+    "cost",
+    "price",
+    "stock",
+    "reorderpoint",
   ];
 
   const sample = [
-    "10001",
-    "2025-10-04",
-    "Basic Tee",
-    "Black",
-    "M",
-    "2",
-    "250",
-    "500",
-    "500"
+    "Kids T-Shirt",
+    "Main Supplier Inc.",
+    "A comfy cotton t-shirt.",
+    "Blue",
+    "Age 6",
+    "150",
+    "300",
+    "50",
+    "10"
+  ];
+  
+  // ⬇️ Add a second variant for the same product to show grouping
+  const sample2 = [
+    "Kids T-Shirt",
+    "Main Supplier Inc.",
+    "A comfy cotton t-shirt.",
+    "Red",
+    "Age 8",
+    "150",
+    "300",
+    "40",
+    "10"
+  ];
+  
+  // ⬇️ Add a different product
+  const sample3 = [
+    "Baby Onesie",
+    "BabyWear Co.",
+    "Soft organic cotton.",
+    "White",
+    "0-3 Mos",
+    "200",
+    "450",
+    "30",
+    "5"
   ];
 
   const hasXLSX = typeof window !== "undefined" && window.XLSX;
 
   if (hasXLSX) {
-    const wsData = [headers, sample];
+    const wsData = [headers, sample, sample2, sample3]; // ⬇️ Use all samples
     const ws = window.XLSX.utils.aoa_to_sheet(wsData);
     const wb = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(wb, ws, "Sales Upload Template");
+    window.XLSX.utils.book_append_sheet(wb, ws, "Inventory Upload Template");
 
     const wbout = window.XLSX.write(wb, { bookType: "xlsx", type: "array" });
     const blob = new Blob([wbout], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -152,13 +122,14 @@ export function downloadTemplate() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "sales_upload_template.xlsx";
+    a.download = "inventory_upload_template.xlsx";
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
   } else {
-    const rows = [headers, sample];
+    // CSV fallback (simplified for brevity)
+    const rows = [headers, sample, sample2, sample3];
     const csv = rows.map(r =>
       r.map(v => {
         const s = String(v ?? "");
@@ -171,7 +142,7 @@ export function downloadTemplate() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "sales_upload_template.csv";
+    a.download = "inventory_upload_template.csv";
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -179,11 +150,7 @@ export function downloadTemplate() {
   }
 }
 
-// Optional: keep a global for any legacy callers
-if (typeof window !== "undefined") {
-  window.downloadTemplate = downloadTemplate;
-}
-
+// Levenshtein and similarity scoring functions (unchanged)
 function levenshtein(a, b) {
   a = (a||""); b = (b||"");
   const m = Array.from({length:a.length+1}, (_,i)=>[i]);
@@ -206,7 +173,7 @@ function scoreSimilarity(requiredKey, header) {
   if (h.includes(r) || r.includes(h)) return 0.85;
   const dist = levenshtein(r, h);
   const maxLen = Math.max(r.length, h.length) || 1;
-  const sim = 1 - dist / maxLen;    // 0..1
+  const sim = 1 - dist / maxLen;
   return Math.max(0, Math.min(0.8, sim));
 }
 
@@ -226,9 +193,8 @@ function guessHeaderMap(sheetHeaders) {
 }
 
 
-
-
-function UploadSheets() {
+// ⬇️ Changed: Renamed component to UploadInventory
+function UploadInventory() {
   const [rawRows, setRawRows] = useState([]);
   const [rows, setRows] = useState([]);
   const [validReport, setValidReport] = useState(null);
@@ -236,12 +202,12 @@ function UploadSheets() {
   const [fileName, setFileName] = useState("");
   const [warnings, setWarnings] = useState([]);
   const [detectedHeaders, setDetectedHeaders] = useState([]);
-  const [headerMap, setHeaderMap] = useState(null); // { orderid: "order no", ... }
-  const [stage, setStage] = useState("idle"); // idle | map | ready
+  const [headerMap, setHeaderMap] = useState(null);
+  const [stage, setStage] = useState("idle"); 
   const [lastSheet, setLastSheet] = useState(null);
 
   useEffect(() => {
-    const prior = loadMap();
+    const prior = loadMap(); // ⬅️ Uses new loadMap key
     if (prior) {
       const normalized = Object.fromEntries(Object.entries(prior).map(([k,v]) => [k, normalizeHeader(v)]));
       setHeaderMap(m => ({ ...(m || {}), ...normalized }));
@@ -251,6 +217,7 @@ function UploadSheets() {
 
   const allValid = useMemo(() => {
     if (!validReport) return false;
+    // ⬇️ Changed: Check product groups as well as individual rows
     const rowsOk = Array.isArray(validReport.rows)
       ? validReport.rows.every(r => !r.errors || r.errors.length === 0)
       : true;
@@ -261,6 +228,7 @@ function UploadSheets() {
   }, [validReport]);
 
   const handleFile = async (e) => {
+    // ... (This function is unchanged, just parses the sheet)
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
@@ -305,40 +273,40 @@ function UploadSheets() {
       const m = headerMap[key];
       if (!m) return null;
       const i = idx[m];
-      return i == null ? null : row[i];
+      return i == null ? null : (row[i] === "" ? null : row[i]); // ⬅️ Treat empty strings as null
     };
+    
+    // ⬇️ Changed: Parsing logic for inventory fields
     const body = sheet.slice(1).filter(r => r && r.some(v => v != null && String(v).trim() !== ""));
     const parsed = body.map((r, rowIndex) => {
-      const quantity   = coerceNumber(pick(r, "quantity"));
-      const unitprice  = coerceNumber(pick(r, "unitprice"));
-      const amountpaid = coerceNumber(pick(r, "amountpaid"));
-      const subtotalFromSheet = coerceNumber(pick(r, "subtotal"));
-      const subtotal = (subtotalFromSheet == null && quantity != null && unitprice != null)
-        ? Number((quantity * unitprice).toFixed(2))
-        : subtotalFromSheet;
-      const orderdate = parseDateFlexible(pick(r, "orderdate"));
       return {
-        __row: rowIndex + 2,
-        orderid: pick(r, "orderid"),
+        __row: rowIndex + 2, // Spreadsheet row number
         productname: pick(r, "productname"),
+        suppliername: pick(r, "suppliername"),
+        description: pick(r, "description"),
         color: pick(r, "color"),
         agesize: pick(r, "agesize"),
-        quantity, unitprice, subtotal, amountpaid, orderdate
+        cost: coerceNumber(pick(r, "cost")),
+        price: coerceNumber(pick(r, "price")),
+        stock: coerceNumber(pick(r, "stock")),
+        reorderpoint: coerceNumber(pick(r, "reorderpoint")),
       };
     });
     setRawRows(parsed);
     setRows(parsed);
-    saveMap(headerMap);
+    saveMap(headerMap); // ⬅️ Uses new saveMap key
     setLoading(true);
     try{
-      const report = await validateSpreadsheetRows(parsed);
+      // ⬇️ IMPORTANT: Calls the new validation service
+      const report = await validateInventoryRows(parsed); 
       setValidReport(report);
       setWarnings(report.warnings || []);
       setStage("ready");
       if (report.rows?.some(r => r.errors?.length)) {
         toast.warn("Some rows need fixes. Please edit inline until all errors are resolved.");
       } else if (report.groups?.some(g => g.errors?.length)) {
-        toast.warn("Some order groups have issues. Please fix them.");
+        // ⬇️ Changed: Check for group errors (e.g., "Product X has different suppliers")
+        toast.warn("Some product groups have issues. Please fix them.");
       } else {
         toast.success("Looks good! You can upload.");
       }
@@ -349,13 +317,16 @@ function UploadSheets() {
 
   const onCellChange = async (rowIdx, key, value) => {
     let v = value;
-    if (["quantity","unitprice","subtotal","amountpaid"].includes(key)) v = coerceNumber(value);
-    if (key === "orderdate") v = parseDateFlexible(value);
+    // ⬇️ Changed: Numeric fields for inventory
+    if (["cost", "price", "stock", "reorderpoint"].includes(key)) {
+        v = coerceNumber(value);
+    }
     const updated = rows.map((r, i) => (i === rowIdx ? { ...r, [key]: v } : r));
     setRows(updated);
     setLoading(true);
     try {
-      const report = await validateSpreadsheetRows(updated);
+      // ⬇️ IMPORTANT: Calls the new validation service
+      const report = await validateInventoryRows(updated); 
       setValidReport(report);
       setWarnings(report.warnings || []);
     } catch (e) {
@@ -373,14 +344,16 @@ function UploadSheets() {
     }
     setLoading(true);
     try {
-      const res = await uploadValidatedData(validReport);
+      // ⬇️ IMPORTANT: Calls the new upload service
+      const res = await uploadInventoryData(validReport); 
       if (res.success) {
-        toast.success("Upload complete!");
+        toast.success("Inventory upload complete!");
         setRawRows([]);
         setRows([]);
         setValidReport(null);
         setWarnings([]);
         setFileName("");
+        setStage("idle"); // ⬅️ Reset stage
       } else {
         throw new Error(res.error?.message || "Upload failed");
       }
@@ -395,17 +368,31 @@ function UploadSheets() {
   const renderCell = (row, rowIdx, key) => {
     const value = row[key] ?? "";
     const hasError = !!validReport?.rows?.[rowIdx]?.errors?.some(err => err.field === key);
+    
+    // ⬇️ Check for group errors related to this row's product
+    const productName = row.productname;
+    // ⬇️ FIX: Normalize product name to lowercase for matching group key
+    const normalizedProductName = String(productName || '').toLowerCase(); 
+    const hasGroupError = !!validReport?.groups?.find(g => 
+        g.key === normalizedProductName && // <-- Use normalized name
+        g.errors?.some(err => err.field === key)
+    );
+    
     return (
       <td key={key}>
         <input
           value={value}
           onChange={(e) => onCellChange(rowIdx, key, e.target.value)}
-          className={hasError ? "border border-red-500" : "border border-gray-300"}
+          // ⬇️ Show error if this cell is bad OR if its group has an error for this field
+          className={(hasError || hasGroupError) ? "border border-red-500" : "border border-gray-300"}
           style={{ padding: 10, minWidth: 120 }}
         />
       </td>
     );
   };
+  
+  // ⬇️ Get all columns for rendering
+  const allColumns = [...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS];
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
@@ -427,7 +414,8 @@ function UploadSheets() {
         <div style={{ overflowX: "auto" }}>
             <div className="card" style={{padding:12}}>
               <strong>Review column mapping</strong>
-              {[...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS].map(field => (
+              {/* ⬇️ Changed: Render loop for new columns */}
+              {allColumns.map(field => (
                 <div key={field} style={{display:"flex", gap:8, alignItems:"center", marginTop:8}}>
                   <span style={{width:140}}>{field}{OPTIONAL_COLUMNS.includes(field) && " (optional)"}</span>
                   <select
@@ -458,7 +446,8 @@ function UploadSheets() {
           <table className="min-w-full border-collapse">
             <thead>
               <tr>
-                {[...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS].map(h => (
+                {/* ⬇️ Changed: Table headers for new columns */}
+                {allColumns.map(h => (
                   <th key={h} className="text-left border-b p-2">
                     {h}{OPTIONAL_COLUMNS.includes(h) && <span style={{marginLeft:6, fontSize:12, opacity:.7}}>(optional)</span>}
                   </th>
@@ -467,16 +456,30 @@ function UploadSheets() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, rowIdx) => (
-                <tr key={rowIdx}>
-                  {[...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS].map(k => renderCell(row, rowIdx, k))}
-                  <td style={{ color: "#dc2626" }}>
-                    {validReport?.rows?.[rowIdx]?.errors?.map((e, i) => (
-                      <div key={i}>• {e.message}</div>
-                    ))}
-                  </td>
-                </tr>
-              ))}
+              {rows.map((row, rowIdx) => {
+                // ⬇️ FIX: Normalize product name here to match group key
+                const normalizedProductName = String(row.productname || '').toLowerCase();
+                // ⬇️ FIX: Normalize findIndex check
+                const isFirstRowInGroup = rows.findIndex(r => String(r.productname || '').toLowerCase() === normalizedProductName) === rowIdx;
+                
+                return (
+                  <tr key={rowIdx}>
+                    {/* ⬇️ Changed: Render cells for new columns */}
+                    {allColumns.map(k => renderCell(row, rowIdx, k))}
+                    <td style={{ color: "#dc2626" }}>
+                      {/* Show row-specific errors */}
+                      {validReport?.rows?.[rowIdx]?.errors?.map((e, i) => (
+                        <div key={i}>• {e.message}</div>
+                      ))}
+                      {/* Show group-level errors on the first row of that group */}
+                      {validReport?.groups?.find(g => g.key === normalizedProductName)?.errors?.map((e, i) => (
+                          (isFirstRowInGroup) && // <-- Use the calculated variable
+                          <div key={`g-${i}`}>• (Group) {e.message}</div>
+                      ))}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
             )}
@@ -490,8 +493,8 @@ function UploadSheets() {
             >
               {loading ? (stage === "ready" ? "Uploading..." : "Validating...") : "Upload"}
             </button>
-            {stage !== "ready" && (
-              <span style={{ color: "#64748b" }}>Apply mapping and pass validation to enable upload.</span>
+            {stage !== "idle" && stage !== "ready" && (
+              <span style={{ color: "#64748b" }}>Apply mapping to validate data.</span>
             )}
             {stage === "ready" && !allValid && (
               <span style={{ color: "#dc2626" }}>Fix errors to enable upload.</span>
@@ -503,4 +506,4 @@ function UploadSheets() {
   );
 }
 
-export default UploadSheets;
+export default UploadInventory;

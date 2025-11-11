@@ -287,3 +287,290 @@ export async function uploadValidatedData(report) {
     return { success: false, error };
   }
 }
+
+
+// ================================================
+// ⬇️ NEW INVENTORY UPLOAD FUNCTIONS START HERE ⬇️
+// ================================================
+
+/**
+ * Creates a unique key for an inventory variant (productcategory).
+ */
+function inventoryVariantKey(pid, color, agesize) {
+  const c = String(color || '').trim().toLowerCase();
+  const a = String(agesize || '').trim().toLowerCase();
+  return `${pid}__${c}__${a}`;
+}
+
+/**
+ * Preloads data needed for inventory validation.
+ * Fetches suppliers, products, and existing product variants.
+ */
+async function preloadInventoryData() {
+  // 1. Suppliers: suppliername -> supplierid
+  const { data: suppliers, error: serr } = await supabase
+    .from('suppliers')
+    .select('supplierid, suppliername');
+  if (serr) throw serr;
+  const supplierNameToId = new Map();
+  for (const s of suppliers || []) {
+    supplierNameToId.set(String(s.suppliername).trim().toLowerCase(), s.supplierid);
+  }
+
+  // 2. Products: productname -> productid
+  const { data: products, error: perr } = await supabase
+    .from('products')
+    .select('productid, productname');
+  if (perr) throw perr;
+  const productNameToId = new Map();
+  for (const p of products || []) {
+    productNameToId.set(String(p.productname).trim().toLowerCase(), p.productid);
+  }
+
+  // 3. Product Categories (Variants): (productid,color,agesize) -> pc
+  const { data: pcs, error: pcerr } = await supabase
+    .from('productcategory')
+    .select('productcategoryid, productid, color, agesize');
+  if (pcerr) throw pcerr;
+  const variantMap = new Map();
+  for (const v of pcs || []) {
+    variantMap.set(inventoryVariantKey(v.productid, v.color, v.agesize), v);
+  }
+
+  return { supplierNameToId, productNameToId, variantMap };
+}
+
+
+/**
+ * Validates inventory spreadsheet rows and prepares grouped payload.
+ * Each row is a product variant (productcategory).
+ * Rows are grouped by 'productname' to form a single product.
+ *
+ * @param {Array<Object>} rows - Raw rows from the spreadsheet component.
+ * @returns {Object} report - { rows, groups, warnings, prepared }
+ */
+export async function validateInventoryRows(rows) {
+  const warnings = [];
+  const rowReports = rows.map(r => ({ ...r, errors: [] }));
+
+  const { supplierNameToId, productNameToId, variantMap } = await preloadInventoryData();
+
+  // === Pass 1: Per-Row Validation ===
+  // Validate fields for each variant (each row)
+  for (let i = 0; i < rowReports.length; i++) {
+    const r = rowReports[i];
+
+    // Required fields
+    const pname = String(r.productname ?? "").trim();
+    if (!pname) r.errors.push({ field: "productname", message: "productname is required" });
+
+    const sname = String(r.suppliername ?? "").trim();
+    if (!sname) r.errors.push({ field: "suppliername", message: "suppliername is required" });
+
+    const cost = toNumber(r.cost);
+    if (!Number.isFinite(cost) || cost < 0) {
+      r.errors.push({ field: "cost", message: "cost must be a positive number" });
+    }
+
+    const price = toNumber(r.price);
+    if (!Number.isFinite(price) || price < 0) {
+      r.errors.push({ field: "price", message: "price must be a positive number" });
+    }
+
+    const stock = toInt(r.stock);
+    if (!Number.isFinite(stock) || stock < 0) {
+      r.errors.push({ field: "stock", message: "stock must be a positive integer" });
+    }
+
+    // Optional fields
+    const desc = String(r.description ?? "").trim() || null;
+    const color = String(r.color ?? "").trim() || null;
+    const agesize = String(r.agesize ?? "").trim() || null;
+
+    const reorder = toInt(r.reorderpoint);
+    const reorderpoint = (Number.isFinite(reorder) && reorder >= 0) ? reorder : null;
+    if (r.reorderpoint != null && r.reorderpoint !== "" && reorderpoint === null) {
+      r.errors.push({ field: "reorderpoint", message: "reorderpoint must be a positive integer if provided" });
+    }
+
+    // Store normalized values
+    r.__normalized = {
+      productname: pname,
+      suppliername: sname,
+      description: desc,
+      color: color,
+      agesize: agesize,
+      cost: Number.isFinite(cost) ? round2(cost) : null,
+      price: Number.isFinite(price) ? round2(price) : null,
+      stock: Number.isFinite(stock) ? stock : null,
+      reorderpoint: reorderpoint,
+    };
+  }
+
+  // === Group by productname ===
+  const groupMap = new Map();
+  for (const r of rowReports) {
+    const gid = r.__normalized?.productname?.toLowerCase() || "__invalid__";
+    if (gid === "__invalid__") continue; // Skip rows with no product name
+    if (!groupMap.has(gid)) groupMap.set(gid, []);
+    groupMap.get(gid).push(r);
+  }
+
+  // === Pass 2: Per-Group Validation ===
+  // Validate each product (group of rows)
+  const groups = []; // For group-level errors
+  const prepared = []; // For valid groups to be uploaded
+  const hasRowErrors = rowReports.some(r => r.errors.length > 0);
+
+  for (const [gid, rowsInGroup] of groupMap.entries()) {
+    const group = { key: gid, errors: [], supplierId: null, productId: null, isNewProduct: false };
+    const firstRow = rowsInGroup[0].__normalized;
+    const productName = firstRow.productname;
+
+    // 1. Check for consistent suppliername and description
+    const consistentSupplier = firstRow.suppliername;
+    const consistentDesc = firstRow.description;
+    for (const r of rowsInGroup) {
+      if (r.__normalized.suppliername.toLowerCase() !== consistentSupplier.toLowerCase()) {
+        group.errors.push({ field: "suppliername", message: `All rows for '${productName}' must have the same suppliername.` });
+      }
+      if (r.__normalized.description !== consistentDesc) {
+        group.errors.push({ field: "description", message: `All rows for '${productName}' must have the same description.` });
+      }
+    }
+
+    // 2. Check if supplier exists
+    const supplierId = supplierNameToId.get(consistentSupplier.toLowerCase());
+    if (!supplierId) {
+      group.errors.push({ field: "suppliername", message: `Supplier '${consistentSupplier}' not found in database.` });
+    }
+    group.supplierId = supplierId || null;
+
+    // 3. Check if product exists
+    const productId = productNameToId.get(gid);
+    if (productId) {
+      group.productId = productId;
+      warnings.push(`Product '${productName}' already exists. New variants will be added.`);
+    } else {
+      group.isNewProduct = true;
+    }
+
+    // 4. Check for duplicate variants (within sheet AND against DB)
+    const sheetVariants = new Set();
+    for (const r of rowsInGroup) {
+      const vKeySheet = inventoryVariantKey(null, r.__normalized.color, r.__normalized.agesize);
+      if (sheetVariants.has(vKeySheet)) {
+        r.errors.push({ field: "color", message: `Duplicate variant (color/size) for '${productName}' in the sheet.` });
+      }
+      sheetVariants.add(vKeySheet);
+
+      // If product exists, check against DB
+      if (productId) {
+        const vKeyDB = inventoryVariantKey(productId, r.__normalized.color, r.__normalized.agesize);
+        if (variantMap.has(vKeyDB)) {
+          r.errors.push({ field: "color", message: `Variant (color/size) already exists for '${productName}' in the database.` });
+        }
+      }
+    }
+    
+    groups.push(group);
+
+    // If this group is valid, add to `prepared`
+    const hasGroupErrors = group.errors.length > 0;
+    const hasRowErrorsInGroup = rowsInGroup.some(r => r.errors.length > 0);
+
+    if (!hasGroupErrors && !hasRowErrorsInGroup && !hasRowErrors) {
+      prepared.push({
+        isNewProduct: group.isNewProduct,
+        productId: group.productId,
+        productname: productName,
+        description: consistentDesc,
+        supplierid: group.supplierId,
+        // 'variants' holds the payload for the 'productcategory' table
+        variants: rowsInGroup.map(r => ({
+          price: r.__normalized.price,
+          cost: r.__normalized.cost,
+          color: r.__normalized.color,
+          agesize: r.__normalized.agesize,
+          currentstock: r.__normalized.stock,
+          reorderpoint: r.__normalized.reorderpoint,
+        })),
+      });
+    }
+  }
+
+  const hasAnyGroupErrors = groups.some(g => g.errors.length > 0);
+
+  return {
+    rows: rowReports,
+    groups,
+    warnings,
+    // Only return 'prepared' if there are no errors anywhere
+    prepared: (hasRowErrors || hasAnyGroupErrors) ? [] : prepared,
+  };
+}
+
+
+/**
+ * Uploads a previously validated inventory report.
+ * Inserts new products and/or new product categories (variants).
+ *
+ * @param {Object} report - The validated report from `validateInventoryRows`.
+ */
+export async function uploadInventoryData(report) {
+  try {
+    if (!report || !Array.isArray(report.prepared) || report.prepared.length === 0) {
+      return { success: false, error: { message: "No valid inventory data to upload." } };
+    }
+
+    // This loop is sequential. If one product fails, it will stop and
+    // throw an error, which is similar to the sales uploader.
+    for (const productGroup of report.prepared) {
+      let productId = productGroup.productId;
+
+      // 1. Create Product if it's new
+      if (productGroup.isNewProduct) {
+        const { data: newProduct, error: productErr } = await supabase
+          .from('products')
+          .insert({
+            productname: productGroup.productname,
+            description: productGroup.description,
+            supplierid: productGroup.supplierid,
+          })
+          .select('productid')
+          .single(); // .single() to get the object back, not an array
+
+        if (productErr) throw productErr;
+        productId = newProduct.productid;
+      }
+      
+      if (!productId) {
+         // This should not happen if validation passed, but as a safeguard
+         throw new Error(`Failed to get a product ID for ${productGroup.productname}`);
+      }
+
+      // 2. Prepare Product Category (Variant) payloads
+      const categoryPayloads = productGroup.variants.map(variant => ({
+        productid: productId, // Link to the product
+        price: variant.price,
+        cost: variant.cost,
+        color: variant.color,
+        agesize: variant.agesize,
+        currentstock: variant.currentstock,
+        reorderpoint: variant.reorderpoint,
+      }));
+
+      // 3. Insert all variants for this product
+      const { error: categoryErr } = await supabase
+        .from('productcategory')
+        .insert(categoryPayloads);
+
+      if (categoryErr) throw categoryErr;
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Inventory upload to Supabase failed:", error);
+    return { success: false, error };
+  }
+}
