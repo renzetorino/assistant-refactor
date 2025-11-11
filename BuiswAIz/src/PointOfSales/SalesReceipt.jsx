@@ -132,7 +132,7 @@ const SalesReceipt = ({ orderId, onClose }) => {
       doc.setFont('courier', 'bold');
       doc.text('Store Name:', margin, currentHeight);
       doc.setFont('courier', 'normal');
-      doc.text('ArtehKo', margin + 25, currentHeight);
+      doc.text('ARTekoh', margin + 25, currentHeight);
       currentHeight += 5;
       
       doc.setFont('courier', 'bold');
@@ -314,7 +314,7 @@ const SalesReceipt = ({ orderId, onClose }) => {
               </div>
 
               <div className="info-section">
-                <div><span className="info-label">Store Name:</span> ArtehKo</div>
+                <div><span className="info-label">Store Name:</span> ARTekoh</div>
                 <div><span className="info-label">Address:</span> 98 E. Santos St. Concepcion Uno Marikina City</div>
                 <div><span className="info-label">Date:</span> {date}</div>
                 <div><span className="info-label">Time:</span> {time}</div>

@@ -206,7 +206,7 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
         doc.setFont(undefined, 'bold');
         doc.text(`Store Name:`, 20, 52);
         doc.setFont(undefined, 'normal');
-        doc.text('ArtehKo', 48, 52);
+        doc.text('ARTekoh', 48, 52);
         
         // Time and Date
         doc.setFont(undefined, 'bold');
@@ -433,7 +433,7 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
               {/* Store Name, Time, Date, and Status */}
               <div className="invoice-meta-new">
                 <div className="meta-item">
-                  <strong>Store Name:</strong> ArtehKo
+                  <strong>Store Name:</strong> ARTekoh
                 </div>
                 <div className="meta-item">
                   <strong>Time and Date:</strong> {formatDateTime(invoice.orderdate || invoice.orderItems?.[0]?.orders?.orderdate || new Date())}
