@@ -201,26 +201,32 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
         doc.setFont(undefined, 'bold');
         doc.text('INVOICE', 20, 40);
         
-        // Time and Date
+        // Store Name (NEW)
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
-        doc.text(`Time and Date:`, 20, 52);
+        doc.text(`Store Name:`, 20, 52);
         doc.setFont(undefined, 'normal');
-        doc.text(`${date} ${time}`, 55, 52);
+        doc.text('ArtehKo', 48, 52);
+        
+        // Time and Date
+        doc.setFont(undefined, 'bold');
+        doc.text(`Time and Date:`, 20, 60);
+        doc.setFont(undefined, 'normal');
+        doc.text(`${date} ${time}`, 55, 60);
         
         // Status
         doc.setFont(undefined, 'bold');
-        doc.text('Status:', 20, 60);
+        doc.text('Status:', 20, 68);
         doc.setFont(undefined, 'normal');
-        doc.text(orderStatus, 38, 60);
+        doc.text(orderStatus, 38, 68);
 
         doc.setFont(undefined, 'bold');
-        doc.text('Store Location:', 20, 68);
+        doc.text('Store Location:', 20, 76);
         doc.setFont(undefined, 'normal');
-        doc.text('98 E. Santos St. Concepcion Uno Marikina City', 50, 68);
+        doc.text('98 E. Santos St. Concepcion Uno Marikina City', 50, 76);
         
         // Items table header
-        let yPosition = 83;
+        let yPosition = 91;
         doc.setFontSize(9);
         doc.setFont(undefined, 'bold');
         doc.setFillColor(240, 240, 240);
@@ -424,8 +430,11 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
               {/* Invoice Title */}
               <h1 className="invoice-title-new">INVOICE</h1>
 
-              {/* Time, Date, and Status */}
+              {/* Store Name, Time, Date, and Status */}
               <div className="invoice-meta-new">
+                <div className="meta-item">
+                  <strong>Store Name:</strong> ArtehKo
+                </div>
                 <div className="meta-item">
                   <strong>Time and Date:</strong> {formatDateTime(invoice.orderdate || invoice.orderItems?.[0]?.orders?.orderdate || new Date())}
                 </div>
