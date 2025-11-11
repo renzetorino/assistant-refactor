@@ -129,7 +129,15 @@ const SalesReceipt = ({ orderId, onClose }) => {
       
       // Info Section
       doc.setFontSize(8);
+      doc.setFont('courier', 'bold');
+      doc.text('Store Name:', margin, currentHeight);
+      doc.setFont('courier', 'normal');
+      doc.text('ArtehKo', margin + 25, currentHeight);
+      currentHeight += 5;
+      
+      doc.setFont('courier', 'bold');
       doc.text('Address:', margin, currentHeight);
+      doc.setFont('courier', 'normal');
       currentHeight += 4;
       doc.text('98 E. Santos St.', margin, currentHeight);
       currentHeight += 4;
@@ -255,7 +263,7 @@ const SalesReceipt = ({ orderId, onClose }) => {
       currentHeight += 4;
       doc.setFont('courier', 'normal');
       doc.setFontSize(7);
-      doc.text(' Signature', pageWidth / 2, currentHeight, { align: 'center' });
+      doc.text('[Signature]', pageWidth / 2, currentHeight, { align: 'center' });
       currentHeight += 8;
       
       // Footer
@@ -306,8 +314,8 @@ const SalesReceipt = ({ orderId, onClose }) => {
               </div>
 
               <div className="info-section">
-                <div><span className="info-label">Address:</span> 98 E. Santos St. Concepcion Uno Marikina City
-</div>
+                <div><span className="info-label">Store Name:</span> ArtehKo</div>
+                <div><span className="info-label">Address:</span> 98 E. Santos St. Concepcion Uno Marikina City</div>
                 <div><span className="info-label">Date:</span> {date}</div>
                 <div><span className="info-label">Time:</span> {time}</div>
               </div>
