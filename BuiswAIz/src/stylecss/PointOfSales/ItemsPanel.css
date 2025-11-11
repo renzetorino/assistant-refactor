@@ -84,6 +84,7 @@
   font-size: clamp(12px, 1.1vw, 14px);
   transition: all 0.3s;
   color: #333;
+  margin: 5px;
 }
 
 .category-btn:hover {
