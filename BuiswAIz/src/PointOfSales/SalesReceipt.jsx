@@ -132,7 +132,7 @@ const SalesReceipt = ({ orderId, onClose }) => {
       doc.setFont('courier', 'bold');
       doc.text('Store Name:', margin, currentHeight);
       doc.setFont('courier', 'normal');
-      doc.text('ARTekoh', margin + 25, currentHeight);
+      doc.text('ARTekoh', margin + 20, currentHeight);
       currentHeight += 5;
       
       doc.setFont('courier', 'bold');
