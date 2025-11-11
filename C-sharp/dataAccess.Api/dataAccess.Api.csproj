@@ -6,6 +6,7 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="EFCore.NamingConventions" Version="8.0.3" />
+		<PackageReference Include="Google.Cloud.DiscoveryEngine.V1" Version="1.10.0" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.8" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.8">
 			<PrivateAssets>all</PrivateAssets>
@@ -25,16 +26,13 @@
 	</ItemGroup>
 	<ItemGroup>
 		<!-- Link the library's prompts into the API output -->
-		<None Include="..\dataAccess\Planning\**\*.json"
-				Exclude="..\dataAccess\Planning\bin\**;..\dataAccess\Planning\obj\**"
-				Link="Planning/%(RecursiveDir)%(Filename)%(Extension)">
+		<None Include="..\dataAccess\Planning\**\*.json" Exclude="..\dataAccess\Planning\bin\**;..\dataAccess\Planning\obj\**" Link="Planning/%(RecursiveDir)%(Filename)%(Extension)">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<CopyToPublishDirectory>Always</CopyToPublishDirectory>
 		</None>
 
 		<!-- (keep) YAMLs from the library -->
-		<None Include="..\dataAccess\Planning\Prompts\**\*.yaml"
-				Link="Planning/Prompts/%(RecursiveDir)%(Filename)%(Extension)">
+		<None Include="..\dataAccess\Planning\Prompts\**\*.yaml" Link="Planning/Prompts/%(RecursiveDir)%(Filename)%(Extension)">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<CopyToPublishDirectory>Always</CopyToPublishDirectory>
 		</None>

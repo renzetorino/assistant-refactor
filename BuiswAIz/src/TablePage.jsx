@@ -20,18 +20,60 @@ const TablePage = () => {
   const [_products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
-  const [statsFilter, setStatsFilter] = useState('all');
   const [showSalesSuccessModal, setShowSalesSuccessModal] = useState(false);
   const [salesSuccessData, setSalesSuccessData] = useState(null);
   const [_user, setUser] = useState(null);
 
-  // Updated bestsellers calculation to group by product name instead of productcategoryid
+  // Calendar filtering state
+  const [rangeMode, setRangeMode] = useState('all'); // 'all' | 'year' | 'month' | 'week' | 'day' | 'range'
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(formatYYYYMM(new Date()));
+  const [selectedWeek, setSelectedWeek] = useState(getCurrentWeekString());
+  const [selectedDay, setSelectedDay] = useState(new Date().toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  function formatYYYYMM(d) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  }
+
+  function getCurrentWeekString() {
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    return startOfWeek.toISOString().slice(0, 10);
+  }
+
+  function getWeekRange(weekStartDate) {
+    const start = new Date(weekStartDate);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return { start, end };
+  }
+
+  function formatWeekDisplay(weekStartDate) {
+    const { start, end } = getWeekRange(weekStartDate);
+    const startMonth = start.toLocaleString('en-US', { month: 'long' });
+    const endMonth = end.toLocaleString('en-US', { month: 'short' });
+    const startDay = start.getDate();
+    const endDay = end.getDate();
+    const year = end.getFullYear();
+
+    if (start.getMonth() === end.getMonth()) {
+      return `${startMonth} ${startDay} - ${endDay}, ${year}`;
+    } else {
+      return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
+    }
+  }
+
+  // Updated bestsellers calculation to group by product name
   const bestsellers = useMemo(() => {
     if (!orderData.length) return [];
 
     const summary = {};
     orderData.forEach(item => {
-      // Use product name as the unique identifier instead of productcategoryid
       const productName = item.products?.productname || 'Unknown';
       const imageUrl = item.products?.image_url || '';
 
@@ -94,7 +136,7 @@ const TablePage = () => {
     return () => { mounted = false; };
   }, []);
 
-  // Updated products fetching to use productcategory table
+  // Updated products fetching
   const fetchProducts = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -121,7 +163,6 @@ const TablePage = () => {
         return;
       }
       
-      // Transform data to match expected format
       const transformedProducts = data?.map(item => ({
         productcategoryid: item.productcategoryid,
         productid: item.productid,
@@ -142,10 +183,11 @@ const TablePage = () => {
     }
   }, []);
 
-  // Updated order data fetching to include orderdate from orders table
+  // Updated order data fetching - FIXED to fetch ALL orderitems
   const fetchOrderData = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      // First, fetch all orderitems with their product details
+      const { data: orderItemsData, error: orderItemsError } = await supabase
         .from('orderitems')
         .select(`
           productid,
@@ -167,31 +209,60 @@ const TablePage = () => {
               image_url,
               description
             )
-          ),
-          orders (
-            totalamount,
-            orderstatus,
-            amount_paid,
-            change,
-            orderdate
           )
         `);
 
-      if (error) {
-        console.error('Error fetching order data:', error.message);
+      if (orderItemsError) {
+        console.error('Error fetching order items:', orderItemsError.message);
         return;
       }
 
-      // Transform data to match expected format
-      const transformedData = data?.map(item => ({
-        ...item,
-        // Create a products object for backward compatibility
-        products: {
-          productname: item.productcategory?.products?.productname || 'Unknown Product',
-          image_url: item.productcategory?.products?.image_url || '',
-          description: item.productcategory?.products?.description || ''
-        }
-      })) || [];
+      // Get unique order IDs
+      const orderIds = [...new Set(orderItemsData?.map(item => item.orderid) || [])];
+
+      // Fetch corresponding orders data
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('orderid, totalamount, orderstatus, amount_paid, change, orderdate')
+        .in('orderid', orderIds);
+
+      if (ordersError) {
+        console.error('Error fetching orders:', ordersError.message);
+      }
+
+      // Create a map of orders for quick lookup
+      const ordersMap = new Map();
+      ordersData?.forEach(order => {
+        ordersMap.set(order.orderid, order);
+      });
+
+      // Combine the data
+      const transformedData = orderItemsData?.map(item => {
+        const orderInfo = ordersMap.get(item.orderid);
+        
+        return {
+          ...item,
+          products: {
+            productname: item.productcategory?.products?.productname || 'Unknown Product',
+            image_url: item.productcategory?.products?.image_url || '',
+            description: item.productcategory?.products?.description || ''
+          },
+          orders: orderInfo ? {
+            totalamount: orderInfo.totalamount,
+            orderstatus: orderInfo.orderstatus,
+            amount_paid: orderInfo.amount_paid,
+            change: orderInfo.change,
+            orderdate: orderInfo.orderdate
+          } : {
+            // Fallback if order data is missing
+            totalamount: item.subtotal,
+            orderstatus: 'INCOMPLETE',
+            amount_paid: null,
+            change: null,
+            orderdate: item.createdat // Use createdat as fallback
+          }
+        };
+      }) || [];
 
       setOrderData(transformedData);
     } catch (error) {
@@ -207,21 +278,68 @@ const TablePage = () => {
     fetchProducts();
   }, [fetchOrderData, fetchProducts]);
 
-  // Debounce stats filter changes
-  const handleStatsFilter = useCallback((value) => {
-    // Use requestAnimationFrame to defer state update
-    requestAnimationFrame(() => {
-      setStatsFilter(value);
-    });
-  }, []);
+  // Filter data based on calendar selection - FIXED FOR PHILIPPINES TIMEZONE
+  const filteredOrderData = useMemo(() => {
+    return orderData.filter(item => {
+      // Use orderdate if available, otherwise fall back to createdat
+      const orderDate = item.orders?.orderdate || item.createdat;
+      if (!orderDate) return false;
 
-  // Add callback for sales success modal
+      // Parse the date string and create a date in local timezone
+      const date = new Date(orderDate);
+      if (isNaN(date.getTime())) return false;
+
+      // Extract year, month, day in LOCAL timezone (Philippines)
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1; // 0-indexed, so add 1
+      const day = date.getDate();
+
+      switch (rangeMode) {
+        case 'all':
+          return true;
+        
+        case 'year':
+          return year === selectedYear;
+        
+        case 'month': {
+          const [y, m] = selectedMonth.split('-').map(Number);
+          return year === y && month === m;
+        }
+        
+        case 'week': {
+          const { start, end } = getWeekRange(selectedWeek);
+          // Create date objects using local date components only
+          const itemDate = new Date(year, month - 1, day);
+          const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+          const endDate = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+          return itemDate >= startDate && itemDate <= endDate;
+        }
+        
+        case 'day': {
+          // Compare the date string directly (YYYY-MM-DD format)
+          const itemDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          return itemDateStr === selectedDay;
+        }
+        
+        case 'range': {
+          // Date range filtering
+          if (!startDate || !endDate) return false;
+          
+          const itemDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          return itemDateStr >= startDate && itemDateStr <= endDate;
+        }
+        
+        default:
+          return true;
+      }
+    });
+  }, [orderData, rangeMode, selectedYear, selectedMonth, selectedWeek, selectedDay, startDate, endDate]);
+
   const handleSalesSuccessModalClose = useCallback(() => {
     setShowSalesSuccessModal(false);
     setSalesSuccessData(null);
   }, []);
 
-  // Optimize update order with async processing
   const handleUpdateOrder = useCallback(async (updateOrderData) => {
     try {
       const normalizedStatus = updateOrderData.orderStatus.toUpperCase();
@@ -240,7 +358,6 @@ const TablePage = () => {
         throw new Error(`Failed to update order: ${orderUpdateError.message}`);
       }
 
-      // Fetch data asynchronously
       await fetchOrderData();
     } catch (error) {
       console.error('Error updating order:', error);
@@ -248,10 +365,8 @@ const TablePage = () => {
     }
   }, [fetchOrderData]);
 
-  // Updated invoice selection to handle new structure with variant data
   const handleInvoiceSelect = useCallback(async (selectedItem) => {
     try {
-      // Use requestAnimationFrame to defer heavy operations
       requestAnimationFrame(async () => {
         const { data: orderItems, error } = await supabase
           .from('orderitems')
@@ -289,7 +404,6 @@ const TablePage = () => {
           return;
         }
 
-        // Transform data for backward compatibility
         const transformedOrderItems = orderItems?.map(item => ({
           ...item,
           products: {
@@ -320,6 +434,41 @@ const TablePage = () => {
       alert('Error loading invoice details');
     }
   }, []);
+
+  const getFilterLabel = () => {
+    switch (rangeMode) {
+      case 'year':
+        return `Year: ${selectedYear}`;
+      case 'month':
+        const [y, m] = selectedMonth.split('-');
+        return `${new Date(y, m - 1).toLocaleString('default', { month: 'long' })} ${y}`;
+      case 'week':
+        return formatWeekDisplay(selectedWeek);
+      case 'day':
+        return new Date(selectedDay).toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      case 'range':
+        if (startDate && endDate) {
+          const start = new Date(startDate).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          });
+          const end = new Date(endDate).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          });
+          return `${start} - ${end}`;
+        }
+        return 'Select Date Range';
+      default:
+        return 'All Time';
+    }
+  };
 
   return (
     <div className="sales-page">
@@ -354,29 +503,134 @@ const TablePage = () => {
           ) : (
             <>
               <div className="table-flex-wrapper">
-                {/* Row 1 - Net Income (Full Width) - Now includes Total Customers and Sales Trend */}
+                {/* Row 1, Column 1 - Sales Summary */}
                 <div className="net-income">
                   <SalesSummary 
-                    orderData={orderData}
-                    statsFilter={statsFilter}
+                    orderData={filteredOrderData}
+                    rangeMode={rangeMode}
+                    selectedYear={selectedYear}
+                    selectedMonth={selectedMonth}
+                    selectedWeek={selectedWeek}
+                    selectedDay={selectedDay}
+                    startDate={startDate}
+                    endDate={endDate}
                   />
+                </div>
+
+                {/* Row 1, Column 2 - Calendar Filter Controls */}
+                <div className="calendar-filter-container">
+                  <h3>Filter by Date</h3>
+                  <div className="filter-controls-wrapper">
+                    <div className="filter-field">
+                      <label>Filter Mode</label>
+                      <select 
+                        value={rangeMode}
+                        onChange={(e) => setRangeMode(e.target.value)}
+                      >
+                        <option value="all">All Time</option>
+                        <option value="year">By Year</option>
+                        <option value="month">By Month</option>
+                        <option value="week">By Week</option>
+                        <option value="day">By Day</option>
+                        <option value="range">Date Range</option>
+                      </select>
+                    </div>
+
+                    {rangeMode === 'year' && (
+                      <div className="filter-field">
+                        <label>Select Year</label>
+                        <input
+                          type="number"
+                          value={selectedYear}
+                          onChange={(e) => setSelectedYear(Number(e.target.value))}
+                          min="2000"
+                          max="2100"
+                        />
+                      </div>
+                    )}
+
+                    {rangeMode === 'month' && (
+                      <div className="filter-field">
+                        <label>Select Month</label>
+                        <input
+                          type="month"
+                          value={selectedMonth}
+                          onChange={(e) => setSelectedMonth(e.target.value)}
+                        />
+                      </div>
+                    )}
+
+                    {rangeMode === 'week' && (
+                      <div className="filter-field">
+                        <label>Select Week (Starting Sunday)</label>
+                        <input
+                          type="date"
+                          value={selectedWeek}
+                          onChange={(e) => {
+                            const selected = new Date(e.target.value);
+                            const startOfWeek = new Date(selected);
+                            startOfWeek.setDate(selected.getDate() - selected.getDay());
+                            setSelectedWeek(startOfWeek.toISOString().slice(0, 10));
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {rangeMode === 'day' && (
+                      <div className="filter-field">
+                        <label>Select Date</label>
+                        <input
+                          type="date"
+                          value={selectedDay}
+                          onChange={(e) => setSelectedDay(e.target.value)}
+                        />
+                      </div>
+                    )}
+
+                    {rangeMode === 'range' && (
+                      <>
+                        <div className="filter-field">
+                          <label>Start Date</label>
+                          <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                          />
+                        </div>
+                        <div className="filter-field">
+                          <label>End Date</label>
+                          <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            min={startDate}
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    <div className="filter-label-display">
+                      📅 {getFilterLabel()}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Row 2, Column 1 - Order Sales */}
                 <OrderSales 
-                  orderData={orderData}
+                  orderData={filteredOrderData}
                   onInvoiceSelect={handleInvoiceSelect}
                 />
 
-                {/* Row 2, Column 2 - Bestseller */}
+                {/* Row 2, Column 2 - Bestseller and Peak Hours */}
                 <div className="right-column-wrapper">
-                  <Bestseller bestsellers={bestsellers} orderData={orderData} />
+                  <Bestseller 
+                    bestsellers={bestsellers} 
+                    orderData={filteredOrderData} 
+                  />
                   <div className="bottom-analytics-wrapper">
-                  <PeakHours orderData={orderData} />
+                    <PeakHours orderData={filteredOrderData} />
                   </div>
                 </div>
-
-                {/* Row 3 - Peak Hours (Full Width) */}
               </div>
             </>
           )}

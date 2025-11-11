@@ -3,7 +3,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 const OrderSales = ({ orderData, onInvoiceSelect }) => {
   const [filteredData, setFilteredData] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterTime, setFilterTime] = useState('all');
   const [sortOption, setSortOption] = useState('orderid-desc');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -71,64 +70,14 @@ const OrderSales = ({ orderData, onInvoiceSelect }) => {
     }
   }, []);
 
-  const updateFilteredData = useCallback((data, timeFilter, search, sortOption) => {
-    const now = new Date();
-    
-    // Helper function to check if two dates are on the same day
-    const isSameDay = (date1, date2) => {
-      return date1.getFullYear() === date2.getFullYear() &&
-             date1.getMonth() === date2.getMonth() &&
-             date1.getDate() === date2.getDate();
-    };
-
+  const updateFilteredData = useCallback((data, search, sortOption) => {
     const filtered = data.filter(item => {
-      // FIXED: Use orders.orderdate first, fallback to createdat
-      // This matches the Bestseller component logic
-      let date;
-      const orderDate = item.orders?.orderdate || item.createdat;
-      
-      if (orderDate) {
-        date = new Date(orderDate);
-        // Check if date is invalid
-        if (isNaN(date.getTime())) {
-          console.warn('Invalid date format for item:', item);
-          return false;
-        }
-      } else {
-        console.warn('No date field for item:', item);
-        return false;
-      }
-
       const productName = item.products?.productname || '';
       const matchesSearch =
         productName.toLowerCase().includes(search) ||
         String(item.orderid).toLowerCase().includes(search);
 
-      if (!matchesSearch) return false;
-
-      switch (timeFilter) {
-        case 'today':
-          return isSameDay(date, now);
-        case 'week1':
-          return date.getDate() <= 7 && 
-                 date.getMonth() === now.getMonth() && 
-                 date.getFullYear() === now.getFullYear();
-        case 'week2':
-          return date.getDate() > 7 && 
-                 date.getDate() <= 14 && 
-                 date.getMonth() === now.getMonth() && 
-                 date.getFullYear() === now.getFullYear();
-        case 'week3':
-          return date.getDate() > 14 && 
-                 date.getDate() <= 21 && 
-                 date.getMonth() === now.getMonth() && 
-                 date.getFullYear() === now.getFullYear();
-        case 'month':
-          return date.getMonth() === now.getMonth() && 
-                 date.getFullYear() === now.getFullYear();
-        default:
-          return true;
-      }
+      return matchesSearch;
     });
 
     const sortedData = sortData(filtered, sortOption);
@@ -136,17 +85,12 @@ const OrderSales = ({ orderData, onInvoiceSelect }) => {
   }, [sortData]);
 
   useEffect(() => {
-    updateFilteredData(orderData, filterTime, searchTerm, sortOption);
-  }, [orderData, filterTime, searchTerm, sortOption, updateFilteredData]);
+    updateFilteredData(orderData, searchTerm, sortOption);
+  }, [orderData, searchTerm, sortOption, updateFilteredData]);
 
   const handleSearch = (e) => {
     const value = e.target.value.toLowerCase();
     setSearchTerm(value);
-  };
-
-  const handleTimeFilter = (e) => {
-    const value = e.target.value;
-    setFilterTime(value);
   };
 
   const handleSortSelect = (value) => {
@@ -161,7 +105,6 @@ const OrderSales = ({ orderData, onInvoiceSelect }) => {
   const getOrderStatus = (item) => {
     let status = '';
     
-    // Check multiple possible paths for order status
     if (item.orders?.orderstatus) {
       status = item.orders.orderstatus;
     } else if (item.orderstatus) {
@@ -170,13 +113,11 @@ const OrderSales = ({ orderData, onInvoiceSelect }) => {
       status = item.orderItems[0].orders.orderstatus;
     }
 
-    // Normalize to uppercase and only return valid statuses
     const normalizedStatus = status.toUpperCase();
     if (normalizedStatus === 'COMPLETE' || normalizedStatus === 'INCOMPLETE') {
       return normalizedStatus;
     }
     
-    // Default to INCOMPLETE if status is unknown or invalid
     return 'INCOMPLETE';
   };
 
@@ -207,10 +148,8 @@ const OrderSales = ({ orderData, onInvoiceSelect }) => {
   };
 
   const exportToCSV = () => {
-    // Create sheet headers
     const headers = ['Product Name', 'Order Code', 'Status', 'Quantity', 'Price', 'Total Amount', 'Date'];
     
-    // Create sheet rows from filtered data
     const rows = filteredData.map(item => {
       const orderDate = item.orders?.orderdate || item.createdat;
       return [
@@ -224,13 +163,11 @@ const OrderSales = ({ orderData, onInvoiceSelect }) => {
       ];
     });
     
-    // Combine headers and rows
     const csvContent = [
       headers.join(','),
       ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
     ].join('\n');
     
-    // Create blob and download
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -300,20 +237,8 @@ const OrderSales = ({ orderData, onInvoiceSelect }) => {
               <th>Quantity</th>
               <th>Price</th>
               <th>Total Amount</th>
-              <th className="table-filter-header">
-                <select 
-                  className="table-filter" 
-                  value={filterTime} 
-                  onChange={handleTimeFilter}
-                >
-                  <option value="all">All Time</option>
-                  <option value="today">Today</option>
-                  <option value="week1">First Week</option>
-                  <option value="week2">Second Week</option>
-                  <option value="week3">Third Week</option>
-                  <option value="month">This Month</option>
-                </select>
-              </th>
+              <th>Ordered Date</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -325,6 +250,7 @@ const OrderSales = ({ orderData, onInvoiceSelect }) => {
                 <td>{item.quantity}</td>
                 <td>₱{item.unitprice.toLocaleString()}</td>
                 <td>₱{item.subtotal.toLocaleString()}</td>
+                <td>{new Date(item.orders?.orderdate || item.createdat).toLocaleDateString()}</td>
                 <td className="table-action">
                   <button 
                     className="invoice-btn"

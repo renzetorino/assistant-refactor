@@ -75,8 +75,16 @@
   box-shadow: 0 0 0 3px rgba(4, 180, 252, 0.15);
 }
 
+.category-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+  max-height: 180px; /* optional - limit height */
+  overflow-y: auto;  /* makes it scrollable if too many cards */
+}
+
 /* Category Cards */
-.category-card {
+.category-card{
   border: 1px solid #ccc;
   padding: 10px 12px; /* tighter padding */
   margin: 4px;

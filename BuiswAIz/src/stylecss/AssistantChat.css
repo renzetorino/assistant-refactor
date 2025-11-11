@@ -53,6 +53,111 @@
   color: #6b778c;
 }
 
+/* ===================== PROMPTS SECTION ===================== */
+.asst-prompts-section {
+  background: linear-gradient(135deg, #f0f4ff 0%, #e8f1ff 100%);
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid #c5d9f7;
+  box-shadow: 0 4px 12px rgba(47, 128, 237, 0.08);
+}
+
+.asst-prompts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.asst-prompts-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1b2430;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.asst-prompts-toggle {
+  background: transparent;
+  border: none;
+  color: #6b778c;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.asst-prompts-toggle:hover {
+  background: rgba(47, 128, 237, 0.1);
+  color: #2f80ed;
+}
+
+.asst-prompts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #c5d9f7 transparent;
+}
+
+.asst-prompts-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.asst-prompts-grid::-webkit-scrollbar-thumb {
+  background-color: #c5d9f7;
+  border-radius: 8px;
+}
+
+.asst-prompt-card {
+  background: #fff;
+  border: 1px solid #d6e4f9;
+  border-radius: 12px;
+  padding: 12px 14px;
+  text-align: left;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  cursor: default;
+  user-select: text;
+}
+
+.asst-prompt-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: #2f80ed;
+  line-height: 1.5;
+}
+
+.asst-prompts-show {
+  padding: 8px 16px;
+  text-align: center;
+}
+
+.asst-prompts-show-btn {
+  background: linear-gradient(135deg, #2f80ed 0%, #56ccf2 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(47, 128, 237, 0.2);
+}
+
+.asst-prompts-show-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(47, 128, 237, 0.3);
+}
+
+.asst-prompts-show-btn:active {
+  transform: translateY(0);
+}
+
 /* ===================== CHAT LIST ===================== */
 .asst-chat-list {
   flex: 1;
