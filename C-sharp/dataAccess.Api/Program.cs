@@ -183,11 +183,13 @@ builder.Services.AddSingleton<dataAccess.Services.IntentExampleRetriever>();
 // It will automatically receive IntentExampleRetriever via constructor injection.
 
 // ====================================================================
-// LOCAL DECODER SERVICE (Phase 3 - Free Local LLM)
+// LOCAL DECODER SERVICE (Phase 3.5 - Groq API Refactor for Low-RAM Deployment)
 // ====================================================================
 // Local decoder service for generating natural language responses (chitchat/faq)
-// Uses Phi-3-mini-4k-instruct ONNX model for "free" local inference
-builder.Services.AddSingleton<dataAccess.Services.ILocalDecoderService, dataAccess.Services.LocalDecoderService>();
+// REFACTORED: Now uses Groq API (llama-3.1-8b-instant) instead of local ONNX Phi-3
+// This change enables deployment on low-RAM environments (~1GB) by removing heavy model inference
+// NOTE: RAG Classifier (Phase 2) remains ONNX-based (all-MiniLM) as it's lightweight
+builder.Services.AddScoped<dataAccess.Services.ILocalDecoderService, dataAccess.Services.LocalDecoderService>();
 
 builder.Services.AddSingleton<IReportRunStore, ReportRunStore>();
 builder.Services.AddSingleton<TimeResolver>();
