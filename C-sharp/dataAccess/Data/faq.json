@@ -1,0 +1,16 @@
+{
+  "faqs": [
+    {
+      "question": "What is our return policy for defective products?",
+      "answer": "Our return policy allows customers to return defective products within 30 days of purchase for a full refund or replacement. Simply contact customer service with your order number and a description of the defect. We'll provide a prepaid return label, and once we receive the item, we'll process your refund within 5-7 business days or ship a replacement immediately."
+    },
+    {
+      "question": "How do I check current inventory levels for a specific product?",
+      "answer": "To check inventory levels, you can use our inventory dashboard or query the system with the product SKU. Real-time inventory data shows available stock across all warehouse locations. If you need bulk inventory reports, you can export data filtered by category, location, or date range. For urgent stock checks, contact your warehouse manager directly."
+    },
+    {
+      "question": "What are the sales targets for Q4 and how are commissions calculated?",
+      "answer": "Q4 sales targets are set at $2.5 million across all regions, with individual quotas distributed based on territory size and historical performance. Commission structure is tiered: 5% on the first $100K, 7.5% on sales between $100K-$250K, and 10% on anything above $250K. Commissions are calculated monthly and paid out within 15 days after month-end close. Bonuses are awarded for exceeding quarterly targets by 20% or more."
+    }
+  ]
+}

@@ -179,6 +179,9 @@ builder.Services.AddSingleton<dataAccess.Services.IEmbeddingService, dataAccess.
 // Example retriever for RAG-based intent classification
 builder.Services.AddSingleton<dataAccess.Services.IntentExampleRetriever>();
 
+// In-memory JSON FAQ service for business rules RAG (replaces Vertex AI)
+builder.Services.AddSingleton<dataAccess.Services.JsonFaqService>();
+
 // NOTE: YamlIntentRunner is already registered above.
 // It will automatically receive IntentExampleRetriever via constructor injection.
 

@@ -80,6 +80,9 @@ public class ChatOrchestratorService : IChatOrchestratorService
     
     // Phase 3: Local Decoder Service - Free local LLM for chitchat/faq
     private readonly ILocalDecoderService _localDecoderService;
+    
+    // In-memory JSON FAQ service for business rules RAG
+    private readonly JsonFaqService _jsonFaqService;
 
     public ChatOrchestratorService(
         Kernel kernel,
@@ -99,7 +102,8 @@ public class ChatOrchestratorService : IChatOrchestratorService
         ILlmDateParser llmDateParser,
         NlqService nlqService,
         dataAccess.LLM.GroqJsonClient groqClient,
-        ILocalDecoderService localDecoderService)
+        ILocalDecoderService localDecoderService,
+        JsonFaqService jsonFaqService)
     {
         _kernel = kernel;
         _schemaService = schemaService;
@@ -131,6 +135,9 @@ public class ChatOrchestratorService : IChatOrchestratorService
         
         // Phase 3: Local Decoder Service
         _localDecoderService = localDecoderService;
+        
+        // In-memory JSON FAQ service
+        _jsonFaqService = jsonFaqService;
     }
 
     public async Task<ChatOrchestrationResult> HandleQueryAsync(
@@ -1092,7 +1099,7 @@ public class ChatOrchestratorService : IChatOrchestratorService
             // Non-streaming responses for simple intents
             string response = intent.Trim() switch
             {
-                "BusinessRuleQuery" => "Business rules RAG is not yet implemented. This feature is coming in Day 4!",
+                "BusinessRuleQuery" => await HandleBusinessRuleQueryAsync(userQuery),
                 "ChitChat" => HandleChitChat(userQuery),
                 "Clarification" => HandleClarification(userQuery),
                 "OutOfScope" => HandleOutOfScope(),
@@ -1492,6 +1499,33 @@ public class ChatOrchestratorService : IChatOrchestratorService
             result.IsSuccess = false;
             result.ErrorMessage = ex.Message;
             result.Response = "Sorry, I encountered an error executing your query. Please try rephrasing it.";
+        }
+    }
+
+    /// <summary>
+    /// Handle business rule queries using in-memory JSON FAQ with semantic search.
+    /// Replaces the cloud-based Vertex AI RAG with a lightweight local solution.
+    /// </summary>
+    private async Task<string> HandleBusinessRuleQueryAsync(string query)
+    {
+        try
+        {
+            var answer = await _jsonFaqService.SearchAsync(query, threshold: 0.6);
+            
+            if (answer != null)
+            {
+                _logger.LogInformation($"FAQ match found for business rule query: {query}");
+                return answer;
+            }
+            
+            _logger.LogInformation($"No FAQ match found for business rule query: {query}");
+            return "I couldn't find a specific answer to your business rule question. " +
+                   "Could you try rephrasing it, or ask about our return policy, inventory procedures, or sales commission structure?";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error handling business rule query: {query}");
+            return "I encountered an error searching for business rules. Please try again.";
         }
     }
 
