@@ -198,9 +198,6 @@ builder.Services.AddSingleton<MetricMapper>();
 builder.Services.AddSingleton<AnswerFormatter>();
 builder.Services.AddScoped<NlqService>();
 
-// Vertex AI FAQ Service
-builder.Services.AddScoped<IVertexAISearchService, VertexAISearchService>();
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -2182,7 +2179,6 @@ app.MapPost("/api/assistant", async (
     dataAccess.Reports.YamlReportRunner yamlRunner,
     HybridForecastService forecastSvc,
     dataAccess.Forecasts.IForecastStore forecastStore,
-    IVertexAISearchService faqService,
     GroqJsonClient groq,
     CancellationToken ct) =>
 {
@@ -2278,139 +2274,12 @@ app.MapPost("/api/assistant", async (
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 2) FAQ - Vertex AI Search (HIGHEST BUSINESS PRIORITY)
+    // 2) FAQ - Handled by ChatOrchestrator (LocalDecoderService + Groq)
     // ═══════════════════════════════════════════════════════════════
-    if (intent.Equals("faq", StringComparison.OrdinalIgnoreCase))
-    {
-        try
-        {
-            // Extract user ID from auth context
-            string? userId = ctx.User?.FindFirst("sub")?.Value 
-                          ?? ctx.User?.FindFirst("user_id")?.Value;
-
-            Console.WriteLine($"[FAQ] Processing query: '{userText}'");
-            
-            // Call Vertex AI Search Service
-            var faqResult = await faqService.SearchFaqAsync(userText, userId, maxResults: 3);
-
-            Console.WriteLine($"[FAQ] Confidence: {faqResult.Confidence:F2}, Chunks: {faqResult.Chunks.Count}");
-
-            // ────────────────────────────────────────────────────────────
-            // Confidence Thresholds (Production-Grade Logic)
-            // ────────────────────────────────────────────────────────────
-            // < 0.30 = Out of scope / No relevant answer → Reject
-            // 0.30-0.50 = Very low confidence → Show disclaimer
-            // 0.50-0.70 = Moderate confidence → Show with note
-            // ≥ 0.70 = High confidence → Full answer with sources
-            // ────────────────────────────────────────────────────────────
-
-            // REJECT: Out-of-scope or irrelevant questions
-            if (faqResult.Confidence < 0.30 || faqResult.Chunks.Count == 0)
-            {
-                Console.WriteLine($"[FAQ] Rejecting low-confidence query (confidence: {faqResult.Confidence:F2})");
-                
-                return Results.Json(new
-                {
-                    mode = "chitchat",
-                    uiSpec = new
-                    {
-                        render = new 
-                        { 
-                            kind = "markdown", 
-                            content = "Sorry, I can't help you with that. I'm focused on helping with business and BuiswAIz-related questions.\n\n" +
-                                     "Try asking about:\n" +
-                                     "• Sales forecasting\n" +
-                                     "• Inventory management\n" +
-                                     "• Financial reports\n" +
-                                     "• Budget planning"
-                        }
-                    },
-                    router = new { intent = "faq", domain, confidence = faqResult.Confidence, rejected = true }
-                });
-            }
-
-            // VERY LOW CONFIDENCE: Show answer but with strong disclaimer
-            if (faqResult.Confidence < 0.50)
-            {
-                var responseText = $"⚠️ **I found a possible answer, but I'm not very confident:**\n\n{faqResult.Answer}\n\n" +
-                                  $"*Confidence: {faqResult.Confidence:P0}. Please verify this information with the documentation or contact support.*";
-
-                return Results.Json(new
-                {
-                    mode = "faq",
-                    uiSpec = new
-                    {
-                        render = new { kind = "markdown", content = responseText },
-                        confidence = faqResult.Confidence,
-                        confidenceLevel = "very_low"
-                    },
-                    router = new { intent = "faq", domain, confidence = conf }
-                });
-            }
-
-            // MODERATE CONFIDENCE: Show answer with note
-            if (faqResult.Confidence < 0.70)
-            {
-                var responseText = $"💡 **Suggested Answer:**\n\n{faqResult.Answer}\n\n" +
-                                  $"*Note: This answer has moderate confidence ({faqResult.Confidence:P0}). Please verify with documentation if needed.*";
-
-                return Results.Json(new
-                {
-                    mode = "faq",
-                    uiSpec = new
-                    {
-                        render = new { kind = "markdown", content = responseText },
-                        confidence = faqResult.Confidence,
-                        confidenceLevel = "moderate",
-                        sources = faqResult.Chunks.Select(c => new 
-                        { 
-                            content = c.Content, 
-                            pageNumber = c.PageNumber, 
-                            score = c.Score 
-                        }).ToArray()
-                    },
-                    router = new { intent = "faq", domain, confidence = conf }
-                });
-            }
-
-            // HIGH CONFIDENCE: Full answer (sources removed for cleaner UI)
-            var fullResponseText = $"📚 **FAQ Answer:**\n\n{faqResult.Answer}";
-
-            return Results.Json(new
-            {
-                mode = "faq",
-                uiSpec = new
-                {
-                    render = new { kind = "markdown", content = fullResponseText },
-                    confidence = faqResult.Confidence,
-                    confidenceLevel = "high"
-                    // sources removed for cleaner UI
-                },
-                router = new { intent = "faq", domain, confidence = conf }
-            });
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[FAQ] Error: {ex.Message}");
-            Console.WriteLine($"[FAQ] Stack: {ex.StackTrace}");
-            
-            // Graceful fallback - show error to user
-            return Results.Json(new
-            {
-                mode = "chitchat",
-                uiSpec = new
-                {
-                    render = new 
-                    { 
-                        kind = "markdown", 
-                        content = "⚠️ I encountered an error while searching the FAQ. Please try again or rephrase your question.\n\n" +
-                                 "If the problem persists, contact support."
-                    }
-                },
-                router = new { intent = "faq", domain, confidence = 0.0, error = true }
-            });
-        }
-    }
+    // FAQ intent is now fully handled by ChatOrchestratorService
+    // which uses LocalDecoderService (Groq API) for natural language responses.
+    // This minimal endpoint focuses on reports, forecasts, and NLQ queries.
+    // For FAQ/chitchat, use the /api/Chat/query endpoint instead.
 
     // 3) FORECASTING
     if (intent.Equals("forecasting", StringComparison.OrdinalIgnoreCase))
