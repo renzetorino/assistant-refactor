@@ -27,12 +27,8 @@ RUN apt-get update && \
 RUN useradd -m -u 1000 user
 
 # Copy build artifacts
+# (Includes Plugins & Models automatically due to .csproj update)
 COPY --from=build /app/publish .
-
-# --------------------------------------------------------
-# ✅ MODEL PATH FIX: Added "C-sharp/" prefix here too
-# --------------------------------------------------------
-COPY --from=build /source/C-sharp/dataAccess.Api/Models ./Models
 
 # Set ownership
 RUN chown -R user:user /app
