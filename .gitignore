@@ -333,3 +333,12 @@ C-sharp/Capcap/obj/Debug/net8.0/rjsmcshtml.dswa.cache.json
 C-sharp/Capcap/obj/Debug/net8.0/refint/Capcap.dll
 C-sharp/Capcap/obj/project.nuget.cache
 C-sharp/Capcap/bin/Debug/net8.0/Capcap.dll
+**/*.md
+**/*.txt
+**/*.sql
+.env.updated
+d
+**/*.ps1
+*.onnx
+*.onnx.data
+C-sharp/run-slots-migration.bat

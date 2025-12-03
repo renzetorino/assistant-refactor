@@ -26,6 +26,7 @@ namespace dataAccess.Reports
         private readonly Func<string, CancellationToken, Task<string>> _loadPhase2;
         private readonly IReportRunStore _reportStore;
         private readonly PromptLoader _promptLoader;
+        private readonly Microsoft.Extensions.Logging.ILogger<YamlReportRunner> _logger;
 
         public YamlReportRunner(
             YamlPreprocessor pre,
@@ -33,7 +34,8 @@ namespace dataAccess.Reports
             IGroqJsonClient groq,
             IReportRunStore reportStore,
             PromptLoader promptLoader,
-            Func<string, CancellationToken, Task<string>> loadPhase2System)
+            Func<string, CancellationToken, Task<string>> loadPhase2System,
+            Microsoft.Extensions.Logging.ILogger<YamlReportRunner> logger)
         {
             _pre = pre;
             _sql = sql;
@@ -41,6 +43,7 @@ namespace dataAccess.Reports
             _loadPhase2 = loadPhase2System;
             _reportStore = reportStore;
             _promptLoader = promptLoader;
+            _logger = logger;
         }
 
         /// <summary>
@@ -483,7 +486,7 @@ namespace dataAccess.Reports
                 if (!white.Contains(qid))
                 {
                     // Skip unknown/disabled query IDs (e.g., BUDGET_UTILIZATION)
-                    Console.WriteLine($"[report-runner] Skipping unknown query_id: {qid}");
+                    _logger.LogDebug("[report-runner] Skipping unknown query_id: {QueryId}", qid);
                     continue;
                 }
 
@@ -502,7 +505,7 @@ namespace dataAccess.Reports
                 catch (ArgumentOutOfRangeException ex) when (string.Equals(ex.ParamName, "queryId", StringComparison.OrdinalIgnoreCase))
                 {
                     // Defensive: if catalog still doesn't know this QID, skip it gracefully
-                    Console.WriteLine($"[report-runner] Catalog rejected query_id {qid}: {ex.Message}");
+                    _logger.LogWarning("[report-runner] Catalog rejected query_id {QueryId}: {Message}", qid, ex.Message);
                     bag[key] = Array.Empty<object>();
                 }
             }

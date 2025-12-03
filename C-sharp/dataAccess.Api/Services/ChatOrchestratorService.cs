@@ -74,6 +74,15 @@ public class ChatOrchestratorService : IChatOrchestratorService
     // Master Orchestrator: NLQ Service for dynamic SQL queries
     private readonly NlqService _nlqService;
     private readonly ILlmDateParser _llmDateParser;
+    
+    // Work Block 2: Safe SQL Guardrail - AI validation service
+    private readonly dataAccess.LLM.GroqJsonClient _groqClient;
+    
+    // Phase 3: Local Decoder Service - Free local LLM for chitchat/faq
+    private readonly ILocalDecoderService _localDecoderService;
+    
+    // In-memory JSON FAQ service for business rules RAG
+    private readonly JsonFaqService _jsonFaqService;
 
     public ChatOrchestratorService(
         Kernel kernel,
@@ -91,7 +100,10 @@ public class ChatOrchestratorService : IChatOrchestratorService
         LlmSqlGenerator sqlGenerator,
         LlmSummarizer summarizer,
         ILlmDateParser llmDateParser,
-        NlqService nlqService)
+        NlqService nlqService,
+        dataAccess.LLM.GroqJsonClient groqClient,
+        ILocalDecoderService localDecoderService,
+        JsonFaqService jsonFaqService)
     {
         _kernel = kernel;
         _schemaService = schemaService;
@@ -117,6 +129,15 @@ public class ChatOrchestratorService : IChatOrchestratorService
         
         // Master Orchestrator: NLQ Service for dynamic SQL queries
         _nlqService = nlqService;
+        
+        // Work Block 2: Safe SQL Guardrail
+        _groqClient = groqClient;
+        
+        // Phase 3: Local Decoder Service
+        _localDecoderService = localDecoderService;
+        
+        // In-memory JSON FAQ service
+        _jsonFaqService = jsonFaqService;
     }
 
     public async Task<ChatOrchestrationResult> HandleQueryAsync(
@@ -491,31 +512,125 @@ public class ChatOrchestratorService : IChatOrchestratorService
                 }
             }
             // ═══════════════════════════════════════════════════════════════
-            // PATHWAY 2: DYNAMIC SQL (NLQ.QUERY)
+            // PATHWAY 2: DYNAMIC SQL (NLQ.QUERY) - SAFE-BY-DEFAULT GUARDRAIL
             // ═══════════════════════════════════════════════════════════════
             else if (normalizedIntent == "nlq.query" || normalizedIntent == "nlq" || normalizedIntent == "dynamic_sql_query")
             {
                 _logger.LogWarning("═══════════════════════════════════════════════════════════════");
-                _logger.LogWarning("✅ PATHWAY 2: DYNAMIC SQL (NLQ.QUERY)");
+                _logger.LogWarning("✅ PATHWAY 2: DYNAMIC SQL (NLQ.QUERY) - SAFE-BY-DEFAULT");
                 _logger.LogWarning("Intent: {Intent}", normalizedIntent);
-                _logger.LogWarning("Service: NlqService");
+                _logger.LogWarning("Strategy: 1) Try Free C# Parser → 2) Validate with 8B AI → 3) Fallback to 70B LLM");
                 _logger.LogWarning("═══════════════════════════════════════════════════════════════");
                 
                 try
                 {
-                    _logger.LogWarning("🔍 DEBUG: CALLING NLQ SERVICE");
-                    _logger.LogWarning("   Query: {Query}", userQuery);
+                    // ═══════════════════════════════════════════════════════════════
+                    // GUARDRAIL #1: TRY FREE C# PARSER (NlqService) FIRST
+                    // ═══════════════════════════════════════════════════════════════
+                    _logger.LogInformation("[Safe SQL Guardrail] STEP 1: Attempting free C# parser (NlqService)");
                     
-                    // Call NlqService.HandleAsync which returns an object (report UI or markdown answer)
-                    var nlqResult = await _nlqService.HandleAsync(userQuery, cancellationToken);
+                    object? nlqResult = null;
+                    bool nlqSucceeded = false;
                     
-                    _logger.LogWarning("🔍 DEBUG: NLQ SERVICE COMPLETED - Result: {HasResult}", nlqResult != null);
-                    
-                    if (nlqResult != null)
+                    try
                     {
-                        // NlqService returns either:
-                        // 1. Report UI object (JsonObject with report_title, kpis, cards, charts, etc.)
-                        // 2. Markdown answer object { mode = "chat", markdown = "..." }
+                        nlqResult = await _nlqService.HandleAsync(userQuery, cancellationToken);
+                        
+                        // Check if NlqService returned a valid result (not an error/chat message)
+                        if (nlqResult != null)
+                        {
+                            var resultJson = JsonSerializer.Serialize(nlqResult);
+                            var resultDoc = JsonDocument.Parse(resultJson);
+                            
+                            // If it's a "chat" mode response, it means NlqService couldn't parse it
+                            // (e.g., out of scope, unclear query)
+                            if (resultDoc.RootElement.TryGetProperty("mode", out var modeProp) && 
+                                modeProp.GetString() == "chat")
+                            {
+                                _logger.LogInformation("[Safe SQL Guardrail] C# parser returned chat response (cannot handle this query)");
+                                nlqSucceeded = false;
+                            }
+                            else
+                            {
+                                // Looks like a valid report/data result
+                                nlqSucceeded = true;
+                                _logger.LogInformation("[Safe SQL Guardrail] C# parser SUCCESS - generated plan");
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogInformation("[Safe SQL Guardrail] C# parser returned null");
+                            nlqSucceeded = false;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "[Safe SQL Guardrail] C# parser failed with exception");
+                        nlqSucceeded = false;
+                    }
+                    
+                    // ═══════════════════════════════════════════════════════════════
+                    // GUARDRAIL #2: VALIDATE WITH CHEAP 8B AI (IF PARSER SUCCEEDED)
+                    // ═══════════════════════════════════════════════════════════════
+                    bool aiValidationPassed = false;
+                    
+                    if (nlqSucceeded && nlqResult != null)
+                    {
+                        _logger.LogInformation("[Safe SQL Guardrail] STEP 2: Validating with cheap 8B AI model");
+                        
+                        try
+                        {
+                            // Load validation prompt
+                            var validationPromptYaml = _promptLoader.ReadText("sql.validation.yaml");
+                            var validationConfig = ParseValidationPrompt(validationPromptYaml);
+                            
+                            // Extract plan summary for validation (simplified JSON)
+                            var planSummary = ExtractPlanSummary(nlqResult);
+                            
+                            // Build validation prompt
+                            var systemPrompt = validationConfig.System;
+                            var userPrompt = validationConfig.UserTemplate
+                                .Replace("[USER_QUERY]", userQuery)
+                                .Replace("[STATIC_PLAN_JSON]", planSummary);
+                            
+                            // Call cheap 8B model via GroqJsonClient
+                            using var validationDoc = await _groqClient.CompleteJsonAsync(
+                                systemPrompt, 
+                                userPrompt, 
+                                data: null, 
+                                model: "llama-3.1-8b-instant", 
+                                temperature: 0.0, 
+                                cancellationToken);
+                            
+                            // Parse validation result
+                            if (validationDoc.RootElement.TryGetProperty("is_valid", out var isValidProp) &&
+                                isValidProp.ValueKind == JsonValueKind.True)
+                            {
+                                aiValidationPassed = true;
+                                _logger.LogInformation("[Safe SQL Guardrail] AI Validation PASSED - static plan is sufficient");
+                            }
+                            else
+                            {
+                                _logger.LogInformation("[Safe SQL Guardrail] AI Validation FAILED - query needs custom SQL");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "[Safe SQL Guardrail] AI validation failed with exception - assuming invalid");
+                            aiValidationPassed = false;
+                        }
+                    }
+                    
+                    // ═══════════════════════════════════════════════════════════════
+                    // DECISION: USE STATIC PLAN OR FALLBACK TO EXPENSIVE LLM
+                    // ═══════════════════════════════════════════════════════════════
+                    if (nlqSucceeded && aiValidationPassed && nlqResult != null)
+                    {
+                        // ✅ SUCCESS: Use the free static plan (Cost: 0 API tokens for SQL Gen)
+                        _logger.LogWarning("═══════════════════════════════════════════════════════════════");
+                        _logger.LogWarning("✅ SAFE-BY-DEFAULT SUCCESS: Using free C# parser result");
+                        _logger.LogWarning("   Cost Saved: ~2000 tokens (70B model avoided)");
+                        _logger.LogWarning("═══════════════════════════════════════════════════════════════");
                         
                         var resultJson = JsonSerializer.Serialize(nlqResult);
                         var resultDoc = JsonDocument.Parse(resultJson);
@@ -525,7 +640,6 @@ public class ChatOrchestratorService : IChatOrchestratorService
                             modeProp.GetString() == "chat" &&
                             resultDoc.RootElement.TryGetProperty("markdown", out var markdownProp))
                         {
-                            // Simple markdown answer
                             stepResult = new OrchestrationStepResult
                             {
                                 IsSuccess = true,
@@ -538,7 +652,6 @@ public class ChatOrchestratorService : IChatOrchestratorService
                         }
                         else
                         {
-                            // Report UI object
                             stepResult = new OrchestrationStepResult
                             {
                                 IsSuccess = true,
@@ -551,21 +664,93 @@ public class ChatOrchestratorService : IChatOrchestratorService
                                 }
                             };
                         }
-                        
-                        _logger.LogInformation("[Orchestrator] NLQ query executed successfully");
                     }
                     else
                     {
-                        stepResult = new OrchestrationStepResult
+                        // ❌ FALLBACK: Use expensive 70B LLM for complex/unsafe queries
+                        _logger.LogWarning("═══════════════════════════════════════════════════════════════");
+                        _logger.LogWarning("⚠️  FALLBACK TO EXPENSIVE LLM (70B Model)");
+                        _logger.LogWarning("   Reason: Parser failed={0}, AI validation failed={1}", 
+                            !nlqSucceeded, nlqSucceeded && !aiValidationPassed);
+                        _logger.LogWarning("   Cost: ~2000 tokens for SQL generation");
+                        _logger.LogWarning("═══════════════════════════════════════════════════════════════");
+                        
+                        try
                         {
-                            IsSuccess = false,
-                            ErrorMessage = "I couldn't process that natural language query. Please try rephrasing it."
-                        };
+                            // Get schema for SQL generation
+                            var schema = await _schemaService.GetRelevantSchemaAsync(userQuery);
+                            
+                            // Generate SQL using expensive 70B model
+                            var generatedSql = await _sqlGenerator.GenerateSqlAsync(userQuery, cancellationToken);
+                            
+                            if (string.IsNullOrEmpty(generatedSql))
+                            {
+                                stepResult = new OrchestrationStepResult
+                                {
+                                    IsSuccess = false,
+                                    ErrorMessage = "I couldn't generate a valid SQL query for your request. Please try rephrasing it."
+                                };
+                            }
+                            else
+                            {
+                                // Validate SQL for safety
+                                var (isValid, validationError) = _sqlValidator.ValidateSql(generatedSql);
+                                if (!isValid)
+                                {
+                                    _logger.LogWarning("[Safe SQL Guardrail] Generated SQL failed validation: {Error}", validationError);
+                                    stepResult = new OrchestrationStepResult
+                                    {
+                                        IsSuccess = false,
+                                        ErrorMessage = "The generated query didn't pass safety checks. Please try a different question."
+                                    };
+                                }
+                                else
+                                {
+                                    // Ensure LIMIT clause
+                                    generatedSql = _sqlValidator.EnsureLimit(generatedSql, _maxResultRows);
+                                    
+                                    // Execute SQL safely
+                                    var queryData = await _safeSqlExecutor.ExecuteQueryAsync(generatedSql, cancellationToken);
+                                    
+                                    // Serialize results for summarization
+                                    var resultsJson = JsonSerializer.SerializeToElement(queryData);
+                                    
+                                    // Summarize results
+                                    var summary = await _summarizer.SummarizeAsync(
+                                        userQuery, 
+                                        generatedSql, 
+                                        resultsJson, 
+                                        queryData.Count, 
+                                        cancellationToken);
+                                    
+                                    stepResult = new OrchestrationStepResult
+                                    {
+                                        IsSuccess = true,
+                                        ReportData = new ReportResult
+                                        {
+                                            Title = "Query Result",
+                                            UiSpec = JsonDocument.Parse(JsonSerializer.Serialize(new { text = summary }))
+                                        }
+                                    };
+                                    
+                                    _logger.LogInformation("[Safe SQL Guardrail] Fallback LLM execution succeeded");
+                                }
+                            }
+                        }
+                        catch (Exception fallbackEx)
+                        {
+                            _logger.LogError(fallbackEx, "[Safe SQL Guardrail] Fallback LLM execution failed");
+                            stepResult = new OrchestrationStepResult
+                            {
+                                IsSuccess = false,
+                                ErrorMessage = "I encountered an error processing your question. Please try again or rephrase your question."
+                            };
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "[Orchestrator] NLQ query failed via NlqService");
+                    _logger.LogError(ex, "[Safe SQL Guardrail] Unexpected error in dynamic SQL pathway");
                     stepResult = new OrchestrationStepResult
                     {
                         IsSuccess = false,
@@ -581,37 +766,49 @@ public class ChatOrchestratorService : IChatOrchestratorService
                 _logger.LogWarning("═══════════════════════════════════════════════════════════════");
                 _logger.LogWarning("✅ PATHWAY 3: SIMPLE RESPONSES (FAQ, CHITCHAT)");
                 _logger.LogWarning("Intent: {Intent}", normalizedIntent);
-                _logger.LogWarning("Optimization: Using dedicated response service (no redundant LLM call)");
+                _logger.LogWarning("[Phase 3] Using 'free' local Phi-3 decoder (NO cloud API calls!)");
                 _logger.LogWarning("═══════════════════════════════════════════════════════════════");
                 
-                string responseText;
-                
-                if (normalizedIntent == "chitchat")
+                try
                 {
-                    // OPTIMIZATION: Use static pattern matching for chitchat (NO LLM CALL!)
-                    // Simple greetings don't need AI - save tokens and eliminate 429 errors
-                    responseText = HandleChitChat(userQuery);
-                    _logger.LogInformation("[Phase 1 Optimization] Chitchat handled via static responses - No LLM call");
-                }
-                else // faq
-                {
-                    // TODO: Implement dedicated FAQ service using faq.yaml prompt
-                    // For now, use fallback response
-                    responseText = "I'm here to help! What would you like to know about your business?";
-                    _logger.LogInformation("[Phase 1 Optimization] FAQ using fallback - Dedicated service pending");
-                }
-                
-                stepResult = new OrchestrationStepResult
-                {
-                    IsSuccess = true,
-                    ReportData = new ReportResult
+                    // Get chat history for conversational context
+                    var history = await _chatHistory.GetRecentMessagesAsync(result.SessionId, limit: 5);
+                    
+                    // Call local decoder service with appropriate intent
+                    _logger.LogInformation("[Phase 3] Handling '{Intent}' with 'free' local Phi-3 decoder.", normalizedIntent);
+                    var responseText = await _localDecoderService.GetResponseAsync(userQuery, history, normalizedIntent);
+                    
+                    stepResult = new OrchestrationStepResult
                     {
-                        Title = normalizedIntent == "faq" ? "FAQ Response" : "Chitchat",
-                        UiSpec = JsonDocument.Parse(JsonSerializer.Serialize(new { text = responseText }))
-                    }
-                };
-                
-                _logger.LogWarning("🔍 DEBUG: PATHWAY 3 COMPLETED - Response: {Response}", responseText);
+                        IsSuccess = true,
+                        ReportData = new ReportResult
+                        {
+                            Title = normalizedIntent == "faq" ? "FAQ Response" : "Chitchat",
+                            UiSpec = JsonDocument.Parse(JsonSerializer.Serialize(new { text = responseText }))
+                        }
+                    };
+                    
+                    _logger.LogInformation("[Phase 3] Local decoder response: {Response}", responseText.Substring(0, Math.Min(100, responseText.Length)));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[Phase 3] Error calling local decoder service for {Intent}", normalizedIntent);
+                    
+                    // Fallback to simple static response if local decoder fails
+                    var fallbackResponse = normalizedIntent == "chitchat" 
+                        ? HandleChitChat(userQuery) 
+                        : "I'm here to help! What would you like to know about your business?";
+                    
+                    stepResult = new OrchestrationStepResult
+                    {
+                        IsSuccess = true,
+                        ReportData = new ReportResult
+                        {
+                            Title = normalizedIntent == "faq" ? "FAQ Response" : "Chitchat",
+                            UiSpec = JsonDocument.Parse(JsonSerializer.Serialize(new { text = fallbackResponse }))
+                        }
+                    };
+                }
             }
             // ═══════════════════════════════════════════════════════════════
             // OUT OF SCOPE / UNKNOWN INTENT
@@ -902,7 +1099,7 @@ public class ChatOrchestratorService : IChatOrchestratorService
             // Non-streaming responses for simple intents
             string response = intent.Trim() switch
             {
-                "BusinessRuleQuery" => "Business rules RAG is not yet implemented. This feature is coming in Day 4!",
+                "BusinessRuleQuery" => await HandleBusinessRuleQueryAsync(userQuery),
                 "ChitChat" => HandleChitChat(userQuery),
                 "Clarification" => HandleClarification(userQuery),
                 "OutOfScope" => HandleOutOfScope(),
@@ -1305,6 +1502,33 @@ public class ChatOrchestratorService : IChatOrchestratorService
         }
     }
 
+    /// <summary>
+    /// Handle business rule queries using in-memory JSON FAQ with semantic search.
+    /// Replaces the cloud-based Vertex AI RAG with a lightweight local solution.
+    /// </summary>
+    private async Task<string> HandleBusinessRuleQueryAsync(string query)
+    {
+        try
+        {
+            var answer = await _jsonFaqService.SearchAsync(query, threshold: 0.6);
+            
+            if (answer != null)
+            {
+                _logger.LogInformation($"FAQ match found for business rule query: {query}");
+                return answer;
+            }
+            
+            _logger.LogInformation($"No FAQ match found for business rule query: {query}");
+            return "I couldn't find a specific answer to your business rule question. " +
+                   "Could you try rephrasing it, or ask about our return policy, inventory procedures, or sales commission structure?";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error handling business rule query: {query}");
+            return "I encountered an error searching for business rules. Please try again.";
+        }
+    }
+
     private string HandleChitChat(string query)
     {
         var lowerQuery = query.ToLowerInvariant();
@@ -1503,6 +1727,104 @@ public class ChatOrchestratorService : IChatOrchestratorService
                     slotName, routerValue, userQuery);
                 return null;
             }
+        }
+    }
+
+    /// <summary>
+    /// Parses the sql.validation.yaml prompt configuration.
+    /// </summary>
+    private (string System, string UserTemplate) ParseValidationPrompt(string yaml)
+    {
+        try
+        {
+            var deserializer = new YamlDotNet.Serialization.DeserializerBuilder()
+                .WithNamingConvention(YamlDotNet.Serialization.NamingConventions.UnderscoredNamingConvention.Instance)
+                .IgnoreUnmatchedProperties()
+                .Build();
+            
+            var config = deserializer.Deserialize<Dictionary<string, object>>(yaml);
+            
+            var system = config.ContainsKey("system") ? config["system"]?.ToString() ?? "" : "";
+            var userTemplate = config.ContainsKey("user_template") ? config["user_template"]?.ToString() ?? "" : "";
+            
+            return (system, userTemplate);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Safe SQL Guardrail] Failed to parse validation prompt YAML");
+            // Return a basic fallback prompt
+            return (
+                "You are a query validation assistant. Determine if the provided plan can answer the user's query. Return JSON: {\"is_valid\": true} or {\"is_valid\": false}",
+                "User Query: [USER_QUERY]\nStatic Plan: [STATIC_PLAN_JSON]\nDoes this plan fully answer the query?"
+            );
+        }
+    }
+
+    /// <summary>
+    /// Extracts a simplified JSON summary of the NlqService result for AI validation.
+    /// </summary>
+    private string ExtractPlanSummary(object nlqResult)
+    {
+        try
+        {
+            var resultJson = JsonSerializer.Serialize(nlqResult);
+            var resultDoc = JsonDocument.Parse(resultJson);
+            
+            // Extract key fields for validation
+            var summary = new Dictionary<string, object?>();
+            
+            // Check if it's a report UI object
+            if (resultDoc.RootElement.TryGetProperty("report_title", out var titleProp))
+            {
+                summary["Type"] = "Report";
+                summary["Title"] = titleProp.GetString();
+                
+                if (resultDoc.RootElement.TryGetProperty("period", out var periodProp))
+                {
+                    var period = new Dictionary<string, string?>();
+                    if (periodProp.TryGetProperty("start", out var startProp))
+                        period["Start"] = startProp.GetString();
+                    if (periodProp.TryGetProperty("end", out var endProp))
+                        period["End"] = endProp.GetString();
+                    summary["Period"] = period;
+                }
+                
+                if (resultDoc.RootElement.TryGetProperty("kpis", out var kpisProp) && 
+                    kpisProp.ValueKind == JsonValueKind.Array)
+                {
+                    var kpis = new List<string>();
+                    foreach (var kpi in kpisProp.EnumerateArray())
+                    {
+                        if (kpi.TryGetProperty("label", out var labelProp))
+                            kpis.Add(labelProp.GetString() ?? "");
+                    }
+                    summary["Metrics"] = kpis;
+                }
+            }
+            // Check if it's a markdown/chat response
+            else if (resultDoc.RootElement.TryGetProperty("mode", out var modeProp) &&
+                     modeProp.GetString() == "chat")
+            {
+                summary["Type"] = "Chat";
+                if (resultDoc.RootElement.TryGetProperty("markdown", out var mdProp))
+                {
+                    var markdown = mdProp.GetString() ?? "";
+                    summary["Preview"] = markdown.Length > 200 ? markdown.Substring(0, 200) + "..." : markdown;
+                }
+            }
+            else
+            {
+                // Unknown format - just indicate it exists
+                summary["Type"] = "Data";
+                summary["HasContent"] = true;
+            }
+            
+            return JsonSerializer.Serialize(summary);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Safe SQL Guardrail] Failed to extract plan summary");
+            return "{ \"Type\": \"Unknown\", \"Error\": \"Could not parse plan\" }";
         }
     }
 }
