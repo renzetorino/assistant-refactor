@@ -94,3 +94,6 @@ yarn-error.log
 
 # Keep README
 !README.md
+
+# Allow Semantic Kernel prompts
+!**/skprompt.txt
