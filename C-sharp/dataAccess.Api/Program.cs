@@ -448,19 +448,14 @@ builder.Services.AddScoped<LlmSummarizer>();
 builder.Services.AddSingleton<ResponseFormatter>();
 builder.Services.AddScoped<QueryPipeline>();
 
-// CORS
+// CORS - Emergency Fix: Allow any origin for Vercel/HuggingFace deployment
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("default", policy =>
     {
-        var origins = configuredCorsOrigins is { Length: > 0 }
-            ? configuredCorsOrigins
-            : new[] { "http://localhost:5173" };
-
-        policy.WithOrigins(origins)
+        policy.AllowAnyOrigin()  // ⚠️ EMERGENCY FIX: Allows Vercel (or any host) to connect
               .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+              .AllowAnyMethod();
     });
 });
 
@@ -2286,10 +2281,48 @@ app.MapPost("/api/assistant", async (
     // ═══════════════════════════════════════════════════════════════
     // 2) FAQ - Handled by ChatOrchestrator (LocalDecoderService + Groq)
     // ═══════════════════════════════════════════════════════════════
-    // FAQ intent is now fully handled by ChatOrchestratorService
-    // which uses LocalDecoderService (Groq API) for natural language responses.
-    // This minimal endpoint focuses on reports, forecasts, and NLQ queries.
-    // For FAQ/chitchat, use the /api/Chat/query endpoint instead.
+    if (intent.Equals("faq", StringComparison.OrdinalIgnoreCase))
+    {
+        try
+        {
+            var localDecoder = ctx.RequestServices.GetRequiredService<ILocalDecoderService>();
+            var chatHistory = ctx.RequestServices.GetRequiredService<IChatHistoryService>();
+            
+            // Get recent chat history for conversational context
+            var history = await chatHistory.GetRecentMessagesAsync(Guid.NewGuid(), limit: 5);
+            
+            // Call LocalDecoderService with "faq" intent
+            var responseText = await localDecoder.GetResponseAsync(userText, history, "faq");
+            
+            return Results.Json(new
+            {
+                mode = "faq",
+                uiSpec = new
+                {
+                    render = new { kind = "markdown", content = responseText }
+                },
+                router = new { intent = "faq", domain, confidence = conf }
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[FAQ ERROR] {ex.Message}");
+            // Fallback response
+            return Results.Json(new
+            {
+                mode = "faq",
+                uiSpec = new
+                {
+                    render = new 
+                    { 
+                        kind = "markdown", 
+                        content = "I can help you with sales reports, expense tracking, inventory management, and forecasting. What would you like to know?"
+                    }
+                },
+                router = new { intent = "faq", domain, confidence = conf }
+            });
+        }
+    }
 
     // 3) FORECASTING
     if (intent.Equals("forecasting", StringComparison.OrdinalIgnoreCase))

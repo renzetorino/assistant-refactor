@@ -14,7 +14,7 @@ import ExpensesWindow from "../components/ExpensesWindow";
 // NEW: bring in your forecast popup component
 import SalesForecastWindow from "../components/SalesForecastWindow";
 
-const API_BASE = import.meta.env.VITE_API_ASSISTANT_URL
+const API_BASE = import.meta.env.VITE_API_ASSISTANT_URL;
 
 const newId = () =>
   (crypto?.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()));
@@ -222,8 +222,29 @@ const Assistant = () => {
         return;
       }
 
+      // ✅ FIX: Robust response text extraction to prevent raw JSON display
+      let responseText = "";
+      
+      // Check common response structures
+      if (res.response && typeof res.response === "string") {
+        responseText = res.response;
+      } else if (res.render?.content && typeof res.render.content === "string") {
+        responseText = res.render.content;
+      } else if (res.text && typeof res.text === "string") {
+        responseText = res.text;
+      } else if (res.content && typeof res.content === "string") {
+        responseText = res.content;
+      } else if (res.errorMessage && typeof res.errorMessage === "string") {
+        responseText = res.errorMessage;
+      } else if (typeof res === "string") {
+        responseText = res;
+      } else {
+        // Fallback: stringify with warning
+        console.warn("[Assistant] Unexpected response structure:", res);
+        responseText = res.response || "Here's your result.";
+      }
+
       // Success - show response
-      const responseText = res.response || "Here's your result.";
       setMessages((prev) => [
         ...prev,
         { id: newId(), role: "assistant", text: responseText }
