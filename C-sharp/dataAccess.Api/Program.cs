@@ -614,11 +614,18 @@ if (!string.IsNullOrWhiteSpace(fastLlmApiKey) && !string.IsNullOrWhiteSpace(smar
     }
 }
 
-if (app.Environment.IsDevelopment())
+// 1. Enable middleware to serve generated Swagger as a JSON endpoint.
+app.UseSwagger();
+
+// 2. Enable middleware to serve swagger-ui (HTML, JS, CSS, etc.)
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "BuiswAIz API V1");
+    
+    // 👇 OPTIONAL PERO RECOMMENDED:
+    // Ito ang gagawin para pagbukas mo ng URL, Swagger agad ang bubungad (no need mag type ng /swagger)
+    c.RoutePrefix = string.Empty; 
+});
 
 app.UseExceptionHandler(errorApp =>
 {
