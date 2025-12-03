@@ -1,0 +1,119 @@
+.btn {
+  background-color: #04B4FC;
+  padding: 10px 22px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.btn-primary {
+  background-color: #3644c2;
+  border: 1px solid red;
+  box-shadow: 2px 5px 12px rgba(220, 38, 38, 0.3);
+  padding: 12px 20px 12px 20px;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #b91c1c;
+  border: 1px solid red;
+  transform: translateY(-2px);
+  box-shadow: 2px 5px 12px rgba(220, 38, 38, 0.45);
+}
+
+.btn:disabled {
+  background: #ff0000;
+  cursor: not-allowed;
+  border: 1px solid red;
+  box-shadow: 2px 5px 12px rgba(220, 38, 38, 0.3);
+  padding: 12px 20px 12px 20px;
+}
+
+.btn:disabled:hover {
+  background: #ff00007c;
+  border: 1px solid #ff00007c;
+  cursor: not-allowed;
+  box-shadow: 2px 5px 12px rgba(220, 38, 38, 0.3);
+}
+
+.file-choose input[type="file"]::file-selector-button {
+  background-color: #04B4FC;
+  color: white;
+  font-weight: 600;
+  border: none;
+  margin-left: 20px;
+  margin-right: 10px;
+  padding: 10px 22px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);
+}
+
+.file-choose input[type="file"]::file-selector-button:hover {
+  background-color: #04b6fc79;
+  transform: translateY(-1px);
+}
+
+
+th, td {
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: 'Montserrat', sans-serif;
+}
+
+th {
+  background: #f9fafb;    
+  color: #374151;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+th:last-child {
+  box-shadow: none;
+}
+
+
+table td input {
+  width: 100%;
+  min-width: 160px;
+  text-align: left;
+  font-size: 15px;
+  border-radius: 6px;
+  box-sizing: border-box;
+}
+
+input.border {
+  border-radius: 6px;
+  padding: 6px 8px;
+  outline: none;
+  font-size: 14px;
+  transition: border 0.2s ease;
+}
+
+input.border-red-500 {
+  border: 2px solid #dc2626 !important;
+  background: #fef2f2;
+}
+
+input.border-gray-300 {
+  border: 1px solid #d1d5db;
+}
+
+input:focus {
+  border: 2px solid #b91c1c;
+}
+
+div[style*="background: #da02027c"] {
+  background: #dc2626;
+  color: #fff;
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  box-shadow: 0 3px 10px rgba(220,38,38,0.3);
+}

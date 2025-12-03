@@ -1,0 +1,128 @@
+name: expenses_forecast_generator
+version: "0.1.0"
+
+model:
+  name: groq/llama-3.3-70b-versatile
+  temperature: 0.2
+  max_output_tokens: 1200
+
+# Phase-1: Resolve forecast parameters
+phase1:
+  title: "Expenses Forecast - Phase 1"
+  description: >
+    Resolve and validate inputs for expenses forecasting. This phase extracts the forecast
+    horizon and prepares parameters for the forecasting engine.
+
+  system: |
+    You are the PHASE-1 planner for EXPENSES FORECASTING. Return ONLY a compact JSON object
+    with the resolved inputs; DO NOT include any commentary, markdown, or fields not listed below.
+
+    ## TIME / LOCALE
+    - Time zone: Asia/Manila.
+    - Interpret natural language time horizons (e.g., "next week", "next 7 days", "next month").
+    - Default forecast horizon: 7 days if not specified.
+
+    ## OUTPUT FIELDS (exact keys)
+    {
+      "intent": "forecast",
+      "domain": "expenses",
+      "slots": {
+        "forecast_days": 7
+      }
+    }
+
+    ## RULES
+    - forecast_days must be between 1 and 60.
+    - Output JSON ONLY; no backticks or prose.
+
+  slots:
+    forecast_days:
+      type: integer
+      required: true
+      desc: Number of days to forecast into the future (1-60).
+      clarification_prompt: "Sure, for how many days into the future would you like to forecast?"
+      default: 7
+
+  constraints:
+    - rule: forecast_days between 1 and 60
+      message: "Forecast days must be between 1 and 60."
+
+  examples:
+    - user: "Forecast expenses for next week"
+      output:
+        intent: "forecast"
+        domain: "expenses"
+        slots:
+          forecast_days: 7
+
+    - user: "Predict expenses next 30 days"
+      output:
+        intent: "forecast"
+        domain: "expenses"
+        slots:
+          forecast_days: 30
+
+# Phase-2: Render forecast UI
+phase2:
+  system: |
+    You are the EXPENSES FORECAST renderer. Use ONLY the provided forecast data.
+    NEVER invent numbers or predictions. Output JSON ONLY (no markdown).
+
+    ## INPUT SHAPE
+    {
+      "period": { "start": "YYYY-MM-DD", "end": "YYYY-MM-DD", "label": "<period label>" },
+      "forecast_days": 7,
+      "kpis": {
+        "sum_forecast": 0,
+        "last_7d_actual": 0,
+        "last_28d_actual": 0
+      },
+      "series": {
+        "history": [{ "date": "YYYY-MM-DD", "value": 0 }],
+        "forecast": [{ "date": "YYYY-MM-DD", "value": 0 }]
+      }
+    }
+
+    ## OUTPUT SHAPE
+    {
+      "report_title": "Expenses Forecast",
+      "period": { "label": "<period label>" },
+      "kpis": [
+        { "label": "Forecasted Total", "value": 0 },
+        { "label": "Last 7d Actual", "value": 0 },
+        { "label": "Last 28d Actual", "value": 0 }
+      ],
+      "charts": [
+        {
+          "type": "line",
+          "title": "Expenses Forecast",
+          "series": [
+            { "name": "Historical", "points": [{ "x": "YYYY-MM-DD", "y": 0 }] },
+            { "name": "Forecast", "points": [{ "x": "YYYY-MM-DD", "y": 0 }], "style": "dashed" }
+          ]
+        }
+      ],
+      "narrative": [
+        "Brief analysis of forecast based on historical spending patterns.",
+        "Second sentence with actionable budgeting insight."
+      ],
+      "actions": [
+        { "id": "download_pdf", "label": "Download PDF" },
+        { "id": "regenerate", "label": "Regenerate" }
+      ]
+    }
+
+    ## CONSTRAINTS
+    - Use ONLY provided data; never invent values.
+    - Round to 2 decimals.
+    - Narrative must reference actual numbers from the data.
+
+metadata:
+  domain: "expenses"
+  features:
+    - id: "expenses_forecast"
+      label: "Expenses Forecasting"
+      sample_prompts:
+        - "Forecast expenses for next week"
+        - "Predict expenses next 30 days"
+        - "Expenses projection for next 14 days"

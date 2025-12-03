@@ -1,0 +1,238 @@
+.planned-page { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; padding: 16px; }
+@media (max-width: 1024px) { .planned-page { grid-template-columns: 1fr; } }
+
+.planned-left {}
+.planned-right { display: flex; flex-direction: column; gap: 16px; }
+
+.planned-header { display: flex; align-items: center; justify-content: space-between; }
+.planned-updated { font-size: 12px; color: #6b7280; }
+.planned-sep { height: 1px; background: #e5e7eb; margin: 8px 0 12px; }
+
+.pp-section { margin-bottom: 18px; }
+.pp-section-title { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #6b7280; margin: 8px 0; }
+.pp-section-list { display: flex; flex-direction: column; gap: 10px; }
+
+.pp-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px;
+  display: flex; align-items: flex-start; justify-content: space-between; }
+.pp-empty { color: #6b7280; }
+
+.pp-card-left { display: flex; flex-direction: column; gap: 4px; }
+.pp-name { font-weight: 600; line-height: 1.1; }
+.pp-category { font-size: 12px; color: #6b7280; }
+
+.pp-status { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; border: 1px solid #e5e7eb; color: #374151; width: fit-content; }
+.pp-status.warn { background: #fff7ed; border-color: #fdba74; color: #9a3412; }
+.pp-status.bad { background: #fee2e2; border-color: #fecaca; color: #991b1b; }
+.pp-status.ok { background: #f8fafc; color: #334155; }
+
+.pp-card-right { display: flex; flex-direction: column; align-items: flex-end; }
+.pp-amount { font-weight: 600; }
+.pp-frequency { font-size: 10px; color: #6b7280; margin-top: 2px; text-align: right; }
+.pp-button { margin-top: 8px; border: none; background: #2563eb; color: white; padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+.pp-button:hover { background: #1d4ed8; }
+
+.pp-right-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; }
+.pp-right-title { font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+
+.pp-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.pp-stat { border: 1px solid #e5e7eb; border-radius: 12px; padding: 8px; }
+.pp-stat.alert { border-color: #fca5a5; }
+.pp-stat-label { font-size: 11px; color: #6b7280; }
+.pp-stat-value { font-weight: 600; }
+
+.pp-history { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.pp-history-row { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px dashed #e5e7eb; padding-bottom: 8px; }
+.pp-history-title { font-weight: 500; }
+.pp-history-sub { font-size: 12px; color: #6b7280; }
+.pp-history-amt { font-weight: 600; }
+
+.top-nav{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid #e5e7eb;margin-bottom:12px;background:#fff;border-radius:12px}
+.nav-link{font-size:14px;color:#374151;text-decoration:none;margin-right:12px}
+.nav-link.active{font-weight:600}
+.pp-actions{display:flex;gap:6px;margin-top:8px}
+.pp-button.ghost{background:#eef2ff;color:#1e40af}
+.pp-form label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#374151}
+.pp-form input,.pp-form select,.pp-form textarea{border:1px solid #e5e7eb;border-radius:8px;padding:8px}
+.pp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pp-span-2{grid-column:span 2}
+.pp-form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+
+.pp-progress { margin-top: 6px; display: grid; gap: 4px; }
+.pp-progress-badge {
+  display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px;
+  background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe;
+}
+.pp-progress-bar {
+  height: 6px; background: #e5e7eb; border-radius: 999px; overflow: hidden;
+}
+.pp-progress-fill { height: 100%; background: #6366f1; }
+
+.pp-progress { margin-top: 6px; display: grid; gap: 4px; }
+.pp-progress-badge {
+  display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px;
+  background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe;
+}
+
+
+.pp-right-card .pp-history-row { align-items: start; }
+.pp-right-card .pp-history-row .btn { padding: 6px 10px; font-size: 12px; }
+
+
+/* In PlannedPayments.css */
+
+.pp-form .error-message {
+  color: #c0392b; /* A strong red */
+  font-size: 0.85rem;
+  margin-top: 4px;
+  /* Ensure it sits nicely below the input */
+}
+
+.pp-form .input-error {
+  border-color: #c0392b;
+}
+
+/* Add a style for the admin actions div if needed for spacing */
+.pp-admin-actions {
+    display: flex;
+    gap: 8px; /* Space between the delete/finish buttons */
+}
+
+.calendar-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 8px;
+}
+.react-calendar {
+  border: none !important;
+  width: 100%;
+  background: transparent;
+  font-size: 0.9rem;
+}
+.react-calendar__tile {
+  padding: 0.5em 0.2em;
+}
+.react-calendar__tile--now {
+  background: #bae6fd;
+  border-radius: 6px;
+}
+.react-calendar__tile--active {
+  background: #0284c7 !important;
+  color: white !important;
+}
+
+.pp-mini-cal { display: grid; gap: 8px; }
+.pp-mini-cal-head {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.pp-mini-cal-head .pp-mini-cal-title {
+  text-align: center;
+  font-weight: 600;
+}
+.pp-mini-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.pp-mini-cal-dow {
+  font-size: 12px;
+  color: #64748b;
+  text-align: center;
+}
+.pp-mini-cal-cell {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+.pp-mini-cal-cell.empty { visibility: hidden; }
+.pp-mini-cal-cell.today { outline: 2px solid #93c5fd; outline-offset: 1px; }
+.pp-mini-cal-cell.has-due { background: #f0f9ff; }
+.pp-mini-cal-cell .date {
+  position: absolute; top: 6px; left: 8px; font-size: 12px; color: #334155;
+}
+.pp-mini-cal-cell .badge {
+  position: absolute; bottom: 6px; right: 6px;
+  min-width: 18px; padding: 0 6px; height: 18px; line-height: 18px;
+  font-size: 11px; text-align: center; border-radius: 999px;
+  background: #0284c7; color: white;
+}
+.btn.xs { padding: 2px 8px; font-size: 12px; }
+
+.pp-toggle input { transform: translateY(1px); }
+
+
+/* Reusable vertical scroll helper */
+.scroll-y {
+  max-height: 500px;      /* tweak per section if you want */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/* Slightly different height for right-side cards (tighter) */
+.scroll-y.right {
+  max-height: 260px;
+}
+
+/* Nicer thin scrollbar (webkit) */
+.scroll-y::-webkit-scrollbar { width: 8px; }
+.scroll-y::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 8px;
+}
+.scroll-y::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+
+/* KPI grid */
+.pp-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.pp-kpi {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+}
+.pp-kpi.alert { border-color: #fca5a5; background: #fff7f7; }
+.pp-kpi-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: grid; place-items: center;
+  font-weight: 700;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+.pp-kpi-label { font-size: 12px; color: #64748b; }
+.pp-kpi-value { font-size: 18px; font-weight: 700; color: #0f172a; }
+
+/* Progress block */
+.pp-progress-block { display: grid; gap: 6px; }
+.pp-progress-top {
+  display: flex; justify-content: space-between; font-size: 12px; color: #475569;
+}
+.pp-progress-bar {
+  height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden;
+}
+.pp-progress-fill {
+  height: 100%; background: #0284c7; border-radius: 999px; width: 0%;
+  transition: width 200ms ease;
+}
+.pp-progress-sub { font-size: 12px; color: #64748b; }
+
+
+
+
+
+.spinner { width:16px; height:16px; border:2px solid #e5e7eb; border-top-color:#2563eb; border-radius:50%; display:inline-block; animation:spin 1s linear infinite; margin-right:8px; }
+@keyframes spin { to { transform: rotate(360deg); } }

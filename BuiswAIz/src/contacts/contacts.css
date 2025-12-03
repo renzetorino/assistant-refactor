@@ -1,0 +1,132 @@
+/* Reuse your existing .btn, .toast, .modal styles from budget-history.css if present */
+
+/* Add Contact bar */
+.add-contact-bar { display:flex; justify-content:flex-end; margin:8px 0 16px; }
+.add-contact-form { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+.add-contact-form .stack { display:flex; flex-direction:column; gap:4px; }
+.add-contact-form .actions { display:flex; gap:8px; }
+
+/* Details card */
+.contact-details-card {
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  padding:12px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04);
+  display:grid;
+  grid-template-columns: 160px 1fr;
+  gap:8px 16px;
+}
+.contact-details-card .kv { display:contents; }
+.contact-details-card .k { color:#6b7280; }
+.contact-details-card .v { color:#111827; }
+
+/* Edit modal grid */
+.contact-edit-grid { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+
+/* Records summary */
+.records-summary { display:flex; gap:16px; margin:6px 0 10px; }
+
+/* Generic utilities (if not already in your CSS) */
+.btn { border: 1px solid #e5e7eb; background:#fff; padding:8px 12px; border-radius:10px; cursor:pointer; }
+.btn:hover { background:#f8fafc; }
+.btn.primary { background:#3b82f6; color:#fff; border-color:#3b82f6; }
+.btn.primary:hover { filter: brightness(0.95); }
+.btn.outline { background:#fff; color:#111827; }
+.btn.danger { background:#ef4444; color:#fff; border-color:#ef4444; }
+.btn.icon { background:#fff; border: none; font-size: 18px; line-height: 1; padding: 4px 8px; }
+.btn.xs { font-size: 12px; padding: 4px 8px; border-radius:8px; }
+
+.toast-stack {
+  position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; z-index: 9999;
+}
+.toast {
+  padding: 10px 12px; border-radius: 10px; border: 1px solid #e5e7eb; background: #fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,.05);
+}
+.toast.success { border-color: #16a34a; background: #ecfdf5; color:#065f46; }
+.toast.error   { border-color: #ef4444; background: #fef2f2; color:#7f1d1d; }
+.toast.info    { border-color: #3b82f6; background: #eff6ff; color:#1e3a8a; }
+
+.muted { color:#6b7280; }
+.capitalize { text-transform: capitalize; }
+
+
+.contact-search {
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  min-width: 220px;
+  background: #fff;
+}
+.contact-search:focus {
+  outline: none;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.15);
+}
+
+/* Fixed-height scroll for tab contents (Expenses / Budget change log / Pie) */
+.logs-scroll {
+  max-height: 30vh;
+  overflow: auto;
+  padding-right: 6px;
+}
+@media (min-width: 768px) {
+  .logs-scroll { max-height: 30vh; }
+}
+
+
+.contact-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 640px) {
+  .contact-edit-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* --- Contact modal input polish --- */
+.modal .input,
+.modal input[type="text"],
+.modal input[type="email"],
+.modal input[type="tel"] {
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;           /* rounded corners */
+  background: #fff;
+  font-size: 14px;
+  outline: none;
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
+.modal .input:focus,
+.modal input[type="text"]:focus,
+.modal input[type="email"]:focus,
+.modal input[type="tel"]:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.15);
+}
+
+/* Edit/Add Contact form should span the full modal width */
+.contact-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr;   /* one full-width column */
+  gap: 12px;
+  width: 100%;
+}
+
+/* Each field spans the whole grid, even if parent gets multi-col later */
+.contact-edit-grid > .stack {
+  grid-column: 1 / -1;
+}
+
+/* Ensure inputs actually stretch edge-to-edge nicely */
+.contact-edit-grid .input,
+.contact-edit-grid input[type="text"],
+.contact-edit-grid input[type="email"],
+.contact-edit-grid input[type="tel"] {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+
+

@@ -1,0 +1,110 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "embeddingModel": "all-MiniLM-L6-v2",
+    "embeddingDimensions": 384,
+    "lastUpdated": "2025-11-17T00:00:00Z"
+  },
+  "examples": [
+    {
+      "id": 1,
+      "input": "yo",
+      "intent": "chitchat",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["greeting", "informal"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 2,
+      "input": "hello",
+      "intent": "chitchat",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["greeting"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 3,
+      "input": "show sales report",
+      "intent": "reports.sales",
+      "domain": "sales",
+      "confidence": 0.95,
+      "tags": ["report", "sales"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 4,
+      "input": "sales report for October",
+      "intent": "reports.sales",
+      "domain": "sales",
+      "confidence": 0.95,
+      "tags": ["report", "sales", "period"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 5,
+      "input": "forecast sales next week",
+      "intent": "forecast.sales",
+      "domain": "sales",
+      "confidence": 0.95,
+      "tags": ["forecast", "sales", "future"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 6,
+      "input": "predict expenses",
+      "intent": "forecast.expenses",
+      "domain": "expenses",
+      "confidence": 0.95,
+      "tags": ["forecast", "expenses"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 7,
+      "input": "How do I create a report?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "help", "how_to"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 8,
+      "input": "How to cook eggs?",
+      "intent": "out_of_scope",
+      "domain": null,
+      "confidence": 0.98,
+      "tags": ["out_of_scope", "cooking"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 9,
+      "input": "inventory report",
+      "intent": "reports.inventory",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["report", "inventory"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 10,
+      "input": "expense report for last month",
+      "intent": "reports.expenses",
+      "domain": "expenses",
+      "confidence": 0.95,
+      "tags": ["report", "expenses", "period"],
+      "context": null,
+      "embedding": []
+    }
+  ]
+}

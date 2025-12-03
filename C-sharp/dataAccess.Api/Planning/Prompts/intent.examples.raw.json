@@ -1,0 +1,700 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "embeddingModel": "",
+    "embeddingDimensions": 0,
+    "lastUpdated": "2025-11-17T00:00:00Z"
+  },
+  "examples": [
+    {
+      "id": 1,
+      "input": "How can I make a soft boiled egg?",
+      "intent": "out_of_scope",
+      "domain": null,
+      "confidence": 0.98,
+      "tags": ["out_of_scope", "cooking"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 2,
+      "input": "What is the height of a giraffe?",
+      "intent": "out_of_scope",
+      "domain": null,
+      "confidence": 0.98,
+      "tags": ["out_of_scope", "trivia"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 3,
+      "input": "Tell me a joke",
+      "intent": "out_of_scope",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["out_of_scope", "entertainment"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 4,
+      "input": "How to bake a cake?",
+      "intent": "out_of_scope",
+      "domain": null,
+      "confidence": 0.98,
+      "tags": ["out_of_scope", "cooking"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 5,
+      "input": "Who is the president of the Philippines?",
+      "intent": "out_of_scope",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["out_of_scope", "trivia"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 6,
+      "input": "How do I create a forecast?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "how-to", "forecast"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 7,
+      "input": "What is the budget feature?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "feature-inquiry"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 8,
+      "input": "Help me with inventory management",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "help", "inventory"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 9,
+      "input": "Paano mag-reset ng password?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "account", "taglish"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 10,
+      "input": "Explain the dashboard metrics",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.92,
+      "tags": ["faq", "dashboard"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 11,
+      "input": "How to track expenses?",
+      "intent": "faq",
+      "domain": "expenses",
+      "confidence": 0.95,
+      "tags": ["faq", "expenses", "how-to"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 12,
+      "input": "What is forecasting in this system?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.9,
+      "tags": ["faq", "forecast", "feature-inquiry"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 13,
+      "input": "How can I generate sales reports?",
+      "intent": "faq",
+      "domain": "sales",
+      "confidence": 0.95,
+      "tags": ["faq", "sales", "reports", "how-to"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 14,
+      "input": "How can I make a sales report for October?",
+      "intent": "faq",
+      "domain": "sales",
+      "confidence": 0.95,
+      "tags": ["faq", "sales", "reports", "how-to"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 15,
+      "input": "How can I create a report?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "reports", "how-to"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 16,
+      "input": "How do I generate reports?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "reports", "how-to"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 17,
+      "input": "How to make expense reports?",
+      "intent": "faq",
+      "domain": "expenses",
+      "confidence": 0.95,
+      "tags": ["faq", "expenses", "reports", "how-to"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 18,
+      "input": "I need support with sales projections",
+      "intent": "faq",
+      "domain": "sales",
+      "confidence": 0.9,
+      "tags": ["faq", "sales", "support"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 19,
+      "input": "Help me understand the report feature",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.9,
+      "tags": ["faq", "reports", "help"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 20,
+      "input": "What is the report dashboard?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.88,
+      "tags": ["faq", "reports", "dashboard"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 21,
+      "input": "How accurate is the forecasting?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "forecast", "accuracy"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 22,
+      "input": "predict sales next week",
+      "intent": "forecasting",
+      "domain": "sales",
+      "confidence": 0.95,
+      "tags": ["forecast", "sales", "future"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 23,
+      "input": "forecast expenses for next 7 days",
+      "intent": "forecasting",
+      "domain": "expenses",
+      "confidence": 0.95,
+      "tags": ["forecast", "expenses", "future"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 24,
+      "input": "predict expenses for next week",
+      "intent": "forecasting",
+      "domain": "expenses",
+      "confidence": 0.95,
+      "tags": ["forecast", "expenses", "future"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 25,
+      "input": "expenses forecast next 14 days",
+      "intent": "forecasting",
+      "domain": "expenses",
+      "confidence": 0.95,
+      "tags": ["forecast", "expenses", "future"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 26,
+      "input": "gastos projection 14 days",
+      "intent": "forecasting",
+      "domain": "expenses",
+      "confidence": 0.92,
+      "tags": ["forecast", "expenses", "taglish"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 27,
+      "input": "sales projection next month",
+      "intent": "forecasting",
+      "domain": "sales",
+      "confidence": 0.95,
+      "tags": ["forecast", "sales", "future"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 28,
+      "input": "create this month's expense report",
+      "intent": "report",
+      "domain": "expenses",
+      "confidence": 0.95,
+      "tags": ["report", "expenses", "imperative"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 29,
+      "input": "generate sales report for October",
+      "intent": "report",
+      "domain": "sales",
+      "confidence": 0.95,
+      "tags": ["report", "sales", "imperative"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 30,
+      "input": "generate report",
+      "intent": "report",
+      "domain": null,
+      "confidence": 0.92,
+      "tags": ["report", "imperative"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 31,
+      "input": "make me a sales dashboard",
+      "intent": "report",
+      "domain": "sales",
+      "confidence": 0.92,
+      "tags": ["report", "sales", "dashboard"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 32,
+      "input": "create sales report",
+      "intent": "report",
+      "domain": "sales",
+      "confidence": 0.95,
+      "tags": ["report", "sales", "imperative"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 33,
+      "input": "generate expense summary for last month",
+      "intent": "report",
+      "domain": "expenses",
+      "confidence": 0.93,
+      "tags": ["report", "expenses", "imperative"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 34,
+      "input": "build revenue dashboard",
+      "intent": "report",
+      "domain": "sales",
+      "confidence": 0.92,
+      "tags": ["report", "sales", "dashboard"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 35,
+      "input": "show daily sales for last week",
+      "intent": "nlq",
+      "domain": "sales",
+      "confidence": 0.9,
+      "tags": ["nlq", "sales", "historical"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 36,
+      "input": "sales this month so far",
+      "intent": "nlq",
+      "domain": "sales",
+      "confidence": 0.9,
+      "tags": ["nlq", "sales", "current"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 37,
+      "input": "total sales from 2025-09-15 to 2025-09-30",
+      "intent": "nlq",
+      "domain": "sales",
+      "confidence": 0.9,
+      "tags": ["nlq", "sales", "date-range"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 38,
+      "input": "compare revenue last week vs the week before",
+      "intent": "nlq",
+      "domain": "sales",
+      "confidence": 0.85,
+      "tags": ["nlq", "sales", "comparison"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 39,
+      "input": "any expense spikes in the last 14 days?",
+      "intent": "nlq",
+      "domain": "expenses",
+      "confidence": 0.85,
+      "tags": ["nlq", "expenses", "anomaly"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 40,
+      "input": "what can you do?",
+      "intent": "chitchat",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["chitchat", "capabilities"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 41,
+      "input": "hi",
+      "intent": "chitchat",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["chitchat", "greeting"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 42,
+      "input": "hello",
+      "intent": "chitchat",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["chitchat", "greeting"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 43,
+      "input": "kumusta",
+      "intent": "chitchat",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["chitchat", "greeting", "taglish"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 44,
+      "input": "thank you",
+      "intent": "chitchat",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["chitchat", "gratitude"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 45,
+      "input": "how about inventory?",
+      "intent": "reports.inventory",
+      "domain": null,
+      "confidence": 0.9,
+      "tags": ["report", "inventory", "follow-up"],
+      "context": "Previous: assistant: Here's your sales report for October 2025 [Slots: period_start=2025-10-01, period_end=2025-10-31]",
+      "embedding": []
+    },
+    {
+      "id": 46,
+      "input": "what about expenses?",
+      "intent": "forecasting",
+      "domain": "expenses",
+      "confidence": 0.9,
+      "tags": ["forecast", "expenses", "follow-up"],
+      "context": "Previous: User asked 'forecast sales next week', system provided forecast",
+      "embedding": []
+    },
+    {
+      "id": 47,
+      "input": "and for last month?",
+      "intent": "nlq",
+      "domain": "sales",
+      "confidence": 0.85,
+      "tags": ["nlq", "sales", "follow-up"],
+      "context": "Previous: User asked 'show sales this month', system showed current month sales",
+      "embedding": []
+    },
+    {
+      "id": 48,
+      "input": "forecast next week",
+      "intent": "forecasting",
+      "domain": null,
+      "confidence": 0.85,
+      "tags": ["forecast", "context-switch"],
+      "context": "Previous: User asked 'show sales for today', system responded with sales data",
+      "embedding": []
+    },
+    {
+      "id": 49,
+      "input": "How many blue shirts did I sell yesterday?",
+      "intent": "dynamic_sql_query",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["dynamic_sql", "specific-query", "product-filter"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 50,
+      "input": "List all products under P100",
+      "intent": "dynamic_sql_query",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["dynamic_sql", "specific-query", "price-filter"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 51,
+      "input": "Which supplier has the most orders?",
+      "intent": "dynamic_sql_query",
+      "domain": null,
+      "confidence": 0.9,
+      "tags": ["dynamic_sql", "specific-query", "ranking"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 52,
+      "input": "What items were sold at 3pm today?",
+      "intent": "dynamic_sql_query",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["dynamic_sql", "specific-query", "time-filter"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 53,
+      "input": "Show me all expenses over P5000 last month",
+      "intent": "dynamic_sql_query",
+      "domain": null,
+      "confidence": 0.92,
+      "tags": ["dynamic_sql", "specific-query", "amount-filter"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 54,
+      "input": "Which item was the most sold?",
+      "intent": "dynamic_sql_query",
+      "domain": null,
+      "confidence": 0.9,
+      "tags": ["dynamic_sql", "specific-query", "ranking", "follow-up"],
+      "context": "Previous: User asked 'show sales for today'",
+      "embedding": []
+    },
+    {
+      "id": 55,
+      "input": "Show me the sales report",
+      "intent": "reports.sales",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["report", "sales", "critical"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 56,
+      "input": "sales report for last week",
+      "intent": "reports.sales",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["report", "sales", "date", "critical"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 57,
+      "input": "show sales report for october",
+      "intent": "reports.sales",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["report", "sales", "date", "critical"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 58,
+      "input": "inventory",
+      "intent": "reports.inventory",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["report", "inventory", "critical"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 59,
+      "input": "inventory report",
+      "intent": "reports.inventory",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["report", "inventory", "critical"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 60,
+      "input": "expense report for last month",
+      "intent": "reports.expenses",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["report", "expenses", "date", "critical"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 61,
+      "input": "show me sales report for this week",
+      "intent": "reports.sales",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["report", "sales", "date", "critical"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 62,
+      "input": "generate inventory report",
+      "intent": "reports.inventory",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["report", "inventory", "imperative", "critical"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 63,
+      "input": "paano naman ang expenses ko?",
+      "intent": "reports.expenses",
+      "domain": null,
+      "confidence": 0.9,
+      "tags": ["report", "expenses", "taglish", "follow-up"],
+      "context": "Previous: User discussed October sales report",
+      "embedding": []
+    },
+    {
+      "id": 64,
+      "input": "sales forecast for next month",
+      "intent": "forecast.sales",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["forecast", "sales", "future", "critical"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 65,
+      "input": "forecast sales",
+      "intent": "forecast.sales",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["forecast", "sales", "critical"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 66,
+      "input": "predict expenses next week",
+      "intent": "forecast.expenses",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["forecast", "expenses", "future", "critical"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 67,
+      "input": "How much did we earn from blue shirts last month?",
+      "intent": "dynamic_sql_query",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["dynamic_sql", "specific-query", "product-filter"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 68,
+      "input": "List all products with stock less than 10",
+      "intent": "dynamic_sql_query",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["dynamic_sql", "specific-query", "inventory-filter"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 69,
+      "input": "Which vendor supplied the most items?",
+      "intent": "dynamic_sql_query",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["dynamic_sql", "specific-query", "supplier-ranking"],
+      "context": null,
+      "embedding": []
+    }
+  ]
+}

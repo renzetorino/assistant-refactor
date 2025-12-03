@@ -1,0 +1,614 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+body {
+  background-color: #f6f9ff;
+  color: #333;
+  line-height: 1.5;
+}
+
+/* Supplier Page Layout */
+.supplier-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Main Section */
+.main-section {
+  display: flex;
+  flex: 1;
+  height: calc(100vh - 60px);
+  overflow: hidden;
+}
+
+/* Main Content */
+.S-main-content {
+  flex: 1;
+  display: flex;
+  padding: 24px;
+  gap: 20px;
+  overflow: hidden;
+  height: calc(100vh - 60px);
+}
+
+/* Supplier Panel */
+.supplier-panel {
+  flex: 2;
+  background: #fff;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.panel-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #222;
+}
+
+.supplier-container {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid #eee;
+  border-radius: 12px;
+}
+.supplier-container::-webkit-scrollbar {
+  width: 6px;
+}
+.supplier-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+.supplier-container::-webkit-scrollbar-thumb {
+  background: #04B4FC;
+  border-radius: 3px;
+}
+
+/* Search Input */
+.supplier-search {
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  font-size: 14px;
+  width: 240px;
+  color: #333;
+  transition: border 0.2s ease;
+}
+
+.supplier-search:focus {
+  outline: none;
+  border-color: #04B4FC;
+  box-shadow: 0 0 0 3px rgba(4, 180, 252, 0.15);
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-spacing: 0 10px;
+}
+
+thead th {
+  width: 150px; 
+  text-align: left;
+  font-size: 13px;
+  color: #666;
+  padding: 10px 6px;
+  font-weight: 600;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+tbody td {
+  height: 50px;
+  text-align: center;
+  vertical-align: middle;
+  background-color: #f0f4fa;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #444;
+}
+
+tbody tr {
+  height: 50px; /* fixed row height */
+}
+
+tbody tr td {
+  background: #f0f4fa;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.3s ease;
+}
+
+tbody tr:hover td {
+  background-color: #e8f0fe;
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+}
+
+.status-active {
+  color: #22543d;
+  background-color: #c6f6d5;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.status-inactive {
+  color: #742a2a;
+  background-color: #fed7d7;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+
+/* Placeholder rows */
+.table-placeholder {
+  height: 36px;
+  background: #dfe7f3;
+  border-radius: 8px;
+}
+
+/* Right Panel */
+.S-right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+/* Add Supplier Button */
+.add-supplier-button {
+  background-color: #04B4FC;
+  color: #fff;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 12px rgba(4, 180, 252, 0.2);
+}
+
+.add-supplier-button:hover {
+  background-color: #91c3d7;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(4, 180, 252, 0.25);
+}
+
+/* User Info Card */
+.S-user-info-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #fff;
+  border-radius: 16px;
+  padding: 12px 18px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  height: 64px;
+}
+
+.S-user-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.S-user-avatar {
+  width: 40px;
+  height: 40px;
+  background-color: #dbeafe;
+  border-radius: 50%;
+}
+
+.S-user-username {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+/* Supply Returned Panel */
+.supply-returned-panel {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+  flex: 1;
+  min-height: 0;
+  max-height: 50%;
+}
+
+.returned-container {
+  flex: 1;
+  overflow-y: auto;
+  border-radius: 8px;
+  max-height: 100%;
+}
+
+.returned-container::-webkit-scrollbar {
+  width: 6px;
+}
+.returned-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+.returned-container::-webkit-scrollbar-thumb {
+  background: #04B4FC;
+  border-radius: 3px;
+}
+
+.returned-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.returned-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+/* Supplier Info Row */
+.supplier-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.supplier-name {
+  font-weight: 600;
+  color: #333;
+}
+
+.returned-count {
+  font-weight: 700;
+  color: #04B4FC;
+}
+
+/* Progress Bar */
+.progress-bar {
+  background: #f1f3f5;
+  border-radius: 6px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #04B4FC, #0077cc);
+  border-radius: 6px;
+  width: 0; /* set dynamically with JS */
+  transition: width 0.4s ease-in-out;
+}
+
+.supplier-stats-panel {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+  flex: 1;
+  min-height: 0;
+  max-height: 50%;
+}
+
+.supplier-stats-panel:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+}
+
+.S-stats-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;    /* adds vertical scroll when content exceeds height */
+  overflow-x: hidden;  /* prevent horizontal scroll */
+  max-width: 100%;
+  height: 400px;
+}
+
+.S-stats-container::-webkit-scrollbar {
+  width: 6px;
+}
+.S-stats-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+.S-stats-container::-webkit-scrollbar-thumb {
+  background: #04B4FC;
+  border-radius: 3px;
+}
+
+.S-stats-row {
+  display: grid;
+   grid-template-columns: 1fr 150px 60px;
+  align-items: center;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: background 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.S-stats-row:hover {
+  background: #edf2f7;
+}
+
+.S-stats-row .supplier-name {
+  font-weight: 500;
+  color: #1a202c;
+  overflow: hidden;          /* ✅ no spill */
+  text-overflow: ellipsis;   /* ✅ adds "..." for long names */
+  white-space: nowrap;
+}
+
+.S-stats-row .supplier-status {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 500;
+  text-transform: capitalize;
+  margin-left: 10px;
+  white-space: nowrap;
+}
+
+.S-stats-row .supplier-status.Active {
+  background: #c6f6d5;
+  color: #22543d;
+}
+
+.S-stats-row .supplier-status.Inactive {
+  background: #fed7d7;
+  color: #742a2a;
+}
+
+.S-stats-row .product-count {
+  font-weight: 600;
+  color: #2b6cb0;
+  margin-left: 10px;
+  white-space: nowrap;
+}
+
+/* Side-by-side layout */
+.orders-tables-grid {
+  display: flex;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Each table wrapper */
+.orders-table-wrapper {
+  flex: 1;
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 10px;
+  min-height: 300px; /* fixed minimum height */
+  display: flex;
+  flex-direction: column;
+  border: none
+}
+
+/* Scrollable table inside wrapper */
+.table-scroll {
+  overflow-y: auto;
+  flex: 1;
+  border: 1px solid #ccc;
+}
+
+/* Table styles */
+.table-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* Remove borders for clean look */
+.table-scroll th,
+.table-scroll td,
+.table-scroll table {
+  padding: 8px;
+  text-align: left;
+}
+
+.table-scroll th:first-child {
+  border-top-left-radius: 12px; /* top-left corner */
+}
+
+.table-scroll th:last-child {
+  border-top-right-radius: 12px; /* top-right corner */
+}
+
+.mark-received-btn {
+  background-color: #04B4FC; 
+  color: #fff;               
+  border: none;              
+  padding: 6px 12px;         
+  border-radius: 6px;        
+  cursor: pointer;           
+  font-weight: 600;          
+  font-size: 0.9rem;         
+  transition: background 0.2s ease, transform 0.1s ease; 
+}
+
+/* Hover effect */
+.mark-received-btn:hover {
+  background-color: #91c3d7; /* Darker green */
+  transform: translateY(-1px); /* Slight lift */
+}
+/* Status colors */
+.status-pending { color: blue; }
+.status-rejected { color: red; }
+
+
+/* Status colors */
+.status-confirmed { color: orange; }
+.status-pending { color: blue; }
+.status-rejected { color: red; }
+.status-received { color: green; }
+
+
+/* Modal overlay */
+.sup-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+/* Modal box */
+.modal-box {
+  background: #fff;
+  padding: 25px 30px;
+  border-radius: 12px;
+  width: 400px;
+  max-width: 90%;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+  animation: slideIn 0.3s ease-out;
+}
+
+/* Modal animation */
+@keyframes slideIn {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Labels & inputs */
+.modal-box label {
+  display: block;
+  margin-top: 15px;
+  font-weight: 500;
+}
+
+.modal-box input {
+  width: 100%;
+  padding: 8px 10px;
+  margin-top: 5px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  outline: none;
+  transition: border 0.2s;
+}
+
+.modal-box input:focus {
+  border-color: #007bff;
+}
+
+/* Error message */
+.modal-error {
+  color: red;
+  margin-top: 10px;
+  font-size: 0.9rem;
+}
+
+/* Footer buttons */
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+  gap: 10px;
+}
+
+.btn-confirm {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-confirm:hover {
+  background-color: #0056b3;
+}
+
+.btn-cancel {
+  background-color: #ccc;
+  color: #333;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-cancel:hover {
+  background-color: #aaa;
+}
+
+/* Modal Buttons */
+.received-btn, .cancel-sup-btn {
+  padding: 10px 18px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-right: 10px;
+  min-width: 120px;
+  margin-top: 15px;
+  border: 1px solid #D0D5DD
+}
+
+/* Confirm Receive Button - Green */
+.received-btn {
+  background-color: #04B4FC;
+  color: white;
+}
+
+.received-btn:hover {
+  background-color: #91c3d7;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+/* Cancel Button - Red / Neutral */
+.cancel-sup-btn {
+  background-color: white;
+  color: black;
+}
+
+.cancel-sup-btn:hover {
+  background-color: #e53935;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+/* Optional: make disabled state look muted */
+.received-btn:disabled, .cancel-sup-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}

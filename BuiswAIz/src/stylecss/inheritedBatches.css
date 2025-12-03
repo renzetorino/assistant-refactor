@@ -1,0 +1,120 @@
+/* Panel Container */
+.inherited-batches-panel {
+  margin-top: 20px;
+  padding: 20px;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  min-height: 400px;
+  max-height: 600px;
+}
+
+/* Panel Title */
+.inherited-batches-panel h3 {
+  font-size: 17px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 16px;
+  letter-spacing: 0.3px;
+}
+
+/* Table Wrapper */
+.restock-container {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 350px;
+  border-radius: 14px;
+  border: 1px solid #e0e6f0;
+  background: #fafcff;
+  max-height: 350px;
+}
+
+
+.restock-container::-webkit-scrollbar {
+  width: 6px;
+}
+.restock-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+.restock-container::-webkit-scrollbar-thumb {
+  background: #04B4FC;
+  border-radius: 3px;
+}
+/* Table Styling */
+.restock-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 10px; /* Row spacing */
+  font-size: 14px;
+  color: #444;
+}
+
+/* Table Headers */
+.restock-table th {
+  background-color: #d6f1fb; /* keep same header blue */
+  font-weight: 600;
+  font-size: 13px;
+  color: #444;
+  text-align: left;
+  padding: 12px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-bottom: 1px solid #e0e6f0;
+}
+
+/* Rounded Corners for Header */
+.restock-table th:first-child {
+  border-top-left-radius: 12px;
+}
+
+.restock-table th:last-child {
+  border-top-right-radius: 12px;
+}
+
+/* Table Cells */
+.restock-table td {
+  font-size: 13px;
+  padding: 12px 14px;
+  color: #333;
+  background-color: #f9f9f9;
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  transition: background-color 0.2s ease, transform 0.15s ease;
+}
+
+/* Row Hover Effect */
+.restock-table tr:hover td {
+  background-color: #e8f0fe; /* keep your original hover blue */
+  transform: scale(1.01);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* Optional striped rows for readability */
+.restock-table tr:nth-child(even) td {
+  background-color: #f4f9fd; /* light blue-gray */
+}
+
+/* First column emphasis */
+.restock-table td:first-child {
+  font-weight: 500;
+  color: #222;
+}
+
+/* Responsive */
+@media screen and (max-width: 900px) {
+  .inherited-batches-panel {
+    padding: 15px;
+  }
+
+  .restock-table th,
+  .restock-table td {
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+}

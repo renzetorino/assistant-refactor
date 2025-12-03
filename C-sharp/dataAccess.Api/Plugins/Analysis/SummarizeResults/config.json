@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "type": "completion",
+  "description": "Converts JSON database results into natural, conversational Filipino/Taglish responses",
+  "execution_settings": {
+    "smart-llm": {
+      "model_id": "llama-3.3-70b-versatile",
+      "temperature": 0.7,
+      "max_tokens": 300,
+      "top_p": 1.0,
+      "frequency_penalty": 0.0,
+      "presence_penalty": 0.0
+    }
+  },
+  "input_variables": [
+    {
+      "name": "input",
+      "description": "User's original natural language query",
+      "is_required": true
+    },
+    {
+      "name": "data",
+      "description": "JSON results from database query execution",
+      "is_required": true
+    }
+  ]
+}

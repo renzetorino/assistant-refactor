@@ -1,0 +1,957 @@
+/* Reset and base styling */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+body {
+  background-color: #f6f9ff;
+  color: #1e293b;
+}
+
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Fixed-height, scrollable table wrapper */
+.table-scroll {
+  max-height: 420px;           /* adjust to your design */
+  overflow: auto;
+  border-radius: 12px;
+}
+
+/* Keep header visible while scrolling */
+.expense-table thead th {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
+  border-bottom: 1px solid #eef2f7;
+}
+
+/* Slightly denser rows to fit more in the viewport */
+.expense-table td { border-bottom: 1px solid #f1f5f9; }
+
+/* Tiny buttons already present; ensure danger variant for delete */
+.btn.danger {
+  background: #ef4444;
+  color: #fff;
+  border: 1px solid #ef4444;
+}
+.btn.danger:hover { background: #dc2626; border-color: #dc2626; }
+
+/* Main Layout */
+.main-section {
+  display: flex;
+  flex: 1;
+  height: calc(100vh - 60px);
+}
+
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #0084ff;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.react-calendar__tile:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+
+.nav ul { list-style: none; }
+.nav li {
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  color: #333;
+  cursor: pointer;
+}
+.nav a { text-decoration: none; color: inherit; display: block; }
+.nav li:hover, .nav li.active { background-color: #04B4FC; color: white; }
+
+/* Main Content */
+.main {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  background-color: #f6f9ff;
+}
+
+/* Summary Cards */
+.top-summary {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.summary-card {
+  flex: 1;
+  background-color: #ffffff;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* Action Group */
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.action-group button,
+.panel-action-button {
+  background-color: #04B4FC;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.action-group button:hover,
+.panel-action-button:hover { background-color: #5d93c9; }
+
+.budget-group input {
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  font-size: 13px;
+  width: 180px;
+  color: #333;
+}
+
+/* Table */
+.expense-table table {
+  width: 100%;
+  border-spacing: 0 12px;
+  background-color: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+}
+.expense-table th,
+.expense-table td {
+  padding: 1rem;
+  text-align: center;
+  vertical-align: middle;
+  font-size: 13px;
+  color: #1e293b;
+}
+.expense-table th { color: #888; }
+
+/* Buttons inside summary cards */
+.summary-card button {
+  background-color: #04B4FC;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  margin-right: 8px;
+}
+.summary-card button:hover { background-color: #5d93c9; }
+
+/* Table buttons */
+.table-btn.delete {
+  background-color: #ef4444;
+  border: none;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.table-btn.edit.primary {
+  background-color: #04B4FC;
+  border: none;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.table-btn.edit.primary:hover { background-color: #5d93c9; }
+
+/* Charts and Calendar */
+.chart-and-calendar {
+  display: flex;
+  gap: 20px;
+  margin-top: 24px;
+}
+.upload-btn {
+  background-color: #3b82f6;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-block;
+  margin-left: 10px;
+}
+.upload-btn:hover { background-color: #2563eb; }
+.chart-container, .calendar-container {
+  background-color: white;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+}
+.chart-container { flex: 3; }
+.calendar-container { flex: 1; }
+
+.react-calendar__tile,
+.react-calendar__month-view__days__day--neighboringMonth,
+.react-calendar__navigation__label,
+.react-calendar__navigation__arrow {
+  color: #1e293b !important;
+  opacity: 1 !important;
+}
+.react-calendar__navigation__label { font-weight: 600; }
+.react-calendar__navigation__arrow { font-size: 1.2rem; }
+
+/* =========================
+   Upgraded Modal Styling
+   ========================= */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.40);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+.modal-overlay.fancy {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+/* Card-like modal sheet with header/body/footer */
+.modal.sheet {
+  display: flex;
+  flex-direction: column;
+  max-height: min(86vh, 820px); /* limit total height to viewport */
+  width: 100%;
+  max-width: 800px;
+  padding: 0; /* sections handle padding */
+  border-radius: 16px;
+  box-shadow: 0 30px 80px rgba(2, 6, 23, 0.25);
+  background: #fff;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #eef2f7;
+  background: #fff;
+}
+.modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+.icon-btn {
+  border: none;
+  background: #f1f5f9;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  line-height: 36px;
+  text-align: center;
+  cursor: pointer;
+}
+.icon-btn:hover { background: #e2e8f0; }
+
+.modal-body { 
+  padding: 16px 18px; 
+  background: #fff;
+  overflow: auto;  
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 18px 18px;
+  border-top: 1px solid #eef2f7;
+  background: #fff;
+}
+
+/* Fields */
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.fields-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 560px) {
+  .fields-grid { grid-template-columns: 1fr 1fr; }
+}
+.field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: .02em;
+}
+.field input {
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+  color: #0f172a;
+  outline: none;
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
+.field input:focus {
+  border-color: #04B4FC;
+  box-shadow: 0 0 0 3px rgba(4, 180, 252, .15);
+}
+.hint { font-size: 12px; color: #94a3b8; }
+
+.field select,
+.field textarea {
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+  color: #0f172a;
+  outline: none;
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
+.field select:focus,
+.field textarea:focus {
+  border-color: #04B4FC;
+  box-shadow: 0 0 0 3px rgba(4, 180, 252, .15);
+}
+
+/* Nicer native select with custom caret */
+.field select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 20 20'><path fill='%2364748b' d='M5.8 7.5l4.2 4.2 4.2-4.2 1.4 1.4-5.6 5.6-5.6-5.6z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+  padding-right: 36px;
+}
+
+/* Better file input styling */
+.field input[type="file"] {
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+  padding: 10px;
+  border-radius: 12px;
+}
+.field input[type="file"]::file-selector-button {
+  border: none;
+  background: #0ea5e9;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-right: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.field input[type="file"]::file-selector-button:hover {
+  background: #0284c7;
+}
+
+
+
+
+
+/* Buttons (shared) */
+.btn {
+  border: none;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+.btn.primary { background: #04B4FC; color: #fff; transition: background .15s ease; }
+.btn.primary:hover { background: #0596d3; }
+.btn.secondary { background: #e5e7eb; color: #0f172a; }
+.btn.secondary:hover { background: #d1d5db; }
+
+/* Entrance animation */
+.animate-in { animation: modalPop .18s ease-out; }
+@keyframes modalPop {
+  from { transform: translateY(8px) scale(0.98); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* =========================
+   Budget History Modal Shell
+   ========================= */
+.bh-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  backdrop-filter: blur(2px);
+}
+.bh-modal-card {
+  width: min(1100px, 96vw);
+  max-height: 90vh;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 30px 80px rgba(2, 6, 23, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.bh-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eee;
+  background: #fff;
+}
+.bh-modal-body { padding: 0; overflow: auto; }
+
+/* Reuse existing close style from budget-history.css */
+.bh-close {
+  border: none;
+  background: #f3f4f6;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* ===== Toolbar (actions row) ===== */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0 22px;
+}
+
+
+
+
+
+/* Make the actions row stick to the top of the scrolling main pane */
+.toolbar.sticky {
+  position: sticky;
+  top: 0;                    /* sticks within .main (which is the scroll container) */
+  z-index: 20;               /* above cards/table */
+  background: #f6f9ff;       /* match page background so it blends */
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  padding-block: 10px;
+  margin-top: 0;             /* avoid extra gap when stuck */
+  border-bottom: 1px solid #e5e7eb;  /* subtle divider */
+}
+
+/* Optional: add a very light shadow so it reads as a pinned bar */
+.toolbar.sticky::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -1px; height: 1px;
+  box-shadow: 0 6px 12px rgba(2, 6, 23, 0.06);
+}
+
+
+/* expense dashboard table */
+.table-scroll {
+  height: 420px;        /* force an inner scroll area */
+  overflow: auto;       /* vertical scroll lives here */
+  border-radius: 12px;
+}
+
+.table-scroll table {
+  width: 100%;
+  border-collapse: separate;  /* needed for sticky header reliability */
+  border-spacing: 0;
+}
+
+
+/* keep header visible while the tbody scrolls */
+.expense-table .table-scroll thead th {
+  position: sticky;
+  top: 0;                 /* stick to the top of .table-scroll */
+  z-index: 2;             /* above rows */
+  background: #fff;       /* cover rows passing underneath */
+  border-bottom: 1px solid #eef2f7;
+}
+
+
+/* --- Make the Expenses table behave like Sales --- */
+
+/* Same scroll container as Sales */
+.expense-table .Ex-table-scroll-box {
+  overflow-y: auto;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #04B4FC #f1f1f1;
+  max-height: 500px;       /* same vertical height */
+  background-color: #fff;  /* same background */
+}
+
+/* Match Sales header style + stickiness */
+.expense-table table {
+  width: 100%;
+  border-collapse: collapse;
+  color: black;
+  font-family: 'Montserrat', sans-serif; /* visually match Sales */
+}
+
+.expense-table th,
+.expense-table td {
+  padding: 12px;
+  text-align: center;
+  font-size: 14px;
+  border-bottom: 1px solid #fff;
+}
+
+.expense-table thead th {
+  background-color: rgb(214, 241, 251); /* same pale blue */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* Keep first column left-aligned like Sales product name */
+.expense-table table th:first-child,
+.expense-table table td:first-child {
+  text-align: left;
+}
+
+
+
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+}
+
+/* Segmented group for secondary actions (Edit Budget / Budget History) */
+.button-group {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(2, 6, 23, 0.04);
+}
+.button-group .btn {
+  border: 0;
+  border-right: 1px solid #e5e7eb;
+  border-radius: 0;
+  min-width: 140px;
+  padding: 10px 14px;
+}
+.button-group .btn:last-child { border-right: 0; }
+
+/* Core button styles reused across the page */
+.btn {
+  border: none;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Variants */
+.btn.primary {
+  background: #04B4FC;
+  color: #fff;
+  transition: background .15s ease;
+}
+.btn.primary:hover { background: #0596d3; }
+
+.btn.ghost {
+  background: #fff;
+  color: #0f172a;
+  border: 1px solid transparent; /* for consistent height */
+}
+.button-group .btn.ghost:hover { background: #f8fafc; }
+
+/* Compact sizes for table actions */
+.btn.xs { padding: 6px 10px; font-size: 12px; border-radius: 8px; }
+
+.btn.outline {
+  background: #fff;
+  color: #0f172a;
+  border: 1px solid #e5e7eb;
+}
+.btn.outline:hover { background: #f8fafc; }
+
+.btn.danger {
+  background: #ef4444;
+  color: #fff;
+  border: 1px solid #ef4444;
+}
+.btn.danger:hover { background: #dc2626; border-color: #dc2626; }
+
+/* ===== Table action column layout ===== */
+.col-actions { width: 180px; }
+.table-actions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;   /* keep centered with your current table alignment */
+}
+
+/* ===== Responsive tweaks ===== */
+@media (max-width: 640px) {
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .toolbar-left { order: 1; }
+  .toolbar-right { order: 2; }
+
+  .button-group { width: 100%; }
+  .button-group .btn { flex: 1; min-width: 0; }
+}
+
+/* ===== Table controls (month / category / sort) ===== */
+.table-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin: 10px 0 16px;
+  align-items: end;
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.table-controls label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: .02em;
+}
+
+/* Clickable table rows */
+.clickable-row {
+  cursor: pointer;
+}
+.clickable-row:hover {
+  background: #f8fafc; /* subtle hover */
+}
+
+
+.control-input {
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+  color: #0f172a;
+  outline: none;
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
+
+.control-input:focus {
+  border-color: #04B4FC;
+  box-shadow: 0 0 0 3px rgba(4, 180, 252, .15);
+}
+
+@media (max-width: 860px) {
+  .table-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Keep action column neat */
+.col-actions { width: 180px; }
+.table-actions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* Override older scroll + sticky rules to avoid conflicts */
+.table-scroll { height: auto; max-height: none; overflow: visible; }
+.expense-table .table-scroll thead th { position: static; top: auto; }
+
+
+
+/* === Labels: chips + inline add UI === */
+.label-cloud { display:flex; flex-wrap:wrap; gap:8px; padding:6px; background:#f8fafc; border:1px solid #e5e7eb; border-radius:10px; }
+.chip { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid #e2e8f0; border-radius:999px; background:#fff; font-size:13px; cursor:pointer; transition:box-shadow .15s, border-color .15s; }
+.chip__main { border: none; background: transparent; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+
+.chip:hover { border-color:#94a3b8; }
+.chip--selected { border-color:#0ea5e9; box-shadow:0 0 0 3px rgba(14,165,233,.15); }
+.chip__dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+.chip__text { line-height:1; }
+.chip--manageable { cursor:default; }
+.chip__delete {
+  margin-left: 2px;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  color: #94a3b8;
+  opacity: 0.0;
+  transition: opacity .15s ease, color .15s ease;
+}
+.chip:hover .chip__delete { opacity: 1; }
+.chip__delete:hover { color:#dc2626; }
+
+.inline-add .btn.link { padding:0; color:#0ea5e9; background:transparent; border:none; }
+.inline-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:12px; margin-top:8px; }
+.input-group { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; }
+.color-picker { width:46px; height:38px; padding:4px; border:1px solid #e2e8f0; border-radius:10px; background:#fff; }
+.actions { display:flex; gap:8px; }
+
+.hint { font-size: 12px; color: #64748b; margin-top: 4px; }
+.hint.error { color: #dc2626; }
+
+/* === Status badges === */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  font-size: 12px;
+  border-radius: 999px;
+  text-transform: capitalize;
+  border: 1px solid transparent;
+}
+.status--cleared    { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }   /* green */
+.status--uncleared  { background: #fef2f2; color: #991b1b; border-color: #fecaca; }   /* red */
+.status--reconciled { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }   /* blue */
+
+
+/* ===== Emphasized money input + KPI bar ===== */
+.field--full { grid-column: 1 / -1; }
+
+.amount-field label {
+  font-size: 13px;
+  color: #0f172a;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+.money-group {
+  display: flex;
+  align-items: stretch;
+  border: 2px solid #0ea5e9;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f0f9ff, #ffffff 40%);
+  box-shadow: 0 6px 18px rgba(14,165,233,0.12);
+}
+
+.money-prefix {
+  display: grid;
+  place-items: center;
+  padding: 0 14px;
+  font-weight: 800;
+  color: #0ea5e9;
+  border-right: 1px dashed rgba(14,165,233,.35);
+  user-select: none;
+}
+
+.money-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 16px 14px;
+  font-size: 28px;
+  line-height: 1.1;
+  font-weight: 800;
+  color: #0b1220;
+  outline: none;
+}
+.money-input::placeholder { color: #94a3b8; font-weight: 600; }
+
+.money-help {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* KPI row (Net / Tax / Gross) */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 12px 0 4px;
+}
+
+.kpi {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 2px 10px rgba(2, 6, 23, 0.05);
+}
+.kpi__label {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  letter-spacing: .02em;
+  margin-bottom: 2px;
+}
+.kpi__value {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: .01em;
+}
+
+/* color accents */
+.kpi--net .kpi__value { color: #334155; }    /* slate */
+.kpi--tax .kpi__value { color: #be123c; }    /* rose */
+.kpi--gross .kpi__value { color: #047857; }  /* emerald */
+
+/* responsive: stack neatly on narrow screens */
+@media (max-width: 560px) {
+  .kpi-row { grid-template-columns: 1fr; }
+}
+
+/* --- modal section dividers & titles --- */
+.section-divider {
+  border: 0;
+  border-top: 1px solid #e2e8f0; /* slate-200 */
+  margin: 14px 0;
+}
+.section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;               /* slate-500 */
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  margin: 2px 0 8px;
+}
+
+
+/* ===== Visual hierarchy upgrades ===== */
+
+/* A thin color strip to brand the modal content area */
+.accent-bar {
+  height: 3px;
+  background: linear-gradient(90deg, #0ea5e9, #22c55e);
+  border-radius: 0 0 6px 6px;
+  margin: -10px 18px 10px; /* t/lr/b inside .modal-body padding */
+}
+
+/* Subtle “card” around important sections (Tax, Attachments) */
+.fieldset-card {
+  grid-column: 1 / -1;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fcfdff;
+  box-shadow: 0 2px 10px rgba(2,6,23,.04);
+  padding: 12px;
+}
+
+/* Section header with optional icon slot */
+.section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.section-head .title {
+  font-size: 12px; font-weight: 800; letter-spacing: .04em;
+  color: #475569; text-transform: uppercase;
+}
+.section-head .hint { margin: 0; }
+
+/* KPI row: make the numbers slightly larger for dominance */
+.kpi .kpi__value { font-size: 22px; }
+
+/* Status pills (Edit modal) */
+.pill-group { display: inline-flex; gap: 8px; }
+.pill {
+  border: 1px solid #e2e8f0; background: #fff;
+  color: #0f172a; border-radius: 999px; padding: 6px 10px; font-size: 12px;
+  cursor: pointer; transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.pill:hover { border-color: #94a3b8; background: #f8fafc; }
+.pill.is-active { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,.16); }
+
+/* Make primary CTAs feel primary */
+.btn.primary.lg { padding: 12px 18px; font-size: 15px; border-radius: 12px; }
+
+/* Light divider to separate top grid from content without being heavy */
+.hr-ghost { height: 1px; background: #eef2f7; border: 0; grid-column: 1 / -1; margin: 8px 0 12px; }
+
+/* Attachments grid looks like a gallery */
+.attach-grid { display:flex; gap:12px; flex-wrap:wrap; }
+.attach-card { width: 140px; border:1px solid #e2e8f0; border-radius: 12px; padding: 8px; background:#fff; }
+.attach-thumb {
+  width: 100%; height: 90px; border-radius: 10px; background:#f1f5f9;
+  display:flex; align-items:center; justify-content:center; overflow:hidden;
+}
+
+
+/* ===== KPI Cards upgrade ===== */
+.kpi-card { display:flex; flex-direction:column; gap:10px; }
+.kpi-head { display:flex; align-items:center; justify-content:space-between; }
+.kpi-head h3 { font-size:14px; font-weight:800; color:#0f172a; }
+.kpi-main { font-size:28px; font-weight:800; line-height:1; color:#0b1220; }
+
+.subtle { font-size:12px; color:#94a3b8; }
+
+/* Risk pill */
+.risk-pill {
+  font-size:11px; font-weight:700; padding:6px 10px; border-radius:999px;
+  border:1px solid transparent; text-transform:uppercase; letter-spacing:.04em;
+}
+.risk--ok     { background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
+.risk--high   { background:#fffbeb; color:#92400e; border-color:#fde68a; }
+.risk--over   { background:#fef2f2; color:#991b1b; border-color:#fecaca; }
+.risk--nobudget { background:#eef2ff; color:#3730a3; border-color:#c7d2fe; }
+
+/* Meter */
+.meter {
+  position:relative; height:10px; background:#f1f5f9; border-radius:999px; overflow:hidden;
+  box-shadow: inset 0 1px 2px rgba(2,6,23,.06);
+}
+.meter__bar { height:100%; background:#0ea5e9; width:0; transition:width .3s ease; }
+.meter--high .meter__bar { background:#f59e0b; }
+.meter--over .meter__bar { background:#ef4444; }
+
+/* Three small stats under each card */
+.stat-row { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; }
+.stat { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:8px 10px; }
+.stat__label { font-size:11px; color:#64748b; margin-bottom:2px; }
+.stat__value { font-size:16px; font-weight:800; color:#0f172a; }
+
+.text-ok { color:#047857; }
+.text-danger { color:#b91c1c; }
+
+/* Projection delta */
+.delta { display:flex; align-items:center; gap:10px; }
+.delta-pill {
+  font-size:12px; font-weight:700; padding:6px 10px; border-radius:999px;
+}
+.delta-pill.good { background:#ecfdf5; color:#065f46; }
+.delta-pill.bad  { background:#fef2f2; color:#991b1b; }
+.delta-hint { font-size:12px; color:#64748b; }
+.mini-note { font-size:11px; color:#94a3b8; }

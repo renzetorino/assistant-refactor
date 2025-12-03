@@ -1,0 +1,223 @@
+/* Overlay */
+.view-supplier-overlay {
+  position: fixed;
+  inset: 0; /* shorthand for top:0; left:0; bottom:0; right:0; */
+  background: rgba(0, 0, 0, 0.25);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(3px); /* subtle blur for depth */
+}
+
+/* Modal container */
+.view-supplier-modal {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 24px;
+  width: 600px;
+  max-width: 95%;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  font-family: "Inter", sans-serif;
+  color: #1f2937;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  animation: fadeInModal 0.3s forwards 0.05s;
+}
+/* Animations */
+@keyframes fadeInOverlay {
+  to { opacity: 1; }
+}
+
+@keyframes fadeInModal {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+/* Header */
+.view-supplier-modal .modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+}
+
+.view-supplier-modal .modal-header h2 {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Back button */
+.view-supplier-modal .back-button {
+  font-size: 20px;
+  background: #f3f4f6;
+  border-radius: 12px;
+  color: #000;
+  cursor: pointer;
+  padding: 8px 12px;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+  transition: all 0.2s ease;
+}
+
+.view-supplier-modal .back-button:hover {
+  background-color: #e5e7eb;
+}
+
+/* Supplier ID tag */
+.view-supplier-modal .supplier-id-tag {
+  background: #f3f4f6;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  font-weight: 500;
+}
+
+/* Header action buttons */
+.view-supplier-modal .header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.view-supplier-modal .delete-button {
+  background-color: #fff;
+  color: #000;
+  border: 1px solid #D0D5DD;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-supplier-modal .delete-button:hover {
+  background-color: #f9fafb;
+  border-color: #bdbdbd;
+}
+
+.view-supplier-modal .update-button {
+  background-color: #04B4FC;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-supplier-modal .update-button:hover {
+  background-color: #3aa0c9;
+}
+
+/* Modal body with 2-column grid layout */
+.view-supplier-modal .modal-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.view-supplier-modal .modal-body label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #4b5563;
+  margin-bottom: 6px;
+}
+
+.view-supplier-modal .modal-body input,
+.view-supplier-modal .modal-body textarea {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fafafa;
+  box-sizing: border-box;
+  resize: vertical;
+  transition: all 0.2s ease;
+}
+
+.view-supplier-modal .modal-body input:focus,
+.view-supplier-modal .modal-body textarea:focus {
+  border-color: #04B4FC;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+  outline: none;
+  background: #fff;
+}
+
+/* Modal footer */
+.view-supplier-modal .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.view-supplier-modal .save-button {
+  background-color: #04B4FC;
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-supplier-modal .save-button:hover {
+  background-color: #3aa0c9;
+}
+
+/* Subtle hover scale effect for buttons */
+.view-supplier-modal .back-button:hover,
+.view-supplier-modal .delete-button:hover,
+.view-supplier-modal .update-button:hover,
+.view-supplier-modal .save-button:hover {
+  transform: translateY(-1px);
+}
+
+.supplyDelete-warning {
+  background: #ffe6e6;
+  color: #d93025;
+  border: 1px solid #f5c2c7;
+  padding: 12px 16px;
+  margin-top: 15px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  box-shadow: 0 4px 10px rgba(217, 48, 37, 0.15);
+  animation: fadeIn 0.3s ease-out, shake 0.4s ease-in-out;
+}
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Shake animation */
+@keyframes shake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+  100% { transform: translateX(0); }
+}

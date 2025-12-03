@@ -1,0 +1,433 @@
+.sales-table-wrapper {
+  border: 1px solid #ddd;
+  padding: 20px;
+  background-color: #fff;
+  display: grid;
+  gap: 15px;
+  overflow: hidden;
+  overflow-x: visible;
+  border-radius: 20px;
+  height: 100%;
+}
+
+.table-header {
+  justify-content: center;
+  position: relative; 
+  display: flex; 
+  align-items:first baseline;
+  gap: 15px;
+  margin-bottom: 20px; 
+}
+
+.table-header h3 {
+  flex: 1;
+}
+
+.export-csv-btn {
+  padding: 12px 24px;
+  border: 2px solid #28a74688;
+  border-radius: 8px;
+  background-color: #28a745;
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  font-family: 'Montserrat', sans-serif;
+  box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
+}
+
+.export-csv-btn:hover {
+  background-color: #1f7e36;
+  border-color: #28a745;
+  transform: translateY(-1px);
+}
+
+.custom-dropdown-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  order: 2;
+}
+
+/* Custom Dropdown Button */
+.custom-dropdown-button {
+  background-color: #ffffff;
+  border: 1px solid #e1e5e9;
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  min-width: 220px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.custom-dropdown-button:hover {
+  border-color: #04B4FC;
+  box-shadow: 0 2px 8px rgba(4, 180, 252, 0.15);
+}
+
+.dropdown-button-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  color: #333;
+}
+
+/* Custom Dropdown List with Gap */
+.custom-dropdown-list {
+  position: absolute;
+  top: calc(100% + 8px); /* 8px gap between button and list */
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #e1e5e9;
+  border-radius: 8px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  overflow: visible;
+}
+
+.search-input {
+  color: #000000;
+  padding: 12px 12px;
+  background-color: #f1f1f1;
+  border: 1px solid #e1cfcf;
+  width: 300px;
+  border-radius: 4px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  outline: none;
+  transition: all 0.2s ease;
+  order: 2;
+}
+
+.search-input:focus {
+  border-color: #04B4FC;
+  box-shadow: 0 0 3px #04B4FC;
+}
+
+/* General table scroll box */
+.table-scroll-box {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: transparent;
+  background-color: #fff;
+  scrollbar-width: thin;
+  scrollbar-color: #04B4FC #f1f1f1;
+  max-height: 800px;
+  height: 100%;
+}
+
+/* Table filters */
+.table-filter-header {
+  padding: 8px 20px;
+  background-color: rgb(214, 241, 251);
+}
+
+.table-filter {
+  color: #333;
+  border: none;
+  background-color: transparent;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  padding: 6px 12px;
+  font-family: 'Montserrat', sans-serif;
+  transition: all 0.2s ease;
+  width: 80%;
+  text-align: center;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 3px center;
+  background-size: 15px;
+  padding-right: 30px;
+}
+
+.table-filter:focus {
+  background-color: rgba(4, 180, 252, 0.1);
+  color: #04B4FC;
+}
+
+.table-filter:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  color: #04B4FC;
+}
+
+.table-filter option {
+  background-color: #ffffff;
+  color: #333;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  padding: 8px;
+  text-align: center;
+}
+
+.invoice-btn {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  background-color: #04B4FC;
+  color: white;
+}
+
+.invoice-btn:hover {
+  background-color: #0290c4;
+  box-shadow: 0px 4px 8px #04B4FC;
+}
+
+.status-badge {
+  color: rgb(0, 47, 0);
+  padding: 2px 8px;
+  background-color: #a8ffa8;
+  border: #a8ffa8 1px solid;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.status-badge.status-completed {
+  color: rgb(0, 47, 0);
+  background-color: #a8ffa8;
+  border: #a8ffa8 1px solid;
+}
+
+.status-badge.status-incomplete {
+  color: rgb(47, 0, 0);
+  background-color: #ffcccb;
+  border: #ffcccb 1px solid;
+}
+
+.status-badge.status-unknown {
+  color: rgb(47, 47, 47);
+  background-color: #f8f9fa;
+  border: #dee2e6 1px solid;
+}
+
+.sales-table-wrapper table th:first-child,
+.sales-table-wrapper table td:first-child {
+  text-align: justify;
+  text-align-last: left; /* Ensures last line aligns left */
+  hyphens: auto; /* Allows word breaking for better justification */
+  word-wrap: break-word; /* Prevents overflow */
+}
+
+/* Alternative approach - more specific selector */
+.sales-table-wrapper .table-scroll-box table thead tr th:nth-child(1),
+.sales-table-wrapper .table-scroll-box table tbody tr td:nth-child(1) {
+  font-weight: bold;
+  text-align: justify;
+  text-align-last: left;
+  hyphens: auto;
+  word-wrap: break-word;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+/* Ensure other columns remain centered */
+.sales-table-wrapper table th:not(:first-child),
+.sales-table-wrapper table td:not(:first-child) {
+  text-align: center;
+}
+
+/* Modal Custom Dropdown Wrapper */
+.modal-custom-dropdown-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* Modal Custom Dropdown Button */
+.modal-custom-dropdown-button {
+  background-color: #ffffff;
+  border: 2px solid #e1e1e1;
+  border-radius: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  font-size: 14px;
+  font-family: 'Montserrat', sans-serif;
+  color: #333;
+  outline: none;
+}
+
+.modal-custom-dropdown-button:hover {
+  border-color: #04B4FC;
+}
+
+.modal-custom-dropdown-button:focus {
+  border-color: #04B4FC;
+  box-shadow: 0 0 0 3px rgba(4, 180, 252, 0.1);
+  background-color: #fafafa;
+}
+
+.modal-custom-dropdown-button.error {
+  border-color: #dc3545;
+  background-color: #ffeaea;
+}
+
+.modal-custom-dropdown-button.error:focus {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+}
+
+.modal-custom-dropdown-button .dropdown-button-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.modal-custom-dropdown-button .dropdown-text {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modal-custom-dropdown-button .dropdown-arrow {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #666;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.modal-custom-dropdown-button .dropdown-arrow.open {
+  transform: rotate(180deg);
+}
+
+.dropdown-text {
+  flex: 1;
+  text-align: left;
+}
+
+.dropdown-arrow {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #666;
+  transition: transform 0.2s ease;
+}
+
+.dropdown-arrow.open {
+  transform: rotate(180deg);
+}
+
+/* Modal Custom Dropdown List */
+.modal-custom-dropdown-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #e1e5e9;
+  border-radius: 8px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  overflow: hidden;
+  animation: modalDropdownSlideDown 0.2s ease-out;
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #f1f1f1 #ffffff;
+}
+
+/* Modal Dropdown Items */
+.modal-custom-dropdown-list .dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #000000;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid #f5f5f5;
+  overflow: visible;
+}
+
+.modal-custom-dropdown-list .dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.modal-custom-dropdown-list .dropdown-item:hover {
+  background-color: #f8f9fa;
+  color: #04B4FC;
+}
+
+.modal-custom-dropdown-list .dropdown-item.selected {
+  background-color: #04B4FC;
+  color: #ffffff;
+}
+
+.modal-custom-dropdown-list .item-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Dropdown Group Header */
+.dropdown-group-header {
+  padding: 8px 16px;
+  background: #f5f5f5;
+  font-size: 14px;
+  color: #666;
+  border-bottom: 1px solid #e0e0e0;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.dropdown-group-header strong {
+  color: #333;
+}
+
+/* Dropdown Items (General) */
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  font-family: 'Segoe UI', 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background-color: #f8f9fa;
+  color: #04B4FC;
+}
+
+.dropdown-item.selected {
+  background-color: #04B4FC;
+  color: #ffffff;
+}
+
+.item-text {
+  flex: 1;
+}

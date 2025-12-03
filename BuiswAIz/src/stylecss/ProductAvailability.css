@@ -1,0 +1,208 @@
+/* Availability Panel - modernized card style */
+.availability-panel {
+  background: #fff;
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  min-height: 400px;
+  height: 400px;
+  transition: box-shadow 0.3s ease;
+}
+
+.availability-panel:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* Panel Title */
+.availability-panel h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #222;
+  letter-spacing: 0.4px;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 10px;
+}
+
+/* Scrollable Area */
+.availability-container {
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+/* Smooth Scrollbar */
+.availability-container::-webkit-scrollbar {
+  width: 6px;
+}
+.availability-container::-webkit-scrollbar-thumb {
+  background: #04B4FC;
+  border-radius: 4px;
+}
+.availability-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Product Item Card */
+.availability-item {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  background: #fafafa;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  cursor: pointer;
+}
+
+.availability-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  background: #fefefe;
+}
+
+/* Thumbnail / Image */
+.I-product-thumbnail,
+.img-placeholder {
+  width: 58px;
+  height: 58px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #aaa;
+  flex-shrink: 0;
+}
+
+/* Product Details */
+.availability-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.availability-details .name {
+  font-weight: 600;
+  color: #111;
+  font-size: 15px;
+}
+
+.availability-details .category-label {
+  font-size: 12px;
+  color: #666;
+  font-style: italic;
+}
+
+/* Stock Meter (progress bar) */
+.stock-meter {
+  position: relative;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.stock-fill {
+  height: 100%;
+  transition: width 0.4s ease;
+  border-radius: 6px;
+}
+
+/* Severity colors */
+.stock-fill.severity-ok {
+  background: #4caf50;
+}
+.stock-fill.severity-warning {
+  background: #ff9800;
+}
+.stock-fill.severity-urgent {
+  background: #f44336;
+}
+.stock-fill.severity-critical {
+  background: #b71c1c;
+}
+
+/* Stock Summary */
+.stock-summary {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #444;
+  margin-top: 6px;
+}
+
+/* Badge-style stock status */
+.stock-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.stock-status-badge.ok {
+  background: #e6f7ec;
+  color: #2e7d32;
+}
+.stock-status-badge.warning {
+  background: #fff3e0;
+  color: #ef6c00;
+}
+.stock-status-badge.urgent {
+  background: #fdecea;
+  color: #c62828;
+}
+.stock-status-badge.critical {
+  background: #fbe9e7;
+  color: #b71c1c;
+}
+
+/* Extra Info */
+.extra-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #777;
+  margin-top: 2px;
+}
+
+/* No Low Stock Message */
+.no-low-stock {
+  font-size: 14px;
+  color: #4caf50;
+  text-align: center;
+  padding: 16px 0;
+  font-weight: 600;
+}
+
+.reorder-btn {
+  background-color: #04B4FC;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.reorder-btn:hover {
+  background-color: #91c3d7;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.reorder-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}

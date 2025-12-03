@@ -1,0 +1,103 @@
+/* ===== Container card (feels integrated, not pasted) ===== */
+.ap-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(2, 8, 23, 0.06);
+  overflow: hidden;
+}
+
+/* Sticky header: title on left, actions on right */
+.ap-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.75), #ffffff 40%);
+  backdrop-filter: blur(4px);
+  border-bottom: 1px solid #e5e7eb;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ap-headings { display: grid; gap: 2px; }
+.ap-title { margin: 0; font-size: 16px; font-weight: 700; color: #111827; }
+.ap-subtitle { margin: 0; font-size: 12px; color: #64748b; }
+
+/* Action group */
+.ap-actions { display: flex; align-items: center; gap: 8px; }
+.btn { cursor: pointer; border: 1px solid transparent; border-radius: 10px; padding: 8px 12px; font-size: 13px; }
+.btn.ghost { background: #fff; border-color: #e5e7eb; color: #334155; }
+.btn.ghost:hover { border-color: #cbd5e1; }
+.btn.primary { background: #0ea5e9; color: #fff; }
+.btn.primary:hover { background: #0284c7; }
+.btn.subtle { background: #f1f5f9; color: #0f172a; border-color: #e5e7eb; }
+.btn.subtle:hover { background: #e2e8f0; }
+
+/* Toolbar badges */
+.attachments-toolbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 16px; border-bottom: 1px solid #e5e7eb;
+}
+.pill {
+  padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 999px; font-size: 12px; color: #475569; background: #fff;
+}
+.pill.soft { background: #f8fafc; }
+
+/* Scroll area & grid (kept from earlier) */
+.attachments-scroll { max-height: min(60vh, 540px); overflow: auto; padding: 12px 16px; }
+.attachments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.attachment-card { position: relative; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; display: grid; grid-template-rows: 160px auto; transition: box-shadow .15s ease, transform .15s ease; }
+.attachment-card:hover { box-shadow: 0 8px 22px rgba(2, 8, 23, 0.06); transform: translateY(-1px); }
+.attachment-thumb { background: #0b1020; display: grid; place-items: center; overflow: hidden; }
+.attachment-thumb img, .attachment-thumb video { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.file-fallback { color: #e5e7eb; font-size: 32px; user-select: none; }
+.attachment-meta { padding: 10px 10px 12px; display: grid; gap: 8px; }
+.attachment-name { font-size: 12px; font-weight: 600; color: #0f172a; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 2.4em; }
+.attachment-sub { font-size: 11px; color: #64748b; display: flex; gap: 8px; align-items: center; }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border: 1px solid #e5e7eb; border-radius: 999px; font-size: 11px; color: #475569; background: #fff; }
+.attachment-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.attachment-actions .btn-xs { padding: 6px 8px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; font-size: 11px; cursor: pointer; white-space: nowrap; }
+.attachment-actions .btn-xs:hover { border-color: #cbd5e1; }
+.attachment-actions .danger { color: #b91c1c; border-color: #fecaca; background: #fff5f5; }
+.attachment-actions .danger:hover { background: #fee2e2; }
+.skeleton { background: linear-gradient(90deg, #f1f5f9 25%, #f8fafc 37%, #f1f5f9 63%); animation: shimmer 1.25s infinite; background-size: 400% 100%; }
+@keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+
+/* === Keep header fixed; only grid scrolls === */
+.ap-card {
+  /* make internal regions lay out in rows: header, toolbar, scroller */
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  /* give the panel its own scroll boundary so the list scrolls inside */
+  max-height: min(70vh, 640px);
+  overflow: hidden; /* prevent the header from being dragged with inner scroll */
+}
+
+/* Header is now static within the card (no sticky needed) */
+.ap-header {
+  position: relative;   /* override previous sticky */
+  top: auto;            /* clear any sticky top */
+  z-index: 1;
+}
+
+/* Toolbar sits under header; also non-scrolling */
+.attachments-toolbar {
+  position: relative;
+  z-index: 1;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Only this area scrolls */
+.attachments-scroll {
+  overflow: auto;       /* the scroller */
+  padding: 12px 16px;
+}
+
+/* Optional: slightly more room so buttons never clip */
+.attachments-grid {
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+}

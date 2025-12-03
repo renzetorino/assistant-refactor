@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "type": "completion",
+  "description": "Generates secure, schema-aware SQL queries from natural language requests",
+  "execution_settings": {
+    "smart-llm": {
+      "model_id": "llama-3.3-70b-versatile",
+      "temperature": 0.1,
+      "max_tokens": 500,
+      "top_p": 1.0,
+      "frequency_penalty": 0.0,
+      "presence_penalty": 0.0
+    }
+  },
+  "input_variables": [
+    {
+      "name": "input",
+      "description": "User's natural language query",
+      "is_required": true
+    },
+    {
+      "name": "schema",
+      "description": "Relevant table DDL (CREATE TABLE statements)",
+      "is_required": true
+    },
+    {
+      "name": "today",
+      "description": "Current date in YYYY-MM-DD format",
+      "is_required": true
+    }
+  ]
+}

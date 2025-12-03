@@ -1,0 +1,172 @@
+{
+  "Faqs": [
+    {
+      "Id": 1,
+      "Category": "Policy",
+      "Question": "What is your return policy?",
+      "Answer": "We have a 7-day return policy from the date of purchase. Customers must present the original receipt. Perishable items such as food products are non-refundable. Items must be in original condition with tags attached."
+    },
+    {
+      "Id": 2,
+      "Category": "Policy",
+      "Question": "Do you offer discounts for senior citizens and PWDs?",
+      "Answer": "Yes, we offer a 20% discount for senior citizens and persons with disabilities (PWDs). Customers must present a valid ID at the point of sale to avail of this discount."
+    },
+    {
+      "Id": 3,
+      "Category": "Policy",
+      "Question": "How does the system handle low stock alerts?",
+      "Answer": "The system automatically generates alerts when inventory levels drop below 10 units. Notifications are sent to inventory managers to reorder stock before items run out."
+    },
+    {
+      "Id": 4,
+      "Category": "Policy",
+      "Question": "How is customer data protected?",
+      "Answer": "Customer data is strictly confidential and protected under our data privacy policy. We never share customer information with third parties without explicit consent. All data is encrypted and stored securely."
+    },
+    {
+      "Id": 5,
+      "Category": "Policy",
+      "Question": "What are the cash handling procedures?",
+      "Answer": "Cash drawers must be balanced at the end of each shift. Any discrepancies greater than P100 must be reported immediately to the shift supervisor. All cash handling activities are logged in the system."
+    },
+    {
+      "Id": 6,
+      "Category": "Account",
+      "Question": "How do I reset my password?",
+      "Answer": "Click the 'Forgot Password' link on the login page. Enter your email address and you'll receive a password reset link. The link expires in 1 hour for security purposes. Follow the instructions in the email to create a new password."
+    },
+    {
+      "Id": 7,
+      "Category": "Account",
+      "Question": "Why can't I log in to my account?",
+      "Answer": "Common reasons include incorrect password, account locked due to multiple failed attempts, or expired session. Try resetting your password. If the issue persists, contact your system administrator."
+    },
+    {
+      "Id": 8,
+      "Category": "Sales",
+      "Question": "Can I void a sales transaction?",
+      "Answer": "Yes, sales transactions can be voided, but only within 24 hours of the original transaction. After 24 hours, you'll need supervisor approval. Navigate to the Sales History, select the transaction, and click 'Void Transaction'."
+    },
+    {
+      "Id": 9,
+      "Category": "Sales",
+      "Question": "How do I process a refund?",
+      "Answer": "To process a refund, locate the original transaction in Sales History. Verify the customer's receipt and check if it's within the 7-day return window. Click 'Process Refund' and follow the on-screen prompts. The amount will be credited back to the original payment method."
+    },
+    {
+      "Id": 10,
+      "Category": "Sales",
+      "Question": "What payment methods are supported?",
+      "Answer": "The system supports cash, debit cards, credit cards, and digital wallets. All electronic payments are processed securely through encrypted channels. Contact your administrator to enable additional payment methods."
+    },
+    {
+      "Id": 11,
+      "Category": "Inventory",
+      "Question": "How do I mark items as damaged or defective?",
+      "Answer": "Navigate to the Inventory module, locate the product, and select 'Mark as Defective'. Enter the quantity and reason for the defect. This automatically deducts the items from available stock and creates a record for audit purposes."
+    },
+    {
+      "Id": 12,
+      "Category": "Inventory",
+      "Question": "How do I add new products to inventory?",
+      "Answer": "Go to Inventory > Add Product. Fill in required fields including product name, category, price, and initial stock quantity. You can also upload product images and set reorder points for automatic low-stock alerts."
+    },
+    {
+      "Id": 13,
+      "Category": "Inventory",
+      "Question": "What is the reorder point and how do I set it?",
+      "Answer": "The reorder point is the minimum stock level that triggers a low-stock alert. Set it in the product details under Inventory Management. The system recommends setting it to 10 units for most products, but you can adjust based on your sales velocity."
+    },
+    {
+      "Id": 14,
+      "Category": "Forecasting",
+      "Question": "How does the forecasting system work?",
+      "Answer": "The system uses an Advanced Hybrid Forecasting Engine that analyzes historical sales data, seasonal trends, and market patterns to predict future demand. It combines multiple analytical methods to provide accurate forecasts with confidence scores."
+    },
+    {
+      "Id": 15,
+      "Category": "Forecasting",
+      "Question": "How much historical data is needed for accurate forecasts?",
+      "Answer": "The system requires a minimum of 30 days of historical sales data to generate reliable forecasts. More data (90+ days) improves accuracy. The system analyzes trends, seasonality, and recent performance to project future sales."
+    },
+    {
+      "Id": 16,
+      "Category": "Forecasting",
+      "Question": "What is a confidence score in forecasting?",
+      "Answer": "The confidence score indicates how reliable the forecast is, ranging from 0% to 100%. Higher scores mean more certainty based on consistent historical patterns. Scores above 70% are considered highly reliable for business planning."
+    },
+    {
+      "Id": 17,
+      "Category": "Forecasting",
+      "Question": "Can I forecast both sales and expenses?",
+      "Answer": "Yes, the system supports forecasting for both sales revenue and business expenses. Navigate to the Forecasting module and select either Sales Forecast or Expense Forecast. You can specify custom time horizons (7, 30, 60, or 90 days)."
+    },
+    {
+      "Id": 18,
+      "Category": "Reports",
+      "Question": "What types of reports can I generate?",
+      "Answer": "The system generates Sales Reports, Expense Reports, Inventory Reports, and Forecast Reports. Each report can be customized by date range, product category, or other filters. Reports are available in PDF and Excel formats."
+    },
+    {
+      "Id": 19,
+      "Category": "Reports",
+      "Question": "How do I export data from the system?",
+      "Answer": "Go to Settings > Data Export. Select the data type (sales, inventory, expenses) and date range. Choose your preferred format (CSV or Excel). Click 'Export' to download the file. Large exports may take a few minutes to process."
+    },
+    {
+      "Id": 20,
+      "Category": "Reports",
+      "Question": "Can I schedule automatic reports?",
+      "Answer": "Yes, you can schedule reports to be generated automatically. Go to Reports > Schedule Reports. Set the frequency (daily, weekly, monthly), recipients, and format. Reports will be emailed to specified addresses at the scheduled time."
+    },
+    {
+      "Id": 21,
+      "Category": "AI Assistant",
+      "Question": "What languages does the AI assistant support?",
+      "Answer": "The AI assistant supports both English and Tagalog queries. You can ask questions in either language or mix both (Taglish). The system automatically detects the language and responds appropriately."
+    },
+    {
+      "Id": 22,
+      "Category": "AI Assistant",
+      "Question": "What can I ask the AI assistant?",
+      "Answer": "You can ask about sales data, inventory levels, expense summaries, forecasts, and business policies. Examples: 'Show me today's sales', 'Ilan ang low stock items?', 'What's the forecast for next week?', or 'What's the return policy?'"
+    },
+    {
+      "Id": 23,
+      "Category": "AI Assistant",
+      "Question": "How accurate is the AI assistant?",
+      "Answer": "The AI assistant provides answers with confidence scores. High-confidence answers (70%+) are highly reliable. Lower confidence answers include disclaimers. Always verify critical business decisions with your reports and data."
+    },
+    {
+      "Id": 24,
+      "Category": "System",
+      "Question": "What should I do if the system is slow?",
+      "Answer": "Check your internet connection first. Clear your browser cache and cookies. If the issue persists, try logging out and back in. For persistent performance issues, contact technical support with details about when the slowdown occurs."
+    },
+    {
+      "Id": 25,
+      "Category": "System",
+      "Question": "How do I update my business information?",
+      "Answer": "Go to Settings > Business Profile. Update your business name, address, contact information, and tax details. Changes are saved automatically and reflected across all reports and invoices."
+    },
+    {
+      "Id": 26,
+      "Category": "Policy",
+      "Question": "What are the business hours for support?",
+      "Answer": "Technical support is available Monday to Friday, 8:00 AM to 6:00 PM Philippine Time. For urgent issues outside business hours, use the emergency contact provided in your admin dashboard."
+    },
+    {
+      "Id": 27,
+      "Category": "Security",
+      "Question": "How often should I change my password?",
+      "Answer": "For security, we recommend changing your password every 90 days. Use strong passwords with a mix of uppercase, lowercase, numbers, and special characters. Never share your password with others."
+    },
+    {
+      "Id": 28,
+      "Category": "Security",
+      "Question": "What should I do if I suspect unauthorized access?",
+      "Answer": "Immediately change your password and contact your system administrator. Review your activity logs in Settings > Account Activity. Enable two-factor authentication for additional security."
+    }
+  ]
+}

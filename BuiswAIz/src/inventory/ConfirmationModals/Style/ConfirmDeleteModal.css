@@ -1,0 +1,92 @@
+/* 🔹 Overlay behind the modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.55); /* dimmed background */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+/* 🔹 Modal box */
+.modal-content {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px 25px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0px 6px 18px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+/* 🔹 Modal text */
+.modal-content p {
+  font-size: 16px;
+  color: #333;
+  margin-bottom: 20px;
+  line-height: 1.4;
+}
+
+/* 🔹 Buttons wrapper */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Cancel button */
+.cancel-button {
+  background: #e0e0e0;
+  color: #333;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s ease;
+}
+
+.cancel-button:hover {
+  background: #d5d5d5;
+}
+
+/* Confirm/Delete button */
+.confirm-button {
+  background: #e53935; /* red delete color */
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.confirm-button:hover:not(:disabled) {
+  background: #c62828;
+  transform: scale(1.05);
+}
+
+/* Disabled confirm button (when blocked) */
+.confirm-button:disabled {
+  background: #f5b7b1; /* lighter red to indicate blocked */
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* 🔹 Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

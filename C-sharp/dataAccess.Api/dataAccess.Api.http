@@ -1,0 +1,6 @@
+@dataAccess.Api_HostAddress = http://localhost:5115
+
+GET {{dataAccess.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

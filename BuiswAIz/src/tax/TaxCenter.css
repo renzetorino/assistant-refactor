@@ -1,0 +1,168 @@
+/* =========================
+   TaxCenter UI polish (base)
+   ========================= */
+:root {
+  --tc-bg: #ffffff;
+  --tc-muted: #6b7280;
+  --tc-border: #e5e7eb;
+  --tc-soft: #f3f4f6;
+  --tc-text: #0f172a;
+  --tc-accent: #2563eb;
+  --tc-accent-600: #1d4ed8;
+  --tc-accent-50: #eff6ff;
+  --tc-success: #10b981;
+  --tc-shadow: 0 10px 25px rgba(2, 6, 23, 0.08);
+  --tc-radius: 14px;
+  --tc-radius-sm: 10px;
+  --tc-radius-xs: 8px;
+}
+
+/* Buttons, fields, table, cards ... (from your previous CSS) */
+.modal { background: var(--tc-bg); color: var(--tc-text); border: 1px solid var(--tc-border); border-radius: var(--tc-radius); box-shadow: var(--tc-shadow); }
+.modal .muted { color: var(--tc-muted); }
+.modal .badge { font-size: 12px; line-height: 1; padding: 4px 10px; border-radius: 999px; background: var(--tc-soft); color: var(--tc-text); border: 1px solid var(--tc-border); }
+.btn { appearance: none; background: var(--tc-accent); color: #fff; border: 1px solid var(--tc-accent); border-radius: 10px; padding: 8px 12px; font-weight: 600; transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.18); }
+.btn:hover { background: var(--tc-accent-600); transform: translateY(-1px); }
+.btn:active { transform: translateY(0); box-shadow: none; }
+.btn:disabled { opacity: .6; cursor: not-allowed; box-shadow: none; }
+.icon-btn { appearance: none; border: 1px solid var(--tc-border); background: #fff; border-radius: 10px; padding: 6px 10px; line-height: 1; transition: background 120ms ease, border-color 120ms ease, transform 120ms ease; }
+.icon-btn:hover { background: var(--tc-soft); transform: translateY(-1px); }
+.icon-btn:active { transform: translateY(0); }
+.fields-grid { display: grid; gap: 12px; }
+.field label { display: block; font-size: 12px; color: var(--tc-muted); margin-bottom: 6px; }
+.field input, .field select { width: 100%; border: 1px solid var(--tc-border); background: #fff; border-radius: 10px; padding: 8px 10px; outline: none; transition: box-shadow 120ms ease, border-color 120ms ease; }
+.field input:focus, .field select:focus { border-color: var(--tc-accent); box-shadow: 0 0 0 3px var(--tc-accent-50); }
+.card { border: 1px solid var(--tc-border); border-radius: var(--tc-radius-sm); background: #fff; box-shadow: 0 6px 16px rgba(2, 6, 23, 0.04); }
+.card.small { padding: 12px; }
+.h3 { font-size: 20px; font-weight: 800; letter-spacing: -.01em; margin-top: 6px; }
+.table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+.table thead th { position: sticky; top: 0; z-index: 1; background: #fff; text-align: left; font-weight: 700; color: var(--tc-muted); border-bottom: 1px solid var(--tc-border); padding: 10px 12px; }
+.table th:first-child, .table td:first-child { position: sticky; left: 0; background: #fff; z-index: 2; box-shadow: 1px 0 0 var(--tc-border); }
+.table tbody td { border-bottom: 1px solid var(--tc-border); padding: 10px 12px; vertical-align: middle; }
+.table tbody tr:nth-child(odd) td { background: #fcfcfd; }
+.table tbody tr:hover td { background: #f9fbff; }
+
+/* =========================
+   Aesthetic KPI deck
+   ========================= */
+.kpi-deck {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.kpi-card {
+  background: #fff;
+  border: 1px solid var(--tc-border);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 8px 18px rgba(2, 6, 23, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(37,99,235,0.06), transparent 40%);
+  pointer-events: none;
+}
+.kpi-card.interactive { transition: transform .15s ease, box-shadow .15s ease; }
+.kpi-card.interactive:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(2,6,23,0.1); }
+
+.kpi-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.kpi-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: grid; place-items: center;
+  font-weight: 900;
+  border: 1px solid var(--tc-border);
+  background: #fff;
+}
+.kpi-icon--gross { color: var(--tc-accent); }
+.kpi-icon--net { color: #0ea5e9; }     /* sky */
+.kpi-icon--tax { color: #f59e0b; }     /* amber */
+.kpi-icon--mix { color: #10b981; }     /* emerald */
+
+.kpi-chip {
+  font-size: 12px; padding: 4px 10px; border-radius: 999px;
+  background: var(--tc-soft); border: 1px solid var(--tc-border);
+}
+
+.kpi-metric {
+  font-size: 22px; font-weight: 800; letter-spacing: -.01em;
+  margin-top: 8px;
+}
+
+.kpi-sub {
+  color: var(--tc-muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.progress {
+  height: 8px;
+  background: var(--tc-soft);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.progress.thin { height: 6px; }
+.progress > span {
+  display: block; height: 100%; background: var(--tc-accent);
+}
+
+.kpi-foot {
+  margin-top: 8px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px;
+}
+.kpi-foot-label { color: var(--tc-muted); }
+.kpi-foot-value { font-weight: 700; }
+
+/* Mix donut + legend */
+.kpi-mix {
+  display: grid; grid-template-columns: 52px 1fr; gap: 10px; align-items: center;
+  margin-top: 8px;
+}
+.dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; margin-right: 6px; vertical-align: middle; }
+.dot--vat { background: var(--tc-accent); }
+.dot--ptax { background: #0ea5e9; }
+
+/* Donut (pure CSS) — set with style="--p: {percent}" */
+.donut {
+  --p: 0; /* 0..100 */
+  width: 44px; height: 44px; border-radius: 999px;
+  background: conic-gradient(var(--tc-accent) calc(var(--p) * 1%), #e5e7eb 0);
+  mask: radial-gradient(#0000 56%, #000 57%);
+}
+.donut.sm { width: 36px; height: 36px; }
+
+/* =========================
+   Breakdown cards
+   ========================= */
+.breakdown-grid {
+  padding: 6px 16px 12px;
+  display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px;
+}
+.breakdown-card { padding: 12px; }
+.breakdown-head { display: grid; grid-template-columns: 36px 1fr; gap: 10px; align-items: center; }
+.breakdown-title { display: flex; align-items: center; justify-content: space-between; }
+.breakdown-chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--tc-soft); border: 1px solid var(--tc-border); }
+.breakdown-rows { margin-top: 8px; }
+.breakdown-rows .row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #eef2f7; }
+.breakdown-rows .row:last-child { border-bottom: 0; }
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .kpi-deck { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .breakdown-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 640px) {
+  .kpi-deck { grid-template-columns: 1fr; }
+  .breakdown-grid { grid-template-columns: 1fr; }
+}

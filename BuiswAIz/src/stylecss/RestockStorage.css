@@ -1,0 +1,121 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-window {
+  background: #fff;
+  padding: 24px;
+  border-radius: 16px;
+  width: 1250px;
+  max-height: 75vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  position: relative;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.close-btn {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #444;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.close-btn:hover {
+  color: #000;
+  transform: scale(1.1);
+}
+
+.restock-panel {
+  flex: 2;
+  background: #fff;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: calc(50vh - 24px);
+}
+
+.restock-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.restock-table th {
+  padding: 12px;
+  border-bottom: 2px solid #eee;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  background: #fafafa;
+}
+
+.restock-table td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+  color: #555;
+}
+
+.restock-btn {
+  background-color: #04B4FC;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  align-self: flex-start;
+  box-shadow: 0 4px 10px rgba(4, 180, 252, 0.2);
+}
+
+.restock-btn:hover {
+  background-color: #91c3d7;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(4, 180, 252, 0.25);
+}
+
+.stock-low {
+  color: red;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+  background: rgba(255, 0, 0, 0.08);
+}
+
+.stock-ok {
+  color: green;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+  background: rgba(0, 128, 0, 0.08);
+}
+
+/* Smooth modal animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

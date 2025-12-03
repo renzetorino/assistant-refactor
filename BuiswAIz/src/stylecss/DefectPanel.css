@@ -1,0 +1,148 @@
+/* stylecss/DefectPanel.css - Modernized Clean Version */
+
+.defective-panel {
+  background-color: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  padding: 16px;
+  margin-top: 10px;
+  height: 420px; /* Slightly taller for breathing space */
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.25s ease;
+}
+
+.defective-panel:hover {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.panel-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.panel-title-row h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #222;
+}
+
+.panel-action-button {
+  background-color: #04B4FC;
+  color: #fff;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease-in-out;
+}
+
+.panel-action-button:hover {
+  background-color: #5d93c9;
+  transform: translateY(-1px);
+}
+
+.defective-container {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 6px;
+}
+
+/* Custom scrollbar */
+.defective-container::-webkit-scrollbar {
+  width: 6px;
+}
+.defective-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+.defective-container::-webkit-scrollbar-thumb {
+  background: #04B4FC;
+  border-radius: 4px;
+}
+
+.defective-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background-color: #f9fafb;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.defective-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.defectimg-placeholder {
+  width: 55px;
+  height: 55px;
+  background-color: #e5e7eb;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.defective-details {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.defect-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.defect-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #111;
+}
+
+.variant-info {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  color: #666;
+}
+
+.Quantity,
+.ReportedDate,
+.Description {
+  font-size: 12px;
+  color: #444;
+}
+
+.defect-status {
+  display: flex;
+  align-items: center;
+}
+
+.status-dropdown {
+  padding: 5px 8px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background-color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.status-dropdown:focus {
+  outline: none;
+  border-color: #04B4FC;
+  box-shadow: 0 0 0 2px rgba(4, 180, 252, 0.15);
+}

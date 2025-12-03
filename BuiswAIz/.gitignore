@@ -1,0 +1,47 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+
+bin/
+obj/
+
+
+# Ignore build artifacts
+csharp-backend/obj/
+csharp-backend/bin/
+
+
+# open or create .gitignore in repo root and add:
+echo -e "\n# .NET build output\ncsharp-backend/obj/\ncsharp-backend/bin/\n" >> .gitignore
+git add .gitignore
+git commit -m "chore: ignore .NET build output"
+
+
+
+# .gitignore
+.env.local
+.env.*.local
