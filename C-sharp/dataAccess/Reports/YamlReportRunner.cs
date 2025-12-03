@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using dataAccess.Contracts;
 using dataAccess.Planning;
+using Microsoft.Extensions.Logging;
 using ISqlCatalog = dataAccess.Services.ISqlCatalog;
 using static dataAccess.Reports.SectionBundles;
 
