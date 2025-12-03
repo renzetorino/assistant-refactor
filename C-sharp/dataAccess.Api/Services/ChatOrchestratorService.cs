@@ -7,6 +7,7 @@ using dataAccess.Planning;
 using dataAccess.Planning.Nlq;
 using dataAccess.Reports;
 using dataAccess.Contracts;
+using dataAccess.Entities;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -759,25 +760,47 @@ public class ChatOrchestratorService : IChatOrchestratorService
                 }
             }
             // ═══════════════════════════════════════════════════════════════
-            // PATHWAY 3: SIMPLE RESPONSES (FAQ, CHITCHAT)
+            // PATHWAY 3: SIMPLE RESPONSES (FAQ, CHITCHAT) - FIXED: Groq Fallback
             // ═══════════════════════════════════════════════════════════════
             else if (normalizedIntent == "faq" || normalizedIntent == "chitchat")
             {
                 _logger.LogWarning("═══════════════════════════════════════════════════════════════");
-                _logger.LogWarning("✅ PATHWAY 3: SIMPLE RESPONSES (FAQ, CHITCHAT)");
+                _logger.LogWarning("✅ PATHWAY 3: SIMPLE RESPONSES (FAQ, CHITCHAT) - Groq Fallback Logic");
                 _logger.LogWarning("Intent: {Intent}", normalizedIntent);
-                _logger.LogWarning("[Phase 3] Using 'free' local Phi-3 decoder (NO cloud API calls!)");
+                _logger.LogWarning("[Phase 3] Using in-memory RAG for 'faq', Groq LLM for fallback/chitchat.");
                 _logger.LogWarning("═══════════════════════════════════════════════════════════════");
+                
+                string responseText;
                 
                 try
                 {
                     // Get chat history for conversational context
                     var history = await _chatHistory.GetRecentMessagesAsync(result.SessionId, limit: 5);
-                    
-                    // Call local decoder service with appropriate intent
-                    _logger.LogInformation("[Phase 3] Handling '{Intent}' with 'free' local Phi-3 decoder.", normalizedIntent);
-                    var responseText = await _localDecoderService.GetResponseAsync(userQuery, history, normalizedIntent);
-                    
+
+                    if (normalizedIntent == "faq")
+                    {
+                        // 1. Attempt RAG Search (JsonFaqService)
+                        var faqAnswer = await _jsonFaqService.SearchAsync(userQuery);
+                        
+                        if (faqAnswer != null)
+                        {
+                            responseText = faqAnswer;
+                            _logger.LogInformation("[Phase 3/RAG] RAG successful. Found in JsonFaqService.");
+                        }
+                        else
+                        {
+                            // 2. RAG Failure -> Fallback to Groq LLM with FAQ prompt
+                            _logger.LogInformation("[Phase 3/RAG] RAG failed/No match. Falling back to Groq LLM with FAQ prompt.");
+                            responseText = await GenerateGroqChatResponseAsync(userQuery, history, "faq", cancellationToken);
+                        }
+                    }
+                    else // normalizedIntent == "chitchat"
+                    {
+                        // 1. Direct to Groq LLM for ChitChat prompt
+                        _logger.LogInformation("[Phase 3] Handling 'ChitChat' with Groq LLM.");
+                        responseText = await GenerateGroqChatResponseAsync(userQuery, history, "chitchat", cancellationToken);
+                    }
+    
                     stepResult = new OrchestrationStepResult
                     {
                         IsSuccess = true,
@@ -788,23 +811,23 @@ public class ChatOrchestratorService : IChatOrchestratorService
                         }
                     };
                     
-                    _logger.LogInformation("[Phase 3] Local decoder response: {Response}", responseText.Substring(0, Math.Min(100, responseText.Length)));
+                    _logger.LogInformation("[Phase 3] Groq/RAG response: {Response}", responseText.Substring(0, Math.Min(100, responseText.Length)));
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "[Phase 3] Error calling local decoder service for {Intent}", normalizedIntent);
+                    _logger.LogError(ex, "[Phase 3] Error calling Groq/RAG service for {Intent}", normalizedIntent);
                     
-                    // Fallback to simple static response if local decoder fails
+                    // Fallback to simple static response if the Groq service call fails
                     var fallbackResponse = normalizedIntent == "chitchat" 
                         ? HandleChitChat(userQuery) 
-                        : "I'm here to help! What would you like to know about your business?";
+                        : "I encountered a technical issue with the FAQ system. Please try again later.";
                     
                     stepResult = new OrchestrationStepResult
                     {
                         IsSuccess = true,
                         ReportData = new ReportResult
                         {
-                            Title = normalizedIntent == "faq" ? "FAQ Response" : "Chitchat",
+                            Title = normalizedIntent == "faq" ? "FAQ Response (Static Fallback)" : "Chitchat (Static Fallback)",
                             UiSpec = JsonDocument.Parse(JsonSerializer.Serialize(new { text = fallbackResponse }))
                         }
                     };
@@ -1567,6 +1590,40 @@ public class ChatOrchestratorService : IChatOrchestratorService
     private string HandleOutOfScope()
     {
         return "I'm sorry, but that question is outside my area of expertise. I'm designed to help with business-related queries like sales, inventory, expenses, and orders. Is there anything business-related I can help you with? 😊";
+    }
+
+    /// <summary>
+    /// Uses the smallest Groq model for generic text responses (ChitChat/FAQ Fallback).
+    /// This replaces the local decoder (Phi-3).
+    /// </summary>
+    private async Task<string> GenerateGroqChatResponseAsync(
+        string userQuery, 
+        List<ChatMessage> history, 
+        string intentName, 
+        CancellationToken cancellationToken)
+    {
+        // Use the appropriate prompt template for the intent
+        var promptFileName = $"responder.{intentName.ToLowerInvariant()}";
+        var systemPrompt = _promptLoader.ReadText(promptFileName + ".yaml");
+        
+        // Format history for context
+        var historyText = string.Join("\n", history.Select(m => $"**{m.Role}**: {m.Content}"));
+
+        // Invoke a Semantic Kernel function for chat completion
+        var chatFunction = _kernel.Plugins.GetFunction("Orchestration", "ChatResponder"); 
+        
+        var chatResult = await _kernel.InvokeAsync(
+            chatFunction,
+            new KernelArguments
+            {
+                ["user_query"] = userQuery,
+                ["system_prompt"] = systemPrompt,
+                ["conversation_history"] = historyText
+            },
+            cancellationToken
+        );
+
+        return chatResult.ToString();
     }
 
     /// <summary>
