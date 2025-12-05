@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabase";
+import { useAuth } from "../AuthContext";
 import "../stylecss/Assistant.css";
 import AssistantChat from "./AssistantChat";
 import prompts from "./prompts";
@@ -20,6 +21,7 @@ const newId = () =>
 
 const Assistant = () => {
   const navigate = useNavigate();
+  const { session } = useAuth(); // Get session with JWT token
   const [user, setUser] = useState(null);
 
   const [_activeWindow, setActiveWindow] = useState(null);
@@ -130,6 +132,12 @@ const Assistant = () => {
     
     const loadData = async () => {
       try {
+        // Wait for session to be available
+        if (!session || !session.access_token) {
+          setLoadingPanels(false);
+          return;
+        }
+
         // Fetch all domains in parallel for better performance
         const [salesReports, expenseReports, inventoryReports, salesForecasts, expenseForecasts] = await Promise.all([
           fetchRecentReports(2, "sales"),
@@ -157,16 +165,30 @@ const Assistant = () => {
 
     loadData();
     return () => { alive = false; };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]); // Session dependency is sufficient; fetch functions are stable
 
   // ===== API helper =====
   async function apiPost(path, body) {
+    // Check if session and access token exist
+    if (!session || !session.access_token) {
+      throw new Error("Authentication required. Please log in again.");
+    }
+
     const res = await fetch(`${API_BASE}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}` // Add JWT token
+      },
       body: JSON.stringify(body || {}),
     });
+    
     if (!res.ok) {
+      // Handle 401 Unauthorized specifically
+      if (res.status === 401) {
+        throw new Error("Session expired. Please log in again.");
+      }
       throw new Error((await res.text()) || `HTTP ${res.status}`);
     }
     return res.json();
@@ -181,90 +203,31 @@ const Assistant = () => {
     setLoading(true);
 
     try {
-      const res = await apiPost("/api/assistant", { text: trimmed });
+      // Use the new Chat API endpoint with proper orchestration and error handling
+      const res = await apiPost("/api/Chat/query", { 
+        query: trimmed,
+        sessionId: null // Will create new session or you can track sessionId in state
+      });
 
-      if (res.mode === "report") {
-        // Show simple success message in chat instead of full report payload
-        const dom = (res.domain || "report").toLowerCase();
-        const reportType = dom === "expenses" ? "Expense" : dom === "inventory" ? "Inventory" : "Sales";
-        const successMessage = `✓ ${reportType} report has been successfully created! You can view the full report in the panel above.`;
-        
+      // Check if error response
+      if (!res.isSuccess) {
         setMessages((prev) => [
           ...prev,
-          { id: newId(), role: "assistant", text: successMessage }
-        ]);
-
-        // 1) push a placeholder card (fast UI), but include the domain
-        const placeholder = normalizeReportForSpotlightRow({ ui_spec: res.uiSpec, domain: dom });
-        if (placeholder) setReports((prev) => [placeholder, ...prev].slice(0, 2));
-
-        // 2) then fetch the latest saved run for that domain to get the real runId
-        try {
-          const latest = await fetchRecentReports(1, dom);
-          if (Array.isArray(latest) && latest.length > 0) {
-            // replace the first card with the saved one that has runId
-            setReports((prev) => [latest[0], ...prev.slice(1)]);
+          { 
+            id: newId(), 
+            role: "assistant", 
+            text: res.errorMessage || "Sorry, I couldn't process that request." 
           }
-        } catch { /* ignore */ }
-
-        return;
-      }
-
-      if (res.mode === "faq") {
-        const md = res.uiSpec?.render?.content || "No answer available.";
-        const actions = Array.isArray(res.uiSpec?.suggestedActions)
-          ? res.uiSpec.suggestedActions.map((a) => ({ id: a.id || a.label, label: a.label }))
-          : null;
-        setMessages((p) => [...p, { id: newId(), role: "assistant", text: md, actions }]);
-        return;
-      }
-
-      if (res.mode === "chitchat") {
-        const md = res.uiSpec?.render?.content || "…";
-        const actions = Array.isArray(res.uiSpec?.suggestedActions)
-          ? res.uiSpec.suggestedActions.map((a) => ({ id: a.id || a.label, label: a.label }))
-          : null;
-        setMessages((p) => [...p, { id: newId(), role: "assistant", text: md, actions }]);
-        return;
-      }
-
-      if (res.mode === "forecast") {
-        // 1) summary lines for the chat bubble (existing behavior)
-        const f = res.uiSpec ?? {};
-        const domain = (res.domain || "sales").toLowerCase();
-        const title = domain === "expenses" ? "Expense Forecast" : "Sales Forecast";
-
-        const lines = [
-          `${title} — ${f?.period?.label || ""}`.trim(),
-        ];
-
-        if (typeof f?.notes?.narrative === "string" && f.notes.narrative.trim()) {
-          lines.push("", f.notes.narrative.trim());
-        }
-
-        setMessages((prev) => [
-          ...prev,
-          { id: newId(), role: "assistant", text: lines.join("\n") },
         ]);
-
-        // 2) also promote to the CENTER "Forecasts" panel as a card
-        //    (so expenses show up there too)
-        const card = normalizeForecastForCard(
-          { ...f, domain }, // ensure domain is carried
-          domain
-        );
-        setForecasts((prev) => [card, ...prev].slice(0, 2));
-
         return;
       }
 
-      if (res.mode === "nlq") {
-        const md = res.uiSpec?.render?.content || res.notice || "Here's your data.";
-        setMessages((p) => [...p, { id: newId(), role: "assistant", text: md }]);
-        return;
-      }
-
-      setMessages((p) => [...p, { id: newId(), role: "assistant", text: "Hi! How can I help?" }]);
+      // Success - show response
+      const responseText = res.response || "Here's your result.";
+      setMessages((prev) => [
+        ...prev,
+        { id: newId(), role: "assistant", text: responseText }
+      ]);
     } catch (err) {
       console.error(err);
       setMessages((p) => [
@@ -293,7 +256,21 @@ const Assistant = () => {
   // ===== Recent fetchers (optimized with better error handling) =====
   async function fetchRecentReports(limit = 2, domain = "sales") {
     try {
-      const res = await fetch(`${API_BASE}/api/reports/recent?domain=${encodeURIComponent(domain)}&limit=${limit}`);
+      // Check if session and access token exist
+      if (!session || !session.access_token) {
+        console.warn("No session available for fetching reports");
+        return [];
+      }
+
+      const res = await fetch(
+        `${API_BASE}/api/reports/recent?domain=${encodeURIComponent(domain)}&limit=${limit}`,
+        {
+          headers: {
+            "Authorization": `Bearer ${session.access_token}` // Add JWT token
+          }
+        }
+      );
+      
       if (!res.ok) {
         console.warn(`Failed to fetch reports for ${domain}:`, res.status);
         return [];
@@ -308,9 +285,21 @@ const Assistant = () => {
 
   async function fetchRecentForecasts(limit = 2, domain = "sales") {
     try {
+      // Check if session and access token exist
+      if (!session || !session.access_token) {
+        console.warn("No session available for fetching forecasts");
+        return [];
+      }
+
       const res = await fetch(
-        `${API_BASE}/api/forecasts/recent?domain=${encodeURIComponent(domain)}&limit=${limit}`
+        `${API_BASE}/api/forecasts/recent?domain=${encodeURIComponent(domain)}&limit=${limit}`,
+        {
+          headers: {
+            "Authorization": `Bearer ${session.access_token}` // Add JWT token
+          }
+        }
       );
+      
       if (!res.ok) {
         console.warn(`Failed to fetch forecasts for ${domain}:`, res.status);
         return [];
