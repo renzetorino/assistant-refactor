@@ -10,7 +10,7 @@ public static class NlqEndpoint
     public static IEndpointConventionBuilder MapNlqEndpoint(this IEndpointRouteBuilder app)
         => app.MapPost("/api/nlq", Handle);
 
-    public static async Task<IResult> Handle(HttpContext ctx, NlqService svc, CancellationToken ct)
+    public static async Task<IResult> Handle(HttpContext ctx, INlqService svc, CancellationToken ct)
     {
         // 1) Read body safely (POST required)
         ctx.Request.EnableBuffering();

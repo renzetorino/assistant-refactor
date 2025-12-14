@@ -26,6 +26,13 @@ namespace dataAccess.Reports
         private readonly ILogger<YamlIntentRunner> _logger;
         private readonly string _intentYamlPath;
 
+        // Safety thresholds (loaded from config, with fallback defaults)
+        private readonly double _minConfidenceThreshold;
+        private readonly double _chitchatConfidenceThreshold;
+
+        // Allowed intents (security allowlist, loaded from config)
+        private readonly HashSet<string> _allowedIntents;
+
         // Fallback examples (used if RAG fails)
         private static readonly List<string> _fallbackExamples = new()
         {
@@ -39,7 +46,8 @@ namespace dataAccess.Reports
         public YamlIntentRunner(
             GroqJsonClient groq,
             IntentExampleRetriever exampleRetriever,
-            ILogger<YamlIntentRunner> logger)
+            ILogger<YamlIntentRunner> logger,
+            dataAccess.Planning.IntentClassificationConfig? intentConfig = null)
         {
             _groq = groq;
             _exampleRetriever = exampleRetriever;
@@ -49,6 +57,48 @@ namespace dataAccess.Reports
                 "Planning",
                 "Prompts",
                 "router.intent.yaml"
+            );
+
+            // Load configuration with safe defaults
+            _minConfidenceThreshold = intentConfig?.MinConfidence ?? 0.60;
+            _chitchatConfidenceThreshold = intentConfig?.ChitchatConfidence ?? 0.55;
+
+            // Load allowed intents from config or use defaults
+            _allowedIntents = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (intentConfig?.AllowedIntents?.Any() == true)
+            {
+                foreach (var intent in intentConfig.AllowedIntents)
+                {
+                    _allowedIntents.Add(intent);
+                }
+                _logger.LogInformation(
+                    "[YamlIntentRunner] Loaded {Count} allowed intents from configuration",
+                    _allowedIntents.Count
+                );
+            }
+            else
+            {
+                // Fallback to hardcoded defaults
+                var defaults = new[]
+                {
+                    "chitchat", "faq", "nlq.query",
+                    "reports.inventory", "reports.expense", "reports.sales",
+                    "forecast.sales", "forecast.inventory", "forecast.expense",
+                    "out_of_scope"
+                };
+                foreach (var intent in defaults)
+                {
+                    _allowedIntents.Add(intent);
+                }
+                _logger.LogWarning(
+                    "[YamlIntentRunner] Using default allowed intents (config not found)"
+                );
+            }
+
+            _logger.LogInformation(
+                "[YamlIntentRunner] Initialized with thresholds: min={MinConfidence}, chitchat={ChitchatConfidence}",
+                _minConfidenceThreshold,
+                _chitchatConfidenceThreshold
             );
         }
 
@@ -137,13 +187,134 @@ namespace dataAccess.Reports
                     ct
                 );
 
-                return JsonDocument.Parse(doc.RootElement.GetRawText());
+                var rawResponse = JsonDocument.Parse(doc.RootElement.GetRawText());
+
+                // 6. Validate and sanitize response
+                var validatedResponse = ValidateIntentResponse(rawResponse);
+
+                return validatedResponse;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[YamlIntentRunner] Intent classification failed");
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Validates intent classification response for security and correctness.
+        /// Applies confidence thresholds and intent allowlists.
+        /// </summary>
+        private JsonDocument ValidateIntentResponse(JsonDocument response)
+        {
+            try
+            {
+                var root = response.RootElement;
+                
+                // Extract intent and confidence
+                string intent = root.GetProperty("intent").GetString() ?? "out_of_scope";
+                double confidence = root.TryGetProperty("confidence", out var confProp)
+                    ? confProp.GetDouble()
+                    : 0.0;
+
+                string? domain = root.TryGetProperty("domain", out var domProp) && domProp.ValueKind != JsonValueKind.Null
+                    ? domProp.GetString()
+                    : null;
+
+                // Validate confidence threshold
+                var validatedIntent = ValidateConfidence(intent, confidence);
+
+                // Validate intent against allowlist
+                validatedIntent = ValidateIntent(validatedIntent);
+
+                // If intent was modified, log the change
+                if (validatedIntent != intent)
+                {
+                    _logger.LogWarning(
+                        "[YamlIntentRunner] Intent validation changed result: {Original} -> {Validated} (confidence: {Confidence})",
+                        intent,
+                        validatedIntent,
+                        confidence
+                    );
+                }
+
+                // Build validated response
+                var validatedJson = JsonSerializer.Serialize(new
+                {
+                    intent = validatedIntent,
+                    domain,
+                    confidence,
+                    original_intent = validatedIntent != intent ? intent : null,
+                    validation_applied = validatedIntent != intent
+                });
+
+                return JsonDocument.Parse(validatedJson);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[YamlIntentRunner] Response validation failed, defaulting to chitchat");
+                
+                // Safest fallback
+                var fallbackJson = JsonSerializer.Serialize(new
+                {
+                    intent = "chitchat",
+                    domain = (string?)null,
+                    confidence = 0.5,
+                    validation_applied = true,
+                    error = "validation_failed"
+                });
+
+                return JsonDocument.Parse(fallbackJson);
+            }
+        }
+
+        /// <summary>
+        /// Validates confidence score and applies fallback logic.
+        /// Low confidence results default to chitchat for safety.
+        /// </summary>
+        private string ValidateConfidence(string intent, double confidence)
+        {
+            // If confidence is below minimum threshold, default to chitchat
+            if (confidence < _chitchatConfidenceThreshold)
+            {
+                _logger.LogWarning(
+                    "[YamlIntentRunner] Confidence {Confidence} below chitchat threshold {Threshold}, defaulting to chitchat",
+                    confidence,
+                    _chitchatConfidenceThreshold
+                );
+                return "chitchat";
+            }
+
+            // If confidence is between chitchat and minimum threshold, and intent is not chitchat, default to chitchat
+            if (confidence < _minConfidenceThreshold && intent != "chitchat")
+            {
+                _logger.LogWarning(
+                    "[YamlIntentRunner] Confidence {Confidence} below minimum threshold {Threshold}, defaulting to chitchat",
+                    confidence,
+                    _minConfidenceThreshold
+                );
+                return "chitchat";
+            }
+
+            return intent;
+        }
+
+        /// <summary>
+        /// Validates intent against security allowlist.
+        /// Unknown intents default to out_of_scope.
+        /// </summary>
+        private string ValidateIntent(string intent)
+        {
+            if (!_allowedIntents.Contains(intent))
+            {
+                _logger.LogWarning(
+                    "[YamlIntentRunner] Intent '{Intent}' not in allowlist, defaulting to out_of_scope",
+                    intent
+                );
+                return "out_of_scope";
+            }
+
+            return intent;
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using dataAccess.Planning.Validation;
 using dataAccess.Services;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -27,6 +28,7 @@ public sealed class NlqService : INlqService
     private readonly MetricMapper _map;
     private readonly AnswerFormatter _fmt;
     private readonly PlanValidator _validator;
+    private readonly ILogger<NlqService> _logger;
 
     public NlqService(
         ISqlCatalog catalog,
@@ -34,7 +36,8 @@ public sealed class NlqService : INlqService
         CapabilityGuard guard,
         MetricMapper map,
         AnswerFormatter fmt,
-        PlanValidator validator)
+        PlanValidator validator,
+        ILogger<NlqService> logger)
     {
         _catalog = catalog;
         _time = time;
@@ -42,24 +45,42 @@ public sealed class NlqService : INlqService
         _map = map;
         _fmt = fmt;
         _validator = validator;
+        _logger = logger;
     }
 
     public async Task<object> HandleAsync(string text, CancellationToken ct = default)
     {
+        _logger.LogInformation("[NlqService] Starting query processing: {Query}", text ?? "(empty)");
+        
         var plan = DraftPlanFromText(text ?? string.Empty);
+        _logger.LogInformation("[NlqService] Parsed plan - Domain: {Domain}, Metric: {Metric}, Mode: {Mode}, TimePreset: {TimePreset}", 
+            plan.Domain, plan.Metric, plan.Mode, plan.Time.Preset);
+        
         var resolved = ResolveTimes(plan);
+        _logger.LogInformation("[NlqService] Resolved times - Start: {Start}, End: {End}", 
+            resolved.Start, resolved.End);
 
         var (allowed, msg) = _guard.Check(resolved);
         if (!allowed)
+        {
+            _logger.LogWarning("[NlqService] CapabilityGuard rejected query: {Reason}", msg);
             return new { mode = "chat", markdown = msg };
+        }
+        
+        _logger.LogInformation("[NlqService] CapabilityGuard approved query");
 
         if (string.Equals(resolved.Mode, "report", StringComparison.OrdinalIgnoreCase))
         {
+            _logger.LogInformation("[NlqService] Building REPORT UI for domain: {Domain}", resolved.Domain);
             var ui = await BuildReportUiAsync(text ?? "", resolved, ct);
+            _logger.LogInformation("[NlqService] Report UI built successfully");
             return ui;
         }
 
+        _logger.LogInformation("[NlqService] Building ANSWER for domain: {Domain}, metric: {Metric}", 
+            resolved.Domain, resolved.Metric);
         var answer = await BuildAnswerAsync(text ?? "", resolved, ct);
+        _logger.LogInformation("[NlqService] Answer built successfully");
         return answer;
     }
 
@@ -398,10 +419,17 @@ public sealed class NlqService : INlqService
     {
         // Chit-chat / no domain → reply without hitting the mapper
         if (string.IsNullOrEmpty(plan.Domain))
-            return "Hi! I’m **BuiswAIz** — ask me about expense, sales, or inventory.";
+        {
+            _logger.LogInformation("[NlqService] No domain detected - returning chitchat response");
+            return "Hi! I'm **BuiswAIz** — ask me about expense, sales, or inventory.";
+        }
 
         var (qid, args, kind) = _map.GetAnswerQuery(plan);
+        _logger.LogInformation("[NlqService] Executing SQL catalog query - QueryId: {QueryId}, ArgCount: {ArgCount}", 
+            qid, args?.Count ?? 0);
+        
         var result = await _catalog.RunAsync(qid, args, ct);
+        _logger.LogInformation("[NlqService] SQL catalog query completed successfully - QueryId: {QueryId}", qid);
 
         // Common label (includes today/yesterday properly)
         string label = plan.Time.Preset switch
@@ -601,10 +629,16 @@ public sealed class NlqService : INlqService
     private async Task<object> BuildReportUiAsync(string userText, NlqResolvedPlan plan, CancellationToken ct)
     {
         var queries = _map.GetReportQueries(plan);
+        _logger.LogInformation("[NlqService] Building report UI - QueryCount: {QueryCount}", queries.Count);
 
         var rows = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         foreach (var (qid, args) in queries)
+        {
+            _logger.LogDebug("[NlqService] Executing report query - QueryId: {QueryId}", qid);
             rows[qid] = await _catalog.RunAsync(qid, args, ct);
+        }
+        
+        _logger.LogInformation("[NlqService] Completed {Count} report queries", rows.Count);
 
         JsonObject root = new()
         {

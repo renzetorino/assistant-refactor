@@ -1,0 +1,52 @@
+# Router Configuration
+# This file is kept for backward compatibility only
+# Modern routing is handled by ChatOrchestratorService
+
+# Intent Classification Safety Configuration
+intent_classification:
+  # Minimum confidence threshold for all intents (except chitchat)
+  min_confidence: 0.60
+  
+  # Special threshold for chitchat (more lenient)
+  chitchat_confidence: 0.55
+  
+  # Per-intent confidence thresholds (overrides min_confidence if specified)
+  thresholds:
+    chitchat: 0.55
+    faq: 0.65
+    nlq_query: 0.70
+    reports_inventory: 0.65
+    reports_expense: 0.65
+    reports_sales: 0.65
+    forecast_sales: 0.70
+    forecast_inventory: 0.70
+    forecast_expense: 0.70
+    out_of_scope: 0.60
+  
+  # Security allowlist (only these intents are permitted)
+  allowed_intents:
+    - chitchat
+    - faq
+    - nlq.query
+    - reports.inventory
+    - reports.expense
+    - reports.sales
+    - forecast.sales
+    - forecast.inventory
+    - forecast.expense
+    - out_of_scope
+
+# Legacy threshold configuration (kept for backward compatibility)
+intent_thresholds:
+  chitchat: 0.7
+  faq: 0.7
+  nlq_query: 0.7
+  reports: 0.7
+  forecast: 0.7
+
+required_slots:
+  reports.inventory: []
+  reports.expense: []
+  reports.sales: []
+  forecast.sales: []
+  forecast.inventory: []

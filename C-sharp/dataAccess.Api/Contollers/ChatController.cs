@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using dataAccess.Api.Services;
 using dataAccess.Api.Contracts;
+using dataAccess.Contracts;
 using dataAccess.Services;
 using System.Collections.Generic;
 using System.Security.Claims;

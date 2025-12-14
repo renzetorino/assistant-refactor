@@ -1,5 +1,6 @@
 ﻿// dataAccess.Api/RouterConfig.cs
 using System.Collections.Generic;
+using dataAccess.Planning;
 
 namespace dataAccess.Api
 {
@@ -9,6 +10,7 @@ namespace dataAccess.Api
         public string? IntentFallback { get; set; }
         public List<DomainRule> Domains { get; set; } = new();
         public string? DomainFallback { get; set; }
+        public IntentClassificationConfig? IntentClassification { get; set; }
     }
 
     public sealed class DomainRule

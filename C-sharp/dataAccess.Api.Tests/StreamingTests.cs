@@ -100,7 +100,10 @@ public class StreamingTests
         var mockNlqService = Mock.Of<INlqService>();
         var mockGroqClient = Mock.Of<dataAccess.Reports.IGroqJsonClient>();
         var mockLocalDecoder = Mock.Of<ILocalDecoderService>();
-        var mockJsonFaq = Mock.Of<JsonFaqService>();
+        var mockJsonFaq = new Mock<IJsonFaqService>();
+        mockJsonFaq
+            .Setup(x => x.SearchAsync(It.IsAny<string>(), It.IsAny<double>()))
+            .ReturnsAsync((string?)null);
 
         var orchestrator = new ChatOrchestratorService(
             kernel,
@@ -121,7 +124,7 @@ public class StreamingTests
             mockNlqService,
             mockGroqClient,
             mockLocalDecoder,
-            mockJsonFaq
+            mockJsonFaq.Object
         );
 
         // When - Stream a query (will fail at LLM call, but we can test structure)

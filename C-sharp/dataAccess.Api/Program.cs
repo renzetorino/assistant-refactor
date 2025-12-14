@@ -168,8 +168,27 @@ builder.Services.AddScoped<Func<string, CancellationToken, Task<string>>>(sp => 
 // Phase 4: Register IYamlReportRunner and IYamlIntentRunner interfaces
 builder.Services.AddScoped<IYamlReportRunner, YamlReportRunner>();
 builder.Services.AddScoped<YamlReportRunner>();
-builder.Services.AddScoped<IYamlIntentRunner, dataAccess.Reports.YamlIntentRunner>();
-builder.Services.AddScoped<dataAccess.Reports.YamlIntentRunner>(); // Keep for backward compatibility
+
+// Register YamlIntentRunner with intent classification config
+builder.Services.AddScoped<IYamlIntentRunner>(sp =>
+{
+    var groq = sp.GetRequiredService<GroqJsonClient>();
+    var exampleRetriever = sp.GetRequiredService<IntentExampleRetriever>();
+    var logger = sp.GetRequiredService<ILogger<dataAccess.Reports.YamlIntentRunner>>();
+    var routerConfig = sp.GetRequiredService<RouterConfig>();
+    
+    return new dataAccess.Reports.YamlIntentRunner(
+        groq,
+        exampleRetriever,
+        logger,
+        routerConfig.IntentClassification
+    );
+});
+
+// Keep for backward compatibility
+builder.Services.AddScoped<dataAccess.Reports.YamlIntentRunner>(sp =>
+    (dataAccess.Reports.YamlIntentRunner)sp.GetRequiredService<IYamlIntentRunner>()
+);
 
 // ====================================================================
 // RAG CLASSIFIER SERVICES (Phase 2 - Token Optimization)
@@ -181,7 +200,7 @@ builder.Services.AddSingleton<dataAccess.Services.IEmbeddingService, dataAccess.
 builder.Services.AddSingleton<dataAccess.Services.IntentExampleRetriever>();
 
 // In-memory JSON FAQ service for business rules RAG (replaces Vertex AI)
-builder.Services.AddSingleton<dataAccess.Services.JsonFaqService>();
+builder.Services.AddSingleton<dataAccess.Services.IJsonFaqService, dataAccess.Services.JsonFaqService>();
 
 // NOTE: YamlIntentRunner is already registered above.
 // It will automatically receive IntentExampleRetriever via constructor injection.
@@ -444,10 +463,10 @@ builder.Services.AddScoped<SqlValidator>();
 builder.Services.AddScoped<ISafeSqlExecutor, SafeSqlExecutor>();
 builder.Services.AddSingleton<VirtualTableRewriter>();
 
-// Query Pipeline services (removed - using ChatOrchestratorService instead)
-// builder.Services.AddScoped<LlmSummarizer>();
-// builder.Services.AddSingleton<ResponseFormatter>();
-// builder.Services.AddScoped<QueryPipeline>();
+// Query Pipeline services
+builder.Services.AddScoped<LlmSummarizer>(); // Still used by ChatOrchestratorService
+// builder.Services.AddSingleton<ResponseFormatter>(); // Removed - not used
+// builder.Services.AddScoped<QueryPipeline>(); // Removed - using ChatOrchestratorService instead
 
 // CORS - Emergency Fix: Allow any origin for Vercel/HuggingFace deployment
 builder.Services.AddCors(options =>
@@ -659,6 +678,52 @@ static double? SafePct(double prev, double cur)
 }
 
 static string NewRunId() => $"r_sales_{Guid.NewGuid():N}".ToLowerInvariant();
+
+// ⚠️ DEPRECATION LAYER - Task 2.1 (Block 1, Hour 2-3)
+// Middleware to mark legacy endpoints with deprecation headers
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
+    
+    // List of deprecated endpoints that bypass ChatOrchestratorService
+    var legacyEndpoints = new Dictionary<string, string>
+    {
+        { "/api/nlq", "Natural Language Query (bypasses orchestrator)" },
+        { "/api/sql/products", "Product list (direct SQL access)" },
+        { "/api/sql/suppliers", "Supplier list (direct SQL access)" },
+        { "/api/sql/productcategory", "Category list (direct SQL access)" },
+        { "/api/sql/route", "SQL routing (direct SQL execution - CRITICAL RISK)" },
+        { "/api/hybrid/route", "Hybrid query (SQL+Vector without orchestrator)" },
+        { "/api/vector/route", "Vector search (bypasses orchestrator)" },
+        { "/api/assistant", "Legacy assistant (replaced by /api/chat/query)" }
+    };
+    
+    var matchedEndpoint = legacyEndpoints.Keys.FirstOrDefault(endpoint => path.StartsWith(endpoint));
+    
+    if (matchedEndpoint != null)
+    {
+        // Log deprecation warning
+        var logger = context.RequestServices.GetRequiredService<ILoggerFactory>()
+            .CreateLogger("DeprecationMiddleware");
+        logger.LogWarning(
+            "⚠️ DEPRECATED ENDPOINT ACCESSED: {Path} - {Description}. Use /api/chat/query instead.",
+            matchedEndpoint,
+            legacyEndpoints[matchedEndpoint]
+        );
+        
+        // Add deprecation headers (will be added after endpoint processes)
+        context.Response.OnStarting(() =>
+        {
+            context.Response.Headers["X-Deprecated"] = "true";
+            context.Response.Headers["X-Replacement"] = "/api/chat/query";
+            context.Response.Headers["X-Sunset-Date"] = "2025-12-31";
+            context.Response.Headers["X-Deprecation-Info"] = legacyEndpoints[matchedEndpoint];
+            return Task.CompletedTask;
+        });
+    }
+    
+    await next(context);
+});
 
 app.UseCors("default");
 app.UseRateLimiter(); // Apply rate limiting before authentication
@@ -2708,6 +2773,40 @@ app.MapPost("/api/assistant", async (
         }, statusCode: 500);
     }
 }).RequireAuthorization("ApiUser"); // Enforce JWT authentication with ApiUser policy
+
+// ⚠️ STARTUP WARNING - Task 2.2 (Block 1, Hour 2-3)
+// Display deprecated endpoints warning on every application start
+Console.WriteLine();
+Console.WriteLine("╔════════════════════════════════════════════════════════════════════════════╗");
+Console.WriteLine("║                    ⚠️  DEPRECATED ENDPOINTS WARNING  ⚠️                    ║");
+Console.WriteLine("╚════════════════════════════════════════════════════════════════════════════╝");
+Console.WriteLine();
+Console.WriteLine("The following 8 endpoints bypass ChatOrchestratorService and are DEPRECATED:");
+Console.WriteLine();
+Console.WriteLine("  🔴 CRITICAL RISK:");
+Console.WriteLine("     • POST /api/sql/route          - Direct SQL execution (security risk)");
+Console.WriteLine("     • POST /api/hybrid/route       - SQL+Vector without validation");
+Console.WriteLine();
+Console.WriteLine("  🟠 HIGH RISK:");
+Console.WriteLine("     • POST /api/nlq                - Natural language query (no validation)");
+Console.WriteLine("     • GET  /api/sql/products       - Direct database access");
+Console.WriteLine("     • GET  /api/sql/suppliers      - Direct database access");
+Console.WriteLine("     • GET  /api/sql/productcategory - Direct database access");
+Console.WriteLine();
+Console.WriteLine("  🟡 MEDIUM RISK:");
+Console.WriteLine("     • POST /api/vector/route       - Vector search bypass");
+Console.WriteLine("     • POST /api/assistant          - Legacy YAML routing");
+Console.WriteLine();
+Console.WriteLine("  📅 SUNSET DATE: December 31, 2025");
+Console.WriteLine("  ✅ REPLACEMENT: POST /api/chat/query (unified orchestrator)");
+Console.WriteLine();
+Console.WriteLine("  📊 All requests to deprecated endpoints will:");
+Console.WriteLine("     - Return X-Deprecated: true header");
+Console.WriteLine("     - Log warning messages");
+Console.WriteLine("     - Continue functioning (soft deprecation)");
+Console.WriteLine();
+Console.WriteLine("╚════════════════════════════════════════════════════════════════════════════╝");
+Console.WriteLine();
 
 app.Run();
 

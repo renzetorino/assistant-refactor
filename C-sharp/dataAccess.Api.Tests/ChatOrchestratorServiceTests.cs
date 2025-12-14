@@ -91,7 +91,10 @@ public class ChatOrchestratorServiceTests
         var mockNlqService = new Mock<INlqService>();
         var mockGroqClient = new Mock<dataAccess.Reports.IGroqJsonClient>();
         var mockLocalDecoder = new Mock<ILocalDecoderService>();
-        var mockJsonFaq = new Mock<JsonFaqService>();
+        var mockJsonFaq = new Mock<IJsonFaqService>();
+        mockJsonFaq
+            .Setup(x => x.SearchAsync(It.IsAny<string>(), It.IsAny<double>()))
+            .ReturnsAsync((string?)null);
 
         // Create orchestrator with mocked Phase 4 dependencies
         _orchestrator = new ChatOrchestratorService(

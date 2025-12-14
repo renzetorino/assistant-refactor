@@ -83,7 +83,7 @@ public class ChatOrchestratorService : IChatOrchestratorService
     private readonly ILocalDecoderService _localDecoderService;
     
     // In-memory JSON FAQ service for business rules RAG
-    private readonly JsonFaqService _jsonFaqService;
+    private readonly IJsonFaqService _jsonFaqService;
 
     public ChatOrchestratorService(
         Kernel kernel,
@@ -104,7 +104,7 @@ public class ChatOrchestratorService : IChatOrchestratorService
         INlqService nlqService,
         dataAccess.Reports.IGroqJsonClient groqClient,
         ILocalDecoderService localDecoderService,
-        JsonFaqService jsonFaqService)
+        IJsonFaqService jsonFaqService)
     {
         _kernel = kernel;
         _schemaService = schemaService;

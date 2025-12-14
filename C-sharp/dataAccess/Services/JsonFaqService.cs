@@ -13,7 +13,7 @@ namespace dataAccess.Services
     /// Replaces cloud-based Vertex AI RAG with a lightweight local solution.
     /// MUST be registered as Singleton to prevent re-embedding on every request.
     /// </summary>
-    public class JsonFaqService
+    public class JsonFaqService : IJsonFaqService
     {
         private readonly IEmbeddingService _embeddingService;
         private readonly ILogger<JsonFaqService> _logger;
