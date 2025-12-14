@@ -134,7 +134,8 @@ var deserializer = new DeserializerBuilder()
 
 var routerCfg = deserializer.Deserialize<RouterConfig>(yamlContent) ?? new RouterConfig();
 builder.Services.AddSingleton(routerCfg);
-builder.Services.AddSingleton<ITextRouter, YamlRouter>();
+// YamlRouter removed - using ChatOrchestratorService instead
+// builder.Services.AddSingleton<ITextRouter, YamlRouter>();
 
 var reportModel = Environment.GetEnvironmentVariable("APP__REPORT__MODEL")
                  ?? builder.Configuration["APP:REPORT:MODEL"]
@@ -199,7 +200,7 @@ builder.Services.AddSingleton<TimeResolver>();
 builder.Services.AddSingleton<CapabilityGuard>();
 builder.Services.AddSingleton<MetricMapper>();
 builder.Services.AddSingleton<AnswerFormatter>();
-builder.Services.AddScoped<NlqService>();
+builder.Services.AddScoped<INlqService, NlqService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -443,10 +444,10 @@ builder.Services.AddScoped<SqlValidator>();
 builder.Services.AddScoped<ISafeSqlExecutor, SafeSqlExecutor>();
 builder.Services.AddSingleton<VirtualTableRewriter>();
 
-// Query Pipeline services (new architecture)
-builder.Services.AddScoped<LlmSummarizer>();
-builder.Services.AddSingleton<ResponseFormatter>();
-builder.Services.AddScoped<QueryPipeline>();
+// Query Pipeline services (removed - using ChatOrchestratorService instead)
+// builder.Services.AddScoped<LlmSummarizer>();
+// builder.Services.AddSingleton<ResponseFormatter>();
+// builder.Services.AddScoped<QueryPipeline>();
 
 // CORS - Emergency Fix: Allow any origin for Vercel/HuggingFace deployment
 builder.Services.AddCors(options =>
@@ -1769,7 +1770,8 @@ app.MapGet("/api/debug/db-ping", async (IConfiguration cfg, CancellationToken ct
 
 
 app.MapNlqEndpoint();
-app.MapQueryPipelineEndpoint();  // New query pipeline endpoint
+// Query pipeline endpoint removed - using ChatOrchestratorService instead
+// app.MapQueryPipelineEndpoint();
 // Assuming you have: public sealed record AssistantRequest(string Text, string? Domain);
 // ---------- tiny helpers (can be placed above the map) ----------
 static string NormalizeReportDomain(string? domain)

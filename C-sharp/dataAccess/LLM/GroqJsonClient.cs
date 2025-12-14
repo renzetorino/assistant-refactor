@@ -4,9 +4,10 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using dataAccess.Reports;
 
 namespace dataAccess.LLM;
-public sealed class GroqJsonClient
+public sealed class GroqJsonClient : IGroqJsonClient
 {
     private readonly HttpClient _http;
     private readonly string _apiKey;

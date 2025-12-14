@@ -7,6 +7,7 @@ using Xunit;
 using dataAccess.Api.Services;
 using dataAccess.Services;
 using dataAccess.Planning;
+using dataAccess.Planning.Nlq;
 using dataAccess.Reports;
 using dataAccess.Contracts;
 using dataAccess.Entities;
@@ -48,7 +49,7 @@ public class ChatOrchestratorServiceTests
             .ReturnsAsync(new List<ChatMessage>()); // Return empty history by default
         
         _mockChatHistory
-            .Setup(x => x.AddMessageToHistoryAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Setup(x => x.AddMessageToHistoryAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Dictionary<string, string>?>()))
             .Returns(Task.CompletedTask);
         
         // Use real PromptLoader - test project copies YAML files to output directory
@@ -86,6 +87,12 @@ public class ChatOrchestratorServiceTests
             .Setup(x => x.ParseDateRangeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((DateTime.Today.AddDays(-1), DateTime.Today.AddDays(-1))); // Default to yesterday
 
+        // Mock NlqService and other missing dependencies
+        var mockNlqService = new Mock<INlqService>();
+        var mockGroqClient = new Mock<dataAccess.Reports.IGroqJsonClient>();
+        var mockLocalDecoder = new Mock<ILocalDecoderService>();
+        var mockJsonFaq = new Mock<JsonFaqService>();
+
         // Create orchestrator with mocked Phase 4 dependencies
         _orchestrator = new ChatOrchestratorService(
             kernel,
@@ -102,7 +109,11 @@ public class ChatOrchestratorServiceTests
             _mockIntentRunner.Object,
             mockSqlGenerator!,
             mockSummarizer!,
-            mockDateParser.Object
+            mockDateParser.Object,
+            mockNlqService.Object,
+            mockGroqClient.Object,
+            mockLocalDecoder.Object,
+            mockJsonFaq.Object
         );
     }
 

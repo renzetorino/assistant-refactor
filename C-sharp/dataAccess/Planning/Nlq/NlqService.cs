@@ -11,7 +11,15 @@ using System.Threading.Tasks;
 
 namespace dataAccess.Planning.Nlq;
 
-public sealed class NlqService
+/// <summary>
+/// Interface for Natural Language Query (NLQ) service
+/// </summary>
+public interface INlqService
+{
+    Task<object> HandleAsync(string text, CancellationToken ct = default);
+}
+
+public sealed class NlqService : INlqService
 {
     private readonly ISqlCatalog _catalog;
     private readonly TimeResolver _time;

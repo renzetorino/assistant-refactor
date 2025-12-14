@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using dataAccess.Api.Services;
 using dataAccess.Services;
 using dataAccess.Planning;
+using dataAccess.Planning.Nlq;
 using dataAccess.Reports;
 using dataAccess.Contracts;
 using Shared.Allowlists;
@@ -94,6 +95,12 @@ public class StreamingTests
         
         // Mock Phase 4.5 dependency
         var mockDateParser = Mock.Of<ILlmDateParser>();
+        
+        // Mock missing dependencies
+        var mockNlqService = Mock.Of<INlqService>();
+        var mockGroqClient = Mock.Of<dataAccess.Reports.IGroqJsonClient>();
+        var mockLocalDecoder = Mock.Of<ILocalDecoderService>();
+        var mockJsonFaq = Mock.Of<JsonFaqService>();
 
         var orchestrator = new ChatOrchestratorService(
             kernel,
@@ -110,7 +117,11 @@ public class StreamingTests
             mockIntentRunner.Object,
             mockSqlGenerator!,
             mockSummarizer!,
-            mockDateParser
+            mockDateParser,
+            mockNlqService,
+            mockGroqClient,
+            mockLocalDecoder,
+            mockJsonFaq
         );
 
         // When - Stream a query (will fail at LLM call, but we can test structure)

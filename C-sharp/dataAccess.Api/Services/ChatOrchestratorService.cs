@@ -73,11 +73,11 @@ public class ChatOrchestratorService : IChatOrchestratorService
     // Phase 4.5: Pre-emptive slot filling dependencies
     
     // Master Orchestrator: NLQ Service for dynamic SQL queries
-    private readonly NlqService _nlqService;
+    private readonly INlqService _nlqService;
     private readonly ILlmDateParser _llmDateParser;
     
     // Work Block 2: Safe SQL Guardrail - AI validation service
-    private readonly dataAccess.LLM.GroqJsonClient _groqClient;
+    private readonly dataAccess.Reports.IGroqJsonClient _groqClient;
     
     // Phase 3: Local Decoder Service - Free local LLM for chitchat/faq
     private readonly ILocalDecoderService _localDecoderService;
@@ -101,8 +101,8 @@ public class ChatOrchestratorService : IChatOrchestratorService
         LlmSqlGenerator sqlGenerator,
         LlmSummarizer summarizer,
         ILlmDateParser llmDateParser,
-        NlqService nlqService,
-        dataAccess.LLM.GroqJsonClient groqClient,
+        INlqService nlqService,
+        dataAccess.Reports.IGroqJsonClient groqClient,
         ILocalDecoderService localDecoderService,
         JsonFaqService jsonFaqService)
     {
@@ -595,11 +595,10 @@ public class ChatOrchestratorService : IChatOrchestratorService
                                 .Replace("[STATIC_PLAN_JSON]", planSummary);
                             
                             // Call cheap 8B model via GroqJsonClient
-                            using var validationDoc = await _groqClient.CompleteJsonAsync(
+                            using var validationDoc = await _groqClient.CompleteJsonAsyncChat(
                                 systemPrompt, 
                                 userPrompt, 
                                 data: null, 
-                                model: "llama-3.1-8b-instant", 
                                 temperature: 0.0, 
                                 cancellationToken);
                             
