@@ -282,6 +282,13 @@ namespace dataAccess.Reports
                     confidence,
                     _chitchatConfidenceThreshold
                 );
+                
+                // ═══════════════════════════════════════════════════════════════
+                // BLOCK 2, STEP 10: Intent classification failure telemetry (2025-12-15)
+                // ═══════════════════════════════════════════════════════════════
+                _logger.LogWarning("[TELEMETRY_INTENT_FAIL_LOW_CONFIDENCE] OriginalIntent: {Intent}, Confidence: {Confidence}, Threshold: {Threshold}, FallbackTo: chitchat",
+                    intent, confidence, _chitchatConfidenceThreshold);
+                
                 return "chitchat";
             }
 
@@ -293,6 +300,13 @@ namespace dataAccess.Reports
                     confidence,
                     _minConfidenceThreshold
                 );
+                
+                // ═══════════════════════════════════════════════════════════════
+                // BLOCK 2, STEP 10: Intent classification failure telemetry (2025-12-15)
+                // ═══════════════════════════════════════════════════════════════
+                _logger.LogWarning("[TELEMETRY_INTENT_FAIL_BELOW_MIN] OriginalIntent: {Intent}, Confidence: {Confidence}, MinThreshold: {Threshold}, FallbackTo: chitchat",
+                    intent, confidence, _minConfidenceThreshold);
+                
                 return "chitchat";
             }
 
@@ -311,6 +325,13 @@ namespace dataAccess.Reports
                     "[YamlIntentRunner] Intent '{Intent}' not in allowlist, defaulting to out_of_scope",
                     intent
                 );
+                
+                // ═══════════════════════════════════════════════════════════════
+                // BLOCK 2, STEP 10: Intent allowlist violation telemetry (2025-12-15)
+                // ═══════════════════════════════════════════════════════════════
+                _logger.LogWarning("[TELEMETRY_INTENT_FAIL_ALLOWLIST] UnknownIntent: {Intent}, FallbackTo: out_of_scope, AllowedIntents: {Count}",
+                    intent, _allowedIntents.Count);
+                
                 return "out_of_scope";
             }
 

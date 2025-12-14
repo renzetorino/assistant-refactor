@@ -441,7 +441,7 @@ builder.Services.AddScoped<IForecastRunnerService, ForecastRunnerService>();
 
 builder.Services.AddScoped<PlannerService>();
 builder.Services.AddScoped<PlanValidator>();
-builder.Services.AddScoped<PlanExecutor>();
+// REMOVED: builder.Services.AddScoped<PlanExecutor>(); // ZOMBIE SERVICE - deleted 2025-12-15
 builder.Services.AddHttpClient();
 
 // Groq client (typed HttpClient) — MUST set BaseAddress

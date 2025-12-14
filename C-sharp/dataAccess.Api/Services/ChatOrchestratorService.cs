@@ -180,12 +180,29 @@ public class ChatOrchestratorService : IChatOrchestratorService
                     // Stage 1: User provided the topic/sub-intent
                     finalPlan.SubIntent = userQuery.Trim();
                     _logger.LogInformation("[Phase 4] Filled sub_intent: {SubIntent}", finalPlan.SubIntent);
+                    
+                    // ═══════════════════════════════════════════════════════════════
+                    // BLOCK 2, STEP 10: Slot-filling success telemetry (2025-12-15)
+                    // ═══════════════════════════════════════════════════════════════
+                    _logger.LogInformation("[TELEMETRY_SLOT_FILL_COMPLETE] Intent: {Intent}, SlotFilled: sub_intent, Value: {Value}, UserId: {UserId}",
+                        finalPlan.Intent ?? "unknown",
+                        finalPlan.SubIntent,
+                        userId);
                 }
                 else if (pendingSlotName != null)
                 {
                     // Stage 2: User provided a parameter value
                     finalPlan.Slots[pendingSlotName] = userQuery.Trim();
                     _logger.LogInformation("[Phase 4] Filled slot {SlotName}: {Value}", pendingSlotName, userQuery.Trim());
+                    
+                    // ═══════════════════════════════════════════════════════════════
+                    // BLOCK 2, STEP 10: Slot-filling success telemetry (2025-12-15)
+                    // ═══════════════════════════════════════════════════════════════
+                    _logger.LogInformation("[TELEMETRY_SLOT_FILL_COMPLETE] Intent: {Intent}, SlotFilled: {SlotName}, Value: {Value}, UserId: {UserId}",
+                        finalPlan.Intent ?? "unknown",
+                        pendingSlotName,
+                        userQuery.Trim(),
+                        userId);
                 }
                 else
                 {
@@ -778,19 +795,49 @@ public class ChatOrchestratorService : IChatOrchestratorService
 
                     if (normalizedIntent == "faq")
                     {
-                        // 1. Attempt RAG Search (JsonFaqService)
-                        var faqAnswer = await _jsonFaqService.SearchAsync(userQuery);
+                        // 1. Attempt RAG Search with Analytics and Confidence Scoring (JsonFaqService)
+                        var faqResult = await _jsonFaqService.SearchWithAnalyticsAsync(
+                            userQuery, 
+                            result.UserId,
+                            threshold: 0.7);
                         
-                        if (faqAnswer != null)
+                        if (faqResult != null)
                         {
-                            responseText = faqAnswer;
-                            _logger.LogInformation("[Phase 3/RAG] RAG successful. Found in JsonFaqService.");
+                            // Found strong match - return answer with confidence
+                            responseText = faqResult.Answer;
+                            _logger.LogInformation(
+                                "[Phase 3/RAG] RAG successful. Found in JsonFaqService (confidence: {Confidence:F3})",
+                                faqResult.Confidence);
                         }
                         else
                         {
-                            // 2. RAG Failure -> Fallback to Groq LLM (via refactored service)
-                            _logger.LogInformation("[Phase 3/RAG] RAG failed/No match. Falling back to Groq LLM with FAQ prompt.");
-                            responseText = await _localDecoderService.GetResponseAsync(userQuery, history, "faq");
+                            // 2. No strong match -> Try fallback chain (suggest similar questions)
+                            var suggestions = await _jsonFaqService.GetSimilarQuestionsAsync(
+                                userQuery, 
+                                topN: 3, 
+                                minThreshold: 0.4);
+
+                            if (suggestions.Any())
+                            {
+                                // Build "Did you mean?" response
+                                var suggestionText = "I couldn't find an exact match, but here are some related questions:\n\n";
+                                for (int i = 0; i < suggestions.Count; i++)
+                                {
+                                    suggestionText += $"{i + 1}. {suggestions[i].Question}\n";
+                                }
+                                suggestionText += "\nPlease rephrase your question or ask one of the above.";
+                                
+                                responseText = suggestionText;
+                                _logger.LogInformation(
+                                    "[Phase 3/RAG] No strong match. Suggested {Count} similar questions.",
+                                    suggestions.Count);
+                            }
+                            else
+                            {
+                                // 3. No suggestions either -> Fallback to Groq LLM (via refactored service)
+                                _logger.LogInformation("[Phase 3/RAG] RAG failed/No match. Falling back to Groq LLM with FAQ prompt.");
+                                responseText = await _localDecoderService.GetResponseAsync(userQuery, history, "faq");
+                            }
                         }
                     }
                     else // normalizedIntent == "chitchat"
@@ -875,6 +922,14 @@ public class ChatOrchestratorService : IChatOrchestratorService
                 // Stage 2: Parameter clarification needed
                 _logger.LogInformation("[Phase 4] Stage 2 clarification needed for parameter: {ParamName}", 
                     stepResult.MissingParameterName);
+                
+                // ═══════════════════════════════════════════════════════════════
+                // BLOCK 2, STEP 10: Slot-filling telemetry (2025-12-15)
+                // ═══════════════════════════════════════════════════════════════
+                _logger.LogWarning("[TELEMETRY_SLOT_FILL_INCOMPLETE] Intent: {Intent}, MissingSlot: {Slot}, UserId: {UserId}",
+                    normalizedIntent,
+                    stepResult.MissingParameterName ?? "unknown",
+                    result.UserId);
                 
                 await _chatHistory.SavePendingStateAsync(
                     session.Id, 

@@ -66,6 +66,61 @@ public class SqlValidator
         new Regex(@"\bOR\s+'?1'?\s*=\s*'?1'?", RegexOptions.IgnoreCase | RegexOptions.Compiled)
     };
 
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // BLOCK 2, STEP 6: ENHANCED SQL INJECTION PATTERN DETECTION (2025-12-15)
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // Additional SQL injection patterns for defense-in-depth protection
+    private static readonly string[] BannedInjectionPatterns = new[]
+    {
+        // Command stacking attempts (semicolon already blocked, but check for encoded versions)
+        @";\s*DROP", @";\s*DELETE", @";\s*UPDATE", @";\s*INSERT",
+        
+        // Hex-encoded attacks
+        @"0x[0-9a-fA-F]+", // Hex literals can be used to obfuscate keywords
+        
+        // Character encoding bypass attempts
+        @"CHAR\s*\(", @"CHR\s*\(", @"ASCII\s*\(",
+        
+        // Comment-based obfuscation
+        @"/\*\!\s*\d+", // MySQL conditional comments /*! ... */
+        
+        // UNION-based injection attempts
+        @"UNION\s+(?:ALL\s+)?SELECT", // Covered by SELECT-only rule, but explicit check
+        
+        // Time-based blind SQL injection
+        @"SLEEP\s*\(", @"WAITFOR\s+DELAY", @"BENCHMARK\s*\(",
+        @"pg_sleep\s*\(", // PostgreSQL specific
+        
+        // Error-based injection
+        @"EXTRACTVALUE\s*\(", @"UPDATEXML\s*\(",
+        
+        // Out-of-band data exfiltration
+        @"LOAD_FILE\s*\(", @"INTO\s+OUTFILE", @"INTO\s+DUMPFILE",
+        
+        // Stacked query attempts via EXECUTE
+        @"EXECUTE\s+IMMEDIATE", @"EXEC\s*\(",
+        
+        // Information schema bypass attempts
+        @"information_schema\.", // Should use allowlist, but extra protection
+        @"pg_catalog\.", // PostgreSQL system catalog
+        
+        // Privilege escalation attempts
+        @"current_user", @"session_user", @"system_user",
+        
+        // File system access
+        @"xp_cmdshell", // SQL Server command execution
+        @"sp_executesql" // SQL Server dynamic SQL
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // BLOCK 2, STEP 6: QUERY COMPLEXITY LIMITS (2025-12-15)
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // Prevent resource exhaustion via overly complex queries
+    private const int MAX_JOIN_COUNT = 10; // Maximum number of JOIN clauses
+    private const int MAX_WHERE_CONDITIONS = 20; // Maximum AND/OR conditions in WHERE
+    private const int MAX_SUBQUERY_DEPTH = 3; // Maximum nested subquery depth
+    private const int MAX_QUERY_LENGTH = 50000; // Maximum query length in characters
+
     public SqlValidator(ISqlAllowlist allowlist, ILogger<SqlValidator> logger)
     {
         _allowlist = allowlist;
@@ -190,6 +245,13 @@ public class SqlValidator
         if (sql.Contains(';'))
         {
             _logger.LogWarning("Query rejected: semicolons not allowed");
+            
+            // ═══════════════════════════════════════════════════════════════
+            // BLOCK 2, STEP 10: SQL validation failure telemetry (2025-12-15)
+            // ═══════════════════════════════════════════════════════════════
+            _logger.LogWarning("[TELEMETRY_SQL_VALIDATION_FAIL] ErrorCode: SEMICOLON_BLOCKED, QueryLength: {Length}",
+                sql.Length);
+            
             return (false, "Semicolons are not allowed. Only single statements permitted.");
         }
 
@@ -255,6 +317,61 @@ public class SqlValidator
             }
         }
 
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // 5.3. BLOCK 2, STEP 6: Enhanced SQL injection pattern detection (2025-12-15)
+        // ═══════════════════════════════════════════════════════════════════════════════
+        foreach (var pattern in BannedInjectionPatterns)
+        {
+            if (Regex.IsMatch(scan, pattern, RegexOptions.IgnoreCase))
+            {
+                var keyword = pattern.Replace(@"\b", "").Replace(@"\s*\(", "").Replace(@"\s+", " ").Trim();
+                _logger.LogWarning("[VAL005_BANNED_INJECTION] Banned injection pattern detected: {Pattern}", keyword);
+                return (false, $"Banned pattern detected: {keyword}. This may be an SQL injection attempt.");
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // 5.4. BLOCK 2, STEP 6: Query complexity limits (2025-12-15)
+        // ═══════════════════════════════════════════════════════════════════════════════
+        
+        // Check query length
+        if (sql.Length > MAX_QUERY_LENGTH)
+        {
+            _logger.LogWarning("[VAL005_QUERY_TOO_LONG] Query rejected: exceeds maximum length of {MaxLength} characters", MAX_QUERY_LENGTH);
+            return (false, $"Query too long. Maximum {MAX_QUERY_LENGTH} characters allowed.");
+        }
+
+        // Check JOIN count
+        var joinCount = Regex.Matches(scan, @"\bJOIN\b", RegexOptions.IgnoreCase).Count;
+        if (joinCount > MAX_JOIN_COUNT)
+        {
+            _logger.LogWarning("[VAL005_TOO_MANY_JOINS] Query rejected: {JoinCount} JOINs exceeds maximum of {MaxJoins}", joinCount, MAX_JOIN_COUNT);
+            return (false, $"Too many JOIN clauses. Maximum {MAX_JOIN_COUNT} allowed, found {joinCount}.");
+        }
+
+        // Check WHERE condition complexity (AND/OR count)
+        var whereMatch = Regex.Match(scan, @"\bWHERE\b.*", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        if (whereMatch.Success)
+        {
+            var whereClause = whereMatch.Value;
+            var conditionCount = Regex.Matches(whereClause, @"\b(?:AND|OR)\b", RegexOptions.IgnoreCase).Count + 1; // +1 for first condition
+            if (conditionCount > MAX_WHERE_CONDITIONS)
+            {
+                _logger.LogWarning("[VAL005_WHERE_TOO_COMPLEX] Query rejected: {ConditionCount} WHERE conditions exceeds maximum of {MaxConditions}", 
+                    conditionCount, MAX_WHERE_CONDITIONS);
+                return (false, $"WHERE clause too complex. Maximum {MAX_WHERE_CONDITIONS} conditions allowed, found {conditionCount}.");
+            }
+        }
+
+        // Check subquery nesting depth
+        var subqueryDepth = CalculateSubqueryDepth(scan);
+        if (subqueryDepth > MAX_SUBQUERY_DEPTH)
+        {
+            _logger.LogWarning("[VAL005_SUBQUERY_TOO_DEEP] Query rejected: subquery depth {Depth} exceeds maximum of {MaxDepth}", 
+                subqueryDepth, MAX_SUBQUERY_DEPTH);
+            return (false, $"Subquery nesting too deep. Maximum depth {MAX_SUBQUERY_DEPTH} allowed, found {subqueryDepth}.");
+        }
+
         // 5.5. CRITICAL: Block derived tables in FROM/JOIN to prevent table allowlist bypass
         // Pattern: FROM ( ... ) or JOIN ( ... )
         // Derived tables can hide base tables from our allowlist check.
@@ -305,6 +422,12 @@ public class SqlValidator
         if (!result.isValid)
             return result;
 
+        // ═══════════════════════════════════════════════════════════════
+        // BLOCK 2, STEP 10: SQL validation success telemetry (2025-12-15)
+        // ═══════════════════════════════════════════════════════════════
+        _logger.LogInformation("[TELEMETRY_SQL_VALIDATION_PASS] QueryLength: {Length}, TablesUsed: {TableCount}",
+            sql.Length, tables.Count);
+        
         _logger.LogInformation("SQL validation passed for query");
         return (true, null);
     }
@@ -854,5 +977,47 @@ public class SqlValidator
             }
             return match.Value;
         }, RegexOptions.IgnoreCase);
+    }
+
+    /// <summary>
+    /// BLOCK 2, STEP 6: Calculates maximum subquery nesting depth (2025-12-15)
+    /// Prevents resource exhaustion via deeply nested subqueries.
+    /// </summary>
+    private int CalculateSubqueryDepth(string sql)
+    {
+        int maxDepth = 0;
+        int currentDepth = 0;
+        bool inSelect = false;
+
+        // Split into tokens to track SELECT and parentheses
+        var tokens = Regex.Split(sql, @"(\(|\)|SELECT)", RegexOptions.IgnoreCase);
+
+        foreach (var token in tokens)
+        {
+            var trimmed = token.Trim().ToUpperInvariant();
+            
+            if (trimmed == "SELECT")
+            {
+                inSelect = true;
+            }
+            else if (trimmed == "(")
+            {
+                if (inSelect)
+                {
+                    currentDepth++;
+                    maxDepth = Math.Max(maxDepth, currentDepth);
+                }
+            }
+            else if (trimmed == ")")
+            {
+                if (currentDepth > 0)
+                {
+                    currentDepth--;
+                }
+                inSelect = false; // Reset after closing parenthesis
+            }
+        }
+
+        return maxDepth;
     }
 }
