@@ -1,4 +1,4 @@
-﻿using dataAccess.Planning.Validation;
+﻿// ❌ REMOVED: using dataAccess.Planning.Validation; (PlanValidator deleted 2025-12-15)
 using dataAccess.Services;
 using Microsoft.Extensions.Logging;
 using System;
@@ -27,7 +27,7 @@ public sealed class NlqService : INlqService
     private readonly CapabilityGuard _guard;
     private readonly MetricMapper _map;
     private readonly AnswerFormatter _fmt;
-    private readonly PlanValidator _validator;
+    // ❌ REMOVED: PlanValidator dependency (zombie service deleted 2025-12-15)
     private readonly ILogger<NlqService> _logger;
 
     public NlqService(
@@ -36,7 +36,7 @@ public sealed class NlqService : INlqService
         CapabilityGuard guard,
         MetricMapper map,
         AnswerFormatter fmt,
-        PlanValidator validator,
+        // PlanValidator validator, // ❌ REMOVED
         ILogger<NlqService> logger)
     {
         _catalog = catalog;
@@ -44,7 +44,7 @@ public sealed class NlqService : INlqService
         _guard = guard;
         _map = map;
         _fmt = fmt;
-        _validator = validator;
+        // _validator = validator; // ❌ REMOVED
         _logger = logger;
     }
 
@@ -824,11 +824,12 @@ public sealed class NlqService : INlqService
         // --- materialize JSON once, validate, and return a live node ---
         var json = root.ToJsonString();
 
-        // validate against your existing validator (uses JsonDocument)
-        using (var uiDoc = JsonDocument.Parse(json))
-        {
-            _validator.ValidateUiSpec(uiDoc, rows);
-        }
+        // ❌ REMOVED: PlanValidator validation (zombie service deleted 2025-12-15)
+        // Basic validation happens in YAML runner instead
+        // using (var uiDoc = JsonDocument.Parse(json))
+        // {
+        //     _validator.ValidateUiSpec(uiDoc, rows);
+        // }
 
         // return a live JsonNode (no disposed references)
         return JsonNode.Parse(json)!.AsObject();

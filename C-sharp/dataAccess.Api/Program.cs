@@ -1,10 +1,10 @@
 using dataAccess.Api;
-using dataAccess.Api.Endpoints;
+// ❌ REMOVED: using dataAccess.Api.Endpoints; (AssistantEndpoint deleted)
 using dataAccess.Api.Services;
 using dataAccess.Services;
 using dataAccess.Planning;
 using dataAccess.Planning.Nlq;
-using dataAccess.Planning.Validation;
+// ❌ REMOVED: using dataAccess.Planning.Validation; (PlanValidator deleted)
 using dataAccess.Reports;
 using dataAccess.Forecasts;
 using dataAccess.LLM;
@@ -257,7 +257,8 @@ builder.Services.AddSingleton(provider =>
     return ConfigLoader.Load(loader, "config.yaml");   // loads identity, etc.
 });
 builder.Services.AddSingleton<PromptRegistry>();
-builder.Services.AddSingleton<PromptComposer>();
+// ❌ ZOMBIE SERVICE - Deleted 2025-12-15
+// builder.Services.AddSingleton<PromptComposer>();
 
 // Embedder (typed HttpClient)
 builder.Services.AddHttpClient<IEmbeddingProvider, OllamaEmbeddingProvider>((sp, http) =>
@@ -439,9 +440,10 @@ builder.Services.AddScoped<IForecastRunnerService, ForecastRunnerService>();
 // EXISTING SERVICES
 // ==============================================================================
 
-builder.Services.AddScoped<PlannerService>();
-builder.Services.AddScoped<PlanValidator>();
-// REMOVED: builder.Services.AddScoped<PlanExecutor>(); // ZOMBIE SERVICE - deleted 2025-12-15
+// ❌ ZOMBIE SERVICES - Deleted 2025-12-15
+// builder.Services.AddScoped<PlannerService>();
+// builder.Services.AddScoped<PlanValidator>();
+// builder.Services.AddScoped<PlanExecutor>();
 builder.Services.AddHttpClient();
 
 // Groq client (typed HttpClient) — MUST set BaseAddress
@@ -452,9 +454,10 @@ builder.Services.AddHttpClient<GroqJsonClient>((sp, http) =>
 });
 
 // Query services
-builder.Services.AddScoped<SqlQueryService>();
-builder.Services.AddScoped<HybridQueryService>();
-builder.Services.AddScoped<VectorSearchService>();
+// ❌ ZOMBIE SERVICES - Deleted 2025-12-15
+// builder.Services.AddScoped<SqlQueryService>();
+// builder.Services.AddScoped<HybridQueryService>();
+builder.Services.AddScoped<VectorSearchService>(); // ✅ Keep - used by utilities
 
 // LLM SQL Generation services
 builder.Services.AddSingleton<LlmSqlPromptLoader>();
@@ -921,41 +924,11 @@ app.MapGet("/api/debug/expense-spec-deep", async () =>
 app.MapGet("/health", () => Results.Ok(new { ok = true }));
 
 // -------------------------------
-// SQL endpoints
+// ❌ LEGACY SQL ENDPOINTS DELETED (Zombie Services)
+// Replacement: Use POST /api/chat/query
 // -------------------------------
-app.MapGet("/api/sql/products", async (SqlQueryService svc, int? limit) =>
-{
-    var n = (limit is > 0) ? limit.Value : 50;
-    var rows = await svc.GetProductsAsync(n);  // DB-level LIMIT
-    return Results.Ok(rows);
-});
 
-app.MapGet("/api/sql/suppliers", async (SqlQueryService svc, string? q, int? limit) =>
-{
-    var n = (limit is > 0) ? limit!.Value : 50;
-    var data = string.IsNullOrWhiteSpace(q)
-        ? await svc.GetSuppliersAsync(n)
-        : await svc.SearchSuppliersAsync(q!, n);
-    return Results.Ok(data);
-});
-
-app.MapGet("/api/sql/productcategory", async (SqlQueryService svc, string? q, int? limit) =>
-{
-    var n = (limit is > 0) ? limit!.Value : 50;
-    var data = string.IsNullOrWhiteSpace(q)
-        ? await svc.GetCategoriesAsync(n)
-        : await svc.SearchCategoriesAsync(q!, n);
-    return Results.Ok(data);
-});
-
-app.MapPost("/api/sql/route", async (SqlQueryService svc, RouteReq req, CancellationToken ct) =>
-    Results.Ok(await svc.DispatchAsync(req.Input ?? "", ct)));
-
-app.MapPost("/api/hybrid/route", async (HybridQueryService svc, RouteReq req, CancellationToken ct) =>
-    Results.Ok(await svc.DispatchAsync(req.Input ?? "", ct)));
-
-app.MapPost("/api/vector/route", async (VectorSearchService svc, RouteReq req, CancellationToken ct) =>
-    Results.Ok(await svc.DispatchAsync(req.Input ?? "", ct)));
+// ❌ DELETED: All legacy SQL/Hybrid/Vector route endpoints (see above comment)
 
 // Debug endpoint to test LLM SQL generation
 app.MapPost("/api/debug/llm-sql", async (
@@ -1013,381 +986,14 @@ app.MapPost("/api/debug/llm-sql", async (
     }
 });
 
-app.MapPost("/api/reports/inventory/plan", async (
-    HttpContext ctx,
-    PromptComposer prompts,
-    PlannerService planner,
-    PlanValidator validator,
-    CancellationToken ct) =>
-{
-    ctx.Request.EnableBuffering();
-    using var jdoc = await JsonDocument.ParseAsync(ctx.Request.Body, cancellationToken: ct);
-    var text = jdoc.RootElement.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString() ?? "" : "";
+// ❌ DELETED: POST /api/reports/inventory/plan (orphaned - depends on deleted PlannerService)
+// Replacement: Use POST /api/chat/query with intent "reports.inventory"
 
-    var (system, _) = prompts.ComposePhase1("reports.inventory.yaml");
-    using var planDoc = await planner.JsonPlanAsync(system, text, ct);
-    validator.ValidatePhase1(planDoc);
-    var raw = planDoc.RootElement.GetRawText();
-    return Results.Text(raw, "application/json");
-});
+// ❌ DELETED: POST /api/reports/inventory/render (orphaned - depends on deleted PlanValidator)
+// Replacement: Use POST /api/chat/query with YamlReportRunner (165 lines removed)
 
-app.MapPost("/api/reports/inventory/render", async (
-    HttpContext ctx,
-    ISqlCatalog catalog,
-    GroqJsonClient groq,
-    PlanValidator validator,
-    CancellationToken ct) =>
-{
-    // -------- 1) Read & parse body (tolerant casing) --------
-    ctx.Request.EnableBuffering();
-    string rawJson;
-    using (var reader = new StreamReader(ctx.Request.Body, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 4096, leaveOpen: true))
-        rawJson = await reader.ReadToEndAsync();
-    ctx.Request.Body.Position = 0;
-
-    if (string.IsNullOrWhiteSpace(rawJson)) rawJson = "{}";
-
-    JsonDocument jdoc;
-    try { jdoc = JsonDocument.Parse(rawJson); }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(new { error = "BadJson", message = ex.Message });
-    }
-
-    using (jdoc)
-    {
-        var root = jdoc.RootElement;
-
-        // optional free-text prompt for the renderer
-        var text = root.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String
-            ? (t.GetString() ?? "")
-            : "";
-
-        // sqlRequests / sql_requests (array of { queryId|query_id, args })
-        var sqlArr = root.TryGetProperty("sqlRequests", out var s1) && s1.ValueKind == JsonValueKind.Array ? s1
-                 : root.TryGetProperty("sql_requests", out var s2) && s2.ValueKind == JsonValueKind.Array ? s2
-                 : default;
-
-        if (sqlArr.ValueKind != JsonValueKind.Array)
-            return Results.BadRequest(new { error = "MissingSqlRequests", message = "Provide sqlRequests/sql_requests as an array." });
-
-        // -------- 2) Whitelist + normalize requests --------
-        var ALLOW = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "INV_AVAILABLE_PRODUCTS",
-            "INV_LOW_STOCK",
-            "INV_OUT_OF_STOCK",
-            "INV_BY_PRODUCT",
-            "SALES_BY_PRODUCT_DAY"
-        };
-
-        var fixedReqs = new List<(string qid, Dictionary<string, object?> args)>();
-        foreach (var el in sqlArr.EnumerateArray())
-        {
-            string? qid = null;
-            if (el.TryGetProperty("queryId", out var q1) && q1.ValueKind == JsonValueKind.String) qid = q1.GetString();
-            else if (el.TryGetProperty("query_id", out var q2) && q2.ValueKind == JsonValueKind.String) qid = q2.GetString();
-            if (string.IsNullOrWhiteSpace(qid)) continue;
-
-            if (!ALLOW.Contains(qid))
-            {
-                Console.WriteLine($"[inventory.render] Skipping unknown/disabled query_id: {qid}");
-                continue;
-            }
-
-            var args = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-            if (el.TryGetProperty("args", out var aObj) && aObj.ValueKind == JsonValueKind.Object)
-                foreach (var p in aObj.EnumerateObject())
-                    args[p.Name] = p.Value.Deserialize<object?>();
-
-            fixedReqs.Add((qid!, args));
-        }
-
-        if (fixedReqs.Count == 0)
-            return Results.BadRequest(new { error = "NoValidRequests", message = "No allowed queryIds were provided." });
-
-        // -------- 3) Execute catalog (defensive on unknown queryId) --------
-        var rows = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (qid, args) in fixedReqs)
-        {
-            try
-            {
-                rows[qid] = await catalog.RunAsync(qid, args, ct);
-            }
-            catch (ArgumentOutOfRangeException ex) when (string.Equals(ex.ParamName, "queryId", StringComparison.OrdinalIgnoreCase))
-            {
-                Console.WriteLine($"[inventory.render] Catalog rejected query_id {qid}: {ex.Message}");
-                rows[qid] = Array.Empty<object>();
-            }
-        }
-
-        // -------- 4) Load inventory prompt + render via Groq --------
-        var spec = await dataAccess.Api.Services.ReportSpecLoader.LoadAsync("reports.inventory.yaml", ct);
-
-        // prefer a deterministic user message; `text` can be empty
-        const string phase2User = "Render the Inventory report UI spec using only the provided rows.";
-    using var uiDocRaw = await groq.CompleteJsonAsyncReport(spec.Phase2System, phase2User, new { rows, input_text = text }, 0.0, ct);
-
-        // -------- 5) Normalize UI: ensure required fields + narrative hygiene --------
-        static JsonDocument EnsureUiMinimum(JsonDocument ui, string titleFallback, string periodLabelFallback)
-        {
-            var obj = JsonNode.Parse(ui.RootElement.GetRawText())?.AsObject() ?? new JsonObject();
-
-            // report_title
-            if (!obj.ContainsKey("report_title")) obj["report_title"] = titleFallback;
-
-            // period (label only; inventory render may not receive dates)
-            var per = obj["period"] as JsonObject ?? new JsonObject();
-            if (!per.ContainsKey("label")) per["label"] = periodLabelFallback;
-            obj["period"] = per;
-
-            // validator expectations (sales-era defaults)
-            if (obj["kpis"] is not JsonArray) obj["kpis"] = new JsonArray();
-            if (obj["cards"] is not JsonArray) obj["cards"] = new JsonArray();
-            if (obj["charts"] is not JsonArray) obj["charts"] = new JsonArray();
-
-            // narrative: de-dupe + min 2 lines
-            var narr = obj["narrative"] as JsonArray ?? new JsonArray();
-            var cleaned = new JsonArray();
-            var seen = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var item in narr)
-            {
-                var s = item?.ToString() ?? "";
-                if (!string.IsNullOrWhiteSpace(s) && seen.Add(s))
-                    cleaned.Add(s);
-            }
-            // pad
-            if (cleaned.Count < 2 && seen.Add("No additional anomalies detected for the selected period."))
-                cleaned.Add("No additional anomalies detected for the selected period.");
-            if (cleaned.Count < 2)
-                cleaned.Add("No critical issues identified for this period.");
-
-            obj["narrative"] = cleaned;
-
-            return JsonDocument.Parse(obj.ToJsonString());
-        }
-
-        using var uiDoc = EnsureUiMinimum(uiDocRaw, "Inventory Report", text?.Trim() ?? "");
-
-        // -------- 6) Validate, return --------
-        validator.ValidateUiSpec(uiDoc, rows);
-
-        var json = uiDoc.RootElement.GetRawText(); // already strict JSON
-        return Results.Text(json, "application/json");
-    }
-});
-
-app.MapPost("/api/reports/expense/generate", async (
-    HttpContext ctx,
-    PromptComposer prompts,
-    PlannerService planner,
-    PlanValidator validator,
-    ISqlCatalog catalog,
-    GroqJsonClient groq,
-    IReportRunStore runs,
-    CancellationToken ct) =>
-{
-    // 1) Read request body
-    ctx.Request.EnableBuffering();
-    string raw;
-    using (var reader = new StreamReader(ctx.Request.Body, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 4096, leaveOpen: true))
-        raw = await reader.ReadToEndAsync();
-    ctx.Request.Body.Position = 0;
-
-    using var jIn = JsonDocument.Parse(string.IsNullOrWhiteSpace(raw) ? "{}" : raw);
-    var root = jIn.RootElement;
-    string userText = root.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String ? (t.GetString() ?? "") : "";
-
-    // 2) Phase-1 plan (YAML → strict JSON)
-    var (phase1System, _) = prompts.ComposePhase1("reports.expense.yaml");
-    using var planDoc = await planner.JsonPlanAsync(phase1System, userText, ct);
-    validator.ValidatePhase1(planDoc); // requires: intent, slots, sql_requests
-
-    var planRoot = planDoc.RootElement;
-    if (!planRoot.TryGetProperty("slots", out var slotsEl) || slotsEl.ValueKind != JsonValueKind.Object)
-        return Results.BadRequest(new { error = "NoSlots", message = "Planner returned no slots." });
-
-    if (!slotsEl.TryGetProperty("period_start", out var psEl) || psEl.ValueKind != JsonValueKind.String)
-        return Results.BadRequest(new { error = "NoStart", message = "Missing period_start." });
-    if (!slotsEl.TryGetProperty("period_end", out var peEl) || peEl.ValueKind != JsonValueKind.String)
-        return Results.BadRequest(new { error = "NoEnd", message = "Missing period_end." });
-
-    var startStr = psEl.GetString()!;
-    var endStr   = peEl.GetString()!;
-    bool compare = slotsEl.TryGetProperty("compare_to_prior", out var cmpEl) && cmpEl.ValueKind == JsonValueKind.True;
-
-    // Period label
-    var start = DateTime.Parse(startStr);
-    var end   = DateTime.Parse(endStr);
-    string periodLabel = $"{start:MMM d}–{end:MMM d}, {end:yyyy}";
-
-    // 3) Collect sql_requests (accept snake/camel; query_id/queryId). Fallback to allow-listed defaults.
-    var sqlReqs = new List<(string qid, Dictionary<string, object?> args)>();
-    if ((planRoot.TryGetProperty("sql_requests", out var reqArr) && reqArr.ValueKind == JsonValueKind.Array)
-     || (planRoot.TryGetProperty("sqlRequests", out reqArr) && reqArr.ValueKind == JsonValueKind.Array))
-    {
-        foreach (var el in reqArr.EnumerateArray())
-        {
-            string? qid = null;
-            if (el.TryGetProperty("query_id", out var q1) && q1.ValueKind == JsonValueKind.String) qid = q1.GetString();
-            else if (el.TryGetProperty("queryId", out var q2) && q2.ValueKind == JsonValueKind.String) qid = q2.GetString();
-            if (string.IsNullOrWhiteSpace(qid)) continue;
-
-            var args = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-            if (el.TryGetProperty("args", out var a) && a.ValueKind == JsonValueKind.Object)
-            {
-                foreach (var prp in a.EnumerateObject())
-                    args[prp.Name] = prp.Value.Deserialize<object?>();
-            }
-            sqlReqs.Add((qid!, args));
-        }
-    }
-    if (sqlReqs.Count == 0)
-    {
-        // Defaults aligned to your allow-list
-        sqlReqs.Add(("EXPENSE_SUMMARY",            new Dictionary<string, object?> { ["start"] = startStr, ["end"] = endStr }));
-        sqlReqs.Add(("TOP_EXPENSE_CATEGORIES",     new Dictionary<string, object?> { ["start"] = startStr, ["end"] = endStr, ["k"] = 5 }));
-        sqlReqs.Add(("EXPENSE_BY_DAY",             new Dictionary<string, object?> { ["start"] = startStr, ["end"] = endStr }));
-        sqlReqs.Add(("EXPENSE_RECENT_TRANSACTIONS", new Dictionary<string, object?> { ["start"] = startStr, ["end"] = endStr, ["limit"] = 10 }));
-    }
-
-    // 4) Execute allow-listed queries
-    var rows = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-    foreach (var (qid, args) in sqlReqs)
-        rows[qid] = await catalog.RunAsync(qid, args, ct);
-
-    // 5) Phase-2 render (YAML)
-    var spec = await dataAccess.Api.Services.ReportSpecLoader.LoadAsync("reports.expense.yaml", ct);
-    var phase2Input = new
-    {
-        period = new { start = startStr, end = endStr, label = periodLabel },
-        compare_to_prior = compare,
-        rows,
-        fmt = new { currency = "PHP", symbol = "₱", locale = "en-PH", money_decimals = 2, pct_decimals = 2, use_thousands = true }
-    };
-
-    const string phase2User = "Render the Expense report UI spec using only the provided rows.";
-    using var uiDocRaw = await groq.CompleteJsonAsyncReport(spec.Phase2System, phase2User, phase2Input, 0.0, ct);
-
-    // 6) Patch minimum UI structure + REQUIRED fields for validator
-    var rootNode = JsonNode.Parse(uiDocRaw.RootElement.GetRawText())?.AsObject() ?? new JsonObject();
-
-    // 6.1 Base required keys
-    if (!rootNode.ContainsKey("report_title")) rootNode["report_title"] = "Expense Report";
-    if (rootNode["period"] is not JsonObject perObj)
-        rootNode["period"] = new JsonObject { ["label"] = periodLabel, ["start"] = startStr, ["end"] = endStr };
-    if (rootNode["kpis"]  is not JsonArray) rootNode["kpis"]  = new JsonArray();
-    if (rootNode["cards"] is not JsonArray) rootNode["cards"] = new JsonArray();
-    if (rootNode["charts"] is not JsonArray) rootNode["charts"] = new JsonArray();
-
-    // 6.2 Ensure "narrative" (≥2 non-empty sentences)
-    var narrativeArr = rootNode["narrative"] as JsonArray ?? new JsonArray();
-    rootNode["narrative"] = narrativeArr;
-    static IEnumerable<string> SplitSentences(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) yield break;
-        var parts = System.Text.RegularExpressions.Regex.Split(text.Trim(), @"(?<=[\.!\?])\s+");
-        foreach (var p in parts) { var s = p.Trim(); if (!string.IsNullOrWhiteSpace(s)) yield return s; }
-    }
-    int nonEmpty = 0;
-    foreach (var item in narrativeArr.ToList())
-    {
-        var s = (item as JsonValue)?.GetValue<string>() ?? "";
-        if (!string.IsNullOrWhiteSpace(s)) nonEmpty++;
-    }
-    if (nonEmpty < 2)
-    {
-        narrativeArr.Clear();
-        var fallback1 = $"Spending overview for {periodLabel}.";
-        var fallback2 = "See category breakdown and weekly trend.";
-        foreach (var s in SplitSentences(fallback1)) narrativeArr.Add(s);
-        foreach (var s in SplitSentences(fallback2)) narrativeArr.Add(s);
-    }
-
-    // 6.3 Ensure "actions" exists (at least 1–2 default actions)
-    var actionsArr = rootNode["actions"] as JsonArray ?? new JsonArray();
-    if (actionsArr.Count == 0)
-    {
-        actionsArr.Add(new JsonObject { ["id"] = "download_pdf", ["label"] = "Download PDF" });
-        actionsArr.Add(new JsonObject { ["id"] = "regenerate",   ["label"] = "Regenerate"  });
-    }
-    rootNode["actions"] = actionsArr;
-
-    // 6.4 Ensure KPI[0].value == EXPENSE_SUMMARY.total
-    var kpisArr = rootNode["kpis"] as JsonArray ?? new JsonArray();
-    rootNode["kpis"] = kpisArr;
-
-    bool totalFound = false;
-    decimal totalVal = 0m;
-    try
-    {
-        if (rows.TryGetValue("EXPENSE_SUMMARY", out var summaryObj) && summaryObj is not null)
-        {
-            var jsonSummary = JsonSerializer.Serialize(summaryObj);
-            using var jd = JsonDocument.Parse(jsonSummary);
-            var r = jd.RootElement;
-            if (r.ValueKind == JsonValueKind.Array && r.GetArrayLength() > 0)
-            {
-                var first = r[0];
-                if (first.TryGetProperty("total", out var tot) && tot.ValueKind == JsonValueKind.Number)
-                {
-                    totalVal = tot.GetDecimal();
-                    totalFound = true;
-                }
-            }
-            else if (r.ValueKind == JsonValueKind.Object)
-            {
-                if (r.TryGetProperty("total", out var tot) && tot.ValueKind == JsonValueKind.Number)
-                {
-                    totalVal = tot.GetDecimal();
-                    totalFound = true;
-                }
-            }
-        }
-    }
-    catch { /* best effort */ }
-
-    if (totalFound)
-    {
-        if (kpisArr.Count == 0 || kpisArr[0] is not JsonObject)
-        {
-            kpisArr.Clear();
-            kpisArr.Add(new JsonObject { ["label"] = "Total Expense", ["value"] = totalVal });
-        }
-        else
-        {
-            var k0 = (JsonObject)kpisArr[0]!;
-            k0["value"] = totalVal; // force-match the validator expectation
-            if (!k0.ContainsKey("label")) k0["label"] = "Total Expense";
-        }
-    }
-
-    // Freeze + Validate
-    using var uiPatchedDoc = JsonDocument.Parse(rootNode.ToJsonString());
-    validator.ValidateUiSpec(uiPatchedDoc, rows);
-
-    // 7) Save to reports table (domain='expenses')
-    var record = new dataAccess.Reports.ReportRecord(
-        Domain: "expenses",
-        Scope: null,
-        ReportType: "summary",
-        ProductId: null,
-        PeriodStart: startStr,
-        PeriodEnd: endStr,
-        PeriodLabel: periodLabel,
-        CompareToPrior: compare,
-        TopK: 5,
-        YamlName: "reports.expense.yaml",
-        YamlVersion: null,
-        ModelName: "groq-json",
-        UiSpec: JsonDocument.Parse(uiPatchedDoc.RootElement.GetRawText()),
-        Meta: JsonDocument.Parse("""{"source":"generate"}""")
-    );
-
-    var id = await runs.SaveAsync(record, ct);
-    return Results.Json(new { id, title = "Expense Report", periodLabel });
-});
-
+// ❌ DELETED: POST /api/reports/expense/generate (orphaned - depends on deleted PlannerService)
+// Replacement: Use POST /api/chat/query with intent "reports.expenses"
 
 app.MapGet("/api/reports/expense/by-id/{id:guid}", async (
     Guid id,
@@ -1416,303 +1022,8 @@ app.MapGet("/api/reports/expense/by-id/{id:guid}", async (
     return Results.Json(new { ui_spec = JsonDocument.Parse(uiSpecJson).RootElement, id });
 });
 
-app.MapPost("/api/reports/sales/generate", async (
-    HttpContext ctx,
-    PromptComposer prompts,
-    PlannerService planner,
-    PlanValidator validator,
-    ISqlCatalog catalog,
-    GroqJsonClient groq,
-    IReportRunStore runs,
-    CancellationToken ct) =>
-{
-    // 1) Read request body
-    ctx.Request.EnableBuffering();
-    string raw;
-    using (var reader = new StreamReader(ctx.Request.Body, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 4096, leaveOpen: true))
-        raw = await reader.ReadToEndAsync();
-    ctx.Request.Body.Position = 0;
-
-    using var jIn = JsonDocument.Parse(string.IsNullOrWhiteSpace(raw) ? "{}" : raw);
-    var root = jIn.RootElement;
-    string userText = root.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String ? (t.GetString() ?? "") : "";
-    string? scope = root.TryGetProperty("scope", out var sc) && sc.ValueKind == JsonValueKind.String ? sc.GetString() : null;
-    string? product = root.TryGetProperty("product", out var pr) && pr.ValueKind == JsonValueKind.String ? pr.GetString() : null;
-
-    // 2) Phase-1 plan (resolve slots)
-    var (phase1System, _) = prompts.ComposePhase1("reports.sales.yaml");
-    using var planDoc = await planner.JsonPlanAsync(phase1System, userText, ct);
-    validator.ValidatePhase1(planDoc); // requires: intent, slots, sql_requests
-
-    var planRoot = planDoc.RootElement;
-    if (!planRoot.TryGetProperty("slots", out var slotsEl) || slotsEl.ValueKind != JsonValueKind.Object)
-        return Results.BadRequest(new { error = "NoSlots", message = "Planner returned no slots." });
-
-    if (!slotsEl.TryGetProperty("period_start", out var psEl) || psEl.ValueKind != JsonValueKind.String)
-        return Results.BadRequest(new { error = "NoStart", message = "Missing period_start." });
-    if (!slotsEl.TryGetProperty("period_end", out var peEl) || peEl.ValueKind != JsonValueKind.String)
-        return Results.BadRequest(new { error = "NoEnd", message = "Missing period_end." });
-
-    var startStr = psEl.GetString()!;
-    var endStr = peEl.GetString()!;
-    bool compare = slotsEl.TryGetProperty("compare_to_prior", out var cmpEl) && cmpEl.ValueKind == JsonValueKind.True;
-
-    // 3) Compute prior window (inclusive)
-    DateTime start = DateTime.Parse(startStr);
-    DateTime end = DateTime.Parse(endStr);
-    int days = (end - start).Days + 1; // inclusive
-    DateTime prevEnd = start.AddDays(-1);
-    DateTime prevStart = prevEnd.AddDays(-(days - 1));
-    var prevStartStr = prevStart.ToString("yyyy-MM-dd");
-    var prevEndStr = prevEnd.ToString("yyyy-MM-dd");
-
-    string periodLabel = $"{start:MMM d}–{end:MMM d}, {end:yyyy}";
-
-    // 4) Collect sql_requests (accept snake/camel, query_id/queryId)
-    var sqlReqs = new List<(string qid, Dictionary<string, object?> args)>();
-    if ((planRoot.TryGetProperty("sql_requests", out var reqArr) && reqArr.ValueKind == JsonValueKind.Array)
-     || (planRoot.TryGetProperty("sqlRequests", out reqArr) && reqArr.ValueKind == JsonValueKind.Array))
-    {
-        foreach (var el in reqArr.EnumerateArray())
-        {
-            string? qid = null;
-            if (el.TryGetProperty("query_id", out var q1) && q1.ValueKind == JsonValueKind.String) qid = q1.GetString();
-            else if (el.TryGetProperty("queryId", out var q2) && q2.ValueKind == JsonValueKind.String) qid = q2.GetString();
-            if (string.IsNullOrWhiteSpace(qid)) continue;
-
-            var args = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-            if (el.TryGetProperty("args", out var a) && a.ValueKind == JsonValueKind.Object)
-                foreach (var prp in a.EnumerateObject())
-                    args[prp.Name] = prp.Value.Deserialize<object?>();
-
-            sqlReqs.Add((qid!, args));
-        }
-    }
-    if (sqlReqs.Count == 0)
-    {
-        // Minimal default requests if planner returned none (keeps flow alive)
-        sqlReqs.Add(("SALES_SUMMARY", new Dictionary<string, object?> { ["start"] = startStr, ["end"] = endStr }));
-        sqlReqs.Add(("TOP_PRODUCTS", new Dictionary<string, object?> { ["start"] = startStr, ["end"] = endStr, ["k"] = 10 }));
-        sqlReqs.Add(("SALES_BY_DAY", new Dictionary<string, object?> { ["start"] = startStr, ["end"] = endStr }));
-    }
-
-    // 5) Execute allow-listed SQL (current)
-    var rows = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-    foreach (var (qid, args) in sqlReqs)
-        rows[qid] = await catalog.RunAsync(qid, args, ct);
-
-    // 6) Execute PRIOR via base QIDs, but store under *_PRIOR keys expected by YAML
-    if (compare)
-    {
-        var priorArgs = new Dictionary<string, object?>
-        {
-            ["start"] = prevStartStr,
-            ["end"] = prevEndStr
-        };
-
-        // Reuse base QIDs; store under *_PRIOR keys
-        rows["SALES_SUMMARY_PRIOR"] = await catalog.RunAsync("SALES_SUMMARY", priorArgs, ct);
-        rows["SALES_BY_DAY_PRIOR"] = await catalog.RunAsync("SALES_BY_DAY", priorArgs, ct);
-    }
-
-    // 7) Phase-2 render (build exact input per YAML + call Groq)
-    var spec = await dataAccess.Api.Services.ReportSpecLoader.LoadAsync("reports.sales.yaml", ct);
-
-    var phase2Input = new
-    {
-        period = new { start = startStr, end = endStr, label = periodLabel },
-        compare_to_prior = compare,
-        sections = new[] {
-            new { id = "sales_performance" },
-            new { id = "best_selling" },
-            new { id = "sales_trends" }
-        },
-        rows, // computed bag
-        fmt = new { currency = "PHP", symbol = "₱", locale = "en-PH", money_decimals = 2, pct_decimals = 2, use_thousands = true },
-        feature_flags = new { show_budget = false }
-    };
-
-    const string phase2User = "Render the Sales report UI spec per rules using only the provided rows.";
-    using var uiDoc = await groq.CompleteJsonAsyncReport(spec.Phase2System, phase2User, phase2Input, 0.0, ct);
-
-    // 8) Patch minimal keys + KPI type coercion + GUARANTEED narrative (>=2 sentences)
-    var rootNode = JsonNode.Parse(uiDoc.RootElement.GetRawText())?.AsObject() ?? new JsonObject();
-
-    if (!rootNode.ContainsKey("report_title")) rootNode["report_title"] = "Sales Report";
-    if (!rootNode.ContainsKey("period")) rootNode["period"] = new JsonObject { ["label"] = periodLabel, ["start"] = startStr, ["end"] = endStr };
-    if (!rootNode.ContainsKey("kpis")) rootNode["kpis"] = new JsonArray();
-    if (!rootNode.ContainsKey("cards")) rootNode["cards"] = new JsonArray();
-    if (!rootNode.ContainsKey("charts")) rootNode["charts"] = new JsonArray();
-
-    // Coerce KPI value/delta types defensively
-    try
-    {
-        if (rootNode["kpis"] is JsonArray kpisArr)
-        {
-            foreach (var node in kpisArr)
-            {
-                if (node is not JsonObject kp) continue;
-
-                // value → decimal if possible
-                if (kp.TryGetPropertyValue("value", out var vNode) && vNode is JsonValue vVal)
-                {
-                    if (!vVal.TryGetValue<decimal>(out var _))
-                    {
-                        if (vVal.TryGetValue<string>(out var vStr) && decimal.TryParse(vStr, out var vParsed))
-                            kp["value"] = vParsed;
-                    }
-                }
-
-                // delta_pct_vs_prior → decimal or null (strip '%' if present)
-                if (kp.TryGetPropertyValue("delta_pct_vs_prior", out var dpNode) && dpNode is JsonValue dpVal)
-                {
-                    if (!dpVal.TryGetValue<decimal>(out var _))
-                    {
-                        if (dpVal.TryGetValue<string>(out var sVal))
-                        {
-                            var sTrim = sVal?.Trim();
-                            if (string.IsNullOrEmpty(sTrim) || sTrim.Equals("null", StringComparison.OrdinalIgnoreCase))
-                            {
-                                kp["delta_pct_vs_prior"] = null;
-                            }
-                            else
-                            {
-                                if (sTrim.EndsWith("%")) sTrim = sTrim.Substring(0, sTrim.Length - 1);
-                                if (decimal.TryParse(sTrim, out var num))
-                                    kp["delta_pct_vs_prior"] = num;
-                                else
-                                    kp["delta_pct_vs_prior"] = null;
-                            }
-                        }
-                        else
-                        {
-                            kp["delta_pct_vs_prior"] = null;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    catch { /* best-effort cleanup only */ }
-
-    // --- Ensure top-level "narrative" has at least TWO non-empty SENTENCES ---
-    static IEnumerable<string> SplitSentences(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) yield break;
-        var parts = System.Text.RegularExpressions.Regex.Split(text.Trim(), @"(?<=[\.!\?])\s+");
-        foreach (var p in parts)
-        {
-            var s = p.Trim();
-            if (!string.IsNullOrWhiteSpace(s)) yield return s;
-        }
-    }
-
-    JsonArray BuildNarrative(JsonObject rn)
-    {
-        var arr = new JsonArray();
-
-        string perf = rn?["narratives"]?["performance"]?.GetValue<string>() ?? "";
-        string trnd = rn?["narratives"]?["trends"]?.GetValue<string>() ?? "";
-        string tips = rn?["narratives"]?["best_sellers_tips"]?.GetValue<string>() ?? "";
-
-        var sentences = new List<string>();
-        sentences.AddRange(SplitSentences(perf));
-        sentences.AddRange(SplitSentences(trnd));
-        if (sentences.Count < 2) sentences.AddRange(SplitSentences(tips));
-
-        foreach (var s in sentences.Where(s => !string.IsNullOrWhiteSpace(s)).Take(2))
-            arr.Add(s);
-
-        if (arr.Count < 2)
-        {
-            var lbl = rn?["period"]?["label"]?.GetValue<string>() ?? "the selected period";
-            if (arr.Count == 0)
-            {
-                arr.Add($"This summary covers {lbl}.");
-                arr.Add("It includes KPIs, daily trends, and best-seller highlights.");
-            }
-            else if (arr.Count == 1)
-            {
-                arr.Add("It includes KPIs, daily trends, and best-seller highlights.");
-            }
-        }
-
-        return arr;
-    }
-
-    bool NeedsOverride(JsonNode? node)
-    {
-        if (node is not JsonArray a) return true;
-        int nonEmpty = 0;
-        foreach (var x in a)
-        {
-            var s = (x as JsonValue)?.GetValue<string>();
-            if (!string.IsNullOrWhiteSpace(s)) nonEmpty++;
-        }
-        return nonEmpty < 2;
-    }
-
-    if (NeedsOverride(rootNode["narrative"]))
-        rootNode["narrative"] = BuildNarrative(rootNode);
-
-    // (optional) quick debug
-    try
-    {
-        var nArr = rootNode["narrative"] as JsonArray;
-        Console.WriteLine($"[sales.generate] narrative_count={nArr?.Count ?? 0}");
-    }
-    catch { /* ignore */ }
-
-    // 9) Freeze JSON and validate
-    using var uiPatchedDoc = JsonDocument.Parse(rootNode.ToJsonString());
-    validator.ValidateUiSpec(uiPatchedDoc, rows); // hard-fail if shape/constraints invalid
-
-    // 10) Extract meta (title/period) from UI spec (with fallbacks)
-    string title = "Sales Report";
-    string periodLabelOut = periodLabel;
-    string startOut = startStr;
-    string endOut = endStr;
-
-    try
-    {
-        var ui = uiPatchedDoc.RootElement;
-        if (ui.TryGetProperty("report_title", out var rt) && rt.ValueKind == JsonValueKind.String)
-            title = rt.GetString() ?? title;
-
-        if (ui.TryGetProperty("period", out var per) && per.ValueKind == JsonValueKind.Object)
-        {
-            if (per.TryGetProperty("label", out var lbl) && lbl.ValueKind == JsonValueKind.String)
-                periodLabelOut = string.IsNullOrWhiteSpace(lbl.GetString()) ? periodLabel : lbl.GetString()!;
-            if (per.TryGetProperty("start", out var st) && st.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(st.GetString()))
-                startOut = st.GetString()!;
-            if (per.TryGetProperty("end", out var enProp) && enProp.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(enProp.GetString()))
-                endOut = enProp.GetString()!;
-        }
-    }
-    catch { /* best effort */ }
-
-    // 11) Save
-    var metaDoc = JsonDocument.Parse(JsonSerializer.Serialize(new { scope, product }));
-    var record = new dataAccess.Reports.ReportRecord(
-        Domain: "sales",
-        Scope: scope,
-        ReportType: "summary",
-        ProductId: product,
-        PeriodStart: startOut,
-        PeriodEnd: endOut,
-        PeriodLabel: periodLabelOut,
-        CompareToPrior: compare,
-        TopK: null,
-        YamlName: "reports.sales.yaml",
-        YamlVersion: null,
-        ModelName: "groq-json",
-        UiSpec: JsonDocument.Parse(uiPatchedDoc.RootElement.GetRawText()),
-        Meta: metaDoc
-    );
-
-    var id = await runs.SaveAsync(record, ct);
-    return Results.Json(new { id, title, periodLabel = periodLabelOut });
-});
+// ❌ DELETED: POST /api/reports/sales/generate (orphaned - depends on deleted PlannerService)
+// Replacement: Use POST /api/chat/query with intent "reports.sales"
 
 app.MapGet("/api/reports/recent", async (
     HttpContext ctx,
@@ -1834,9 +1145,10 @@ app.MapGet("/api/debug/db-ping", async (IConfiguration cfg, CancellationToken ct
 });
 
 
-app.MapNlqEndpoint();
-// Query pipeline endpoint removed - using ChatOrchestratorService instead
-// app.MapQueryPipelineEndpoint();
+// ❌ DELETED: Legacy endpoints (2025-12-15)
+// app.MapNlqEndpoint(); // Depends on deleted NlqEndpoint
+// app.MapQueryPipelineEndpoint(); // Depends on deleted QueryPipeline
+// Replacement: Use POST /api/chat/query (ChatOrchestratorService)
 // Assuming you have: public sealed record AssistantRequest(string Text, string? Domain);
 // ---------- tiny helpers (can be placed above the map) ----------
 static string NormalizeReportDomain(string? domain)
