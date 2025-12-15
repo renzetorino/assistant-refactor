@@ -56,12 +56,32 @@ public sealed class HybridForecastService
             ? await LoadDailySeriesSales(histStart, histEnd, ct)
             : await LoadDailySeriesExpenses(histStart, histEnd, ct);
 
+        // ========== DEBUG LOGGING ==========
+        Console.WriteLine($"[HybridForecast] Domain: {domain}, Historical period: {histStart} to {histEnd}");
+        Console.WriteLine($"[HybridForecast] Raw data points retrieved: {history.Count}");
+        if (history.Count > 0)
+        {
+            var total = history.Sum(x => x.value);
+            var avg = history.Average(x => x.value);
+            Console.WriteLine($"[HybridForecast] Total historical value: {total:N2}, Average: {avg:N2}");
+            Console.WriteLine($"[HybridForecast] First 5 days: {string.Join(", ", history.Take(5).Select(x => $"{x.date}={x.value:N2}"))}");
+            Console.WriteLine($"[HybridForecast] Last 5 days: {string.Join(", ", history.TakeLast(5).Select(x => $"{x.date}={x.value:N2}"))}");
+        }
+        else
+        {
+            Console.WriteLine($"[HybridForecast] ⚠️  NO HISTORICAL DATA FOUND in orders table for date range!");
+        }
+        // ===================================
+
         history = FillGaps(histStart, histEnd, history);
         var values = history.Select(x => x.value).ToArray();
+
+        Console.WriteLine($"[HybridForecast] After gap filling: {history.Count} days");
 
         // Handle insufficient data
         if (history.Count < 7)
         {
+            Console.WriteLine($"[HybridForecast] ⚠️  Insufficient data ({history.Count} days < 7), using minimal forecast");
             return BuildMinimalForecast(history, histEnd, days);
         }
 

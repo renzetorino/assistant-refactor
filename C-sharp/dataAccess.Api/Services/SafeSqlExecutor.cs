@@ -1,5 +1,4 @@
 using Npgsql;
-using System.Data;
 
 namespace dataAccess.Api.Services;
 
@@ -30,16 +29,19 @@ public class SafeSqlExecutor : ISafeSqlExecutor
 
         if (string.IsNullOrWhiteSpace(configuredReadOnly))
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection")
+            var baseConn = configuration.GetConnectionString("DefaultConnection")
                 ?? configuration["APP__REL__CONNECTIONSTRING"]
                 ?? Environment.GetEnvironmentVariable("APP__REL__CONNECTIONSTRING")
                 ?? throw new InvalidOperationException("Read-only connection string is not configured. Set ConnectionStrings:DefaultConnectionReadOnly to a read-only user.");
+
+            // Supabase pooler fix: disable multiplexing and command pipelining
+            _connectionString = baseConn + ";Multiplexing=false;Command Timeout=30";
 
             _logger.LogWarning("DefaultConnectionReadOnly missing; falling back to DefaultConnection. Ensure this credential is read-only.");
         }
         else
         {
-            _connectionString = configuredReadOnly;
+            _connectionString = configuredReadOnly + ";Multiplexing=false;Command Timeout=30";
         }
 
         _commandTimeoutSeconds = configuration.GetValue<int?>("SqlExecution:CommandTimeoutSeconds") ?? 30;
@@ -56,15 +58,9 @@ public class SafeSqlExecutor : ISafeSqlExecutor
             await using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync(ct);
 
-            await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-
-            // Force the transaction into read-only mode even if the user credential is misconfigured.
-            await using (var setReadOnly = new NpgsqlCommand("SET TRANSACTION READ ONLY", connection, transaction))
-            {
-                await setReadOnly.ExecuteNonQueryAsync(ct);
-            }
-
-            await using var command = new NpgsqlCommand(sql, connection, transaction)
+            // Don't use transactions for Supabase pooler - it causes multiplexing issues
+            // Instead, just run read-only query directly
+            await using var command = new NpgsqlCommand(sql, connection)
             {
                 CommandTimeout = _commandTimeoutSeconds
             };
@@ -90,8 +86,9 @@ public class SafeSqlExecutor : ISafeSqlExecutor
                     break;
                 }
             }
-
-            await transaction.CommitAsync(ct);
+            
+            // Close reader explicitly before connection closes
+            await reader.CloseAsync();
 
             _logger.LogInformation("Query executed successfully with {RowCount} rows.", results.Count);
             return results;

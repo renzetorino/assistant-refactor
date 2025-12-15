@@ -222,33 +222,68 @@ const Assistant = () => {
         return;
       }
 
-      // ✅ FIX: Robust response text extraction to prevent raw JSON display
-      let responseText = "";
-      
-      // Check common response structures
-      if (res.response && typeof res.response === "string") {
-        responseText = res.response;
-      } else if (res.render?.content && typeof res.render.content === "string") {
-        responseText = res.render.content;
-      } else if (res.text && typeof res.text === "string") {
-        responseText = res.text;
-      } else if (res.content && typeof res.content === "string") {
-        responseText = res.content;
-      } else if (res.errorMessage && typeof res.errorMessage === "string") {
-        responseText = res.errorMessage;
-      } else if (typeof res === "string") {
-        responseText = res;
+      // ✅ FIX: Check for UiSpec (forecast/report data) first
+      if (res.uiSpec) {
+        // This is a forecast or report response - open popup with full data
+        const intent = (res.intent || "").toLowerCase();
+        
+        if (intent.includes("forecast")) {
+          // Extract domain from intent (forecast.sales, forecast.expenses)
+          const domain = intent.includes("expense") ? "expenses" : "sales";
+          
+          // Show chat response text
+          setMessages((prev) => [
+            ...prev,
+            { id: newId(), role: "assistant", text: res.response || "Forecast generated!" }
+          ]);
+          
+          // Open forecast popup with full data
+          setPopupData({
+            type: "forecast",
+            domain: domain,
+            ui: { domain: domain, ...res.uiSpec },
+            title: res.response || `${domain} Forecast`
+          });
+          
+          // Refresh forecasts panel
+          const newForecasts = await fetchRecentForecasts(2, domain);
+          setForecasts(prev => [...newForecasts, ...prev.filter(f => f.domain !== domain)].slice(0, 4));
+        } else {
+          // Report response - handle similarly
+          setMessages((prev) => [
+            ...prev,
+            { id: newId(), role: "assistant", text: res.response || "Report generated!" }
+          ]);
+        }
       } else {
-        // Fallback: stringify with warning
-        console.warn("[Assistant] Unexpected response structure:", res);
-        responseText = res.response || "Here's your result.";
-      }
+        // Regular text response
+        let responseText = "";
+        
+        // Check common response structures
+        if (res.response && typeof res.response === "string") {
+          responseText = res.response;
+        } else if (res.render?.content && typeof res.render.content === "string") {
+          responseText = res.render.content;
+        } else if (res.text && typeof res.text === "string") {
+          responseText = res.text;
+        } else if (res.content && typeof res.content === "string") {
+          responseText = res.content;
+        } else if (res.errorMessage && typeof res.errorMessage === "string") {
+          responseText = res.errorMessage;
+        } else if (typeof res === "string") {
+          responseText = res;
+        } else {
+          // Fallback: stringify with warning
+          console.warn("[Assistant] Unexpected response structure:", res);
+          responseText = res.response || "Here's your result.";
+        }
 
-      // Success - show response
-      setMessages((prev) => [
-        ...prev,
-        { id: newId(), role: "assistant", text: responseText }
-      ]);
+        // Success - show response
+        setMessages((prev) => [
+          ...prev,
+          { id: newId(), role: "assistant", text: responseText }
+        ]);
+      }
     } catch (err) {
       console.error(err);
       setMessages((p) => [

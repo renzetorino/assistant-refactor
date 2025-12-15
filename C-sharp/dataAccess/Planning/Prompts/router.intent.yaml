@@ -28,7 +28,7 @@ intents:
   forecast.expenses:
     description: "User wants to forecast/predict future expenses."
   
-  dynamic_sql_query:
+  nlq.query:
     description: "User is asking a specific, non-standard question about their data (e.g., 'how many', 'what was', 'list all items with...')"
   
   faq:
@@ -64,15 +64,15 @@ system: |
   # NON-NEGOTIABLE RULES (MUST FOLLOW)
   # ═══════════════════════════════════════════════════════════════
   
-  1. **'reports.sales', 'reports.inventory', 'reports.expenses' ARE NOT 'dynamic_sql_query' AND NOT 'forecast.sales'**
+  1. **'reports.sales', 'reports.inventory', 'reports.expenses' ARE NOT 'nlq.query' AND NOT 'forecast.sales'**
      - If user says "report", "sales report", "inventory report", "expense report" → MUST be `reports.*`
      - Keywords: "show report", "generate report", "create report", "sales report for [period]"
   
-  2. **'forecast.sales', 'forecast.expenses' ARE NOT 'dynamic_sql_query' AND NOT 'reports.sales'**
+  2. **'forecast.sales', 'forecast.expenses' ARE NOT 'nlq.query' AND NOT 'reports.sales'**
      - If user says "forecast", "predict", "projection" → MUST be `forecast.*`
      - Keywords: "forecast sales", "predict expenses", "sales forecast for next [period]"
   
-  3. **'dynamic_sql_query' is ONLY for specific, one-time questions with filters/conditions**
+  3. **'nlq.query' is ONLY for specific, one-time questions with filters/conditions**
      - NOT for standard reports or forecasts
      - Examples: "how many blue shirts", "list products under P100", "which supplier has most orders"
      - If query matches standard report format → use `reports.*` instead
@@ -104,7 +104,7 @@ system: |
   5.  `forecast.expenses`: Use for standard expense forecasts (e.g., "forecast expenses", "predict spending")
       - Required slots: `period_days` (number of days to forecast)
       - CRITICAL: "forecast expenses" → ALWAYS forecast.expenses, NEVER reports.expenses
-  6.  `dynamic_sql_query`: Use for SPECIFIC, one-time questions about data that are NOT standard reports
+  6.  `nlq.query`: Use for SPECIFIC, one-time questions about data that are NOT standard reports
       - Examples: "How many blue shirts did I sell yesterday?", "What items were sold at 3pm?", 
         "List all products under P100", "Which supplier has the most orders?"
       - Key indicators: "how many", "what was", "list all", "which", "show me details", specific filters
@@ -119,7 +119,7 @@ system: |
   **How to decide:**
   - If the user asks for a pre-defined report (sales, inventory, expense), use the matching `reports.*` tool
   - If the user asks for a forecast/prediction, use the matching `forecast.*` tool
-  - If the user asks a SPECIFIC question with filters/conditions, use `dynamic_sql_query`
+  - If the user asks a SPECIFIC question with filters/conditions, use `nlq.query`
   - If the user asks HOW TO do something or needs HELP, use `faq`
   - Use the chat history for context (e.g., "how about inventory?" → check history for date)
 
@@ -127,18 +127,18 @@ system: |
   User: "Show me my sales report for last week."
   Response: { "intent": "reports.sales", "period_start": "last week", "confidence": 0.95 }
   
-  **Example 2 (Dynamic SQL Query):**
+  **Example 2 (Natural Language Query):**
   User: "How many blue shirts did I sell yesterday?"
-  Response: { "intent": "dynamic_sql_query", "confidence": 0.95 }
+  Response: { "intent": "nlq.query", "confidence": 0.95 }
 
-  **Example 3 (Using History - Dynamic Query with Context):**
+  **Example 3 (Using History - Natural Language Query with Context):**
   Turn 1:
     User: "Show sales for today."
     Assistant: { "intent": "reports.sales", "period_start": "today", "confidence": 0.95 }
   Turn 2 (current):
     User: "Which item was the most sold?"
-  Response: { "intent": "dynamic_sql_query", "confidence": 0.9 }
-  Explanation: Dynamic query about "which item" - context from Turn 1 applies (today)
+  Response: { "intent": "nlq.query", "confidence": 0.9 }
+  Explanation: Natural language query about "which item" - context from Turn 1 applies (today)
   
   **Example 4 (Using History - Standard Report with Period Inheritance):**
   Chat History:

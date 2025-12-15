@@ -132,7 +132,7 @@ namespace dataAccess.Reports
                     relevantExamples = await _exampleRetriever.GetRelevantExamplesAsync(
                         userText,
                         topK: 5, // Retrieve top 5 most similar examples
-                        minSimilarity: 0.6f
+                        minSimilarity: 0.3f // Lowered from 0.6 to allow more examples (0.3 = 30% similarity)
                     );
 
                     _logger.LogInformation(

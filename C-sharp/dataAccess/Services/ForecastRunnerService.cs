@@ -19,13 +19,16 @@ public sealed class ForecastRunnerService : IForecastRunnerService
 {
     private readonly PromptLoader _promptLoader;
     private readonly HybridForecastService _forecastService;
+    private readonly IForecastStore _forecastStore;
 
     public ForecastRunnerService(
         PromptLoader promptLoader,
-        HybridForecastService forecastService)
+        HybridForecastService forecastService,
+        IForecastStore forecastStore)
     {
         _promptLoader = promptLoader;
         _forecastService = forecastService;
+        _forecastStore = forecastStore;
     }
 
     /// <summary>
@@ -96,6 +99,9 @@ public sealed class ForecastRunnerService : IForecastRunnerService
                 ? ForecastDomain.Expenses
                 : ForecastDomain.Sales;
 
+            Console.WriteLine($"[ForecastRunner] ✅ Validation complete. Calling HybridForecastService...");
+            Console.WriteLine($"[ForecastRunner]    Domain: {forecastDomain}, Days: {forecastDays}");
+
             // 6) Execute forecast using HybridForecastService
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
             var forecastResult = await _forecastService.ForecastAsync(
@@ -103,38 +109,82 @@ public sealed class ForecastRunnerService : IForecastRunnerService
                 days: forecastDays,
                 ct: ct);
 
+            Console.WriteLine($"[ForecastRunner] ✅ HybridForecastService completed successfully");
+
             // 7) Build period label
             var startDate = today;
             var endDate = today.AddDays(forecastDays - 1);
             var periodLabel = BuildPeriodLabel(startDate, endDate);
 
-            // 8) Return success with forecast data
-            // Note: forecastResult is already a structured object from HybridForecastService
-            // We serialize it and wrap it in our standard format
-            var resultJson = JsonSerializer.Serialize(new
-            {
-                report_title = $"{domain} Forecast",
-                period = new { start = startDate.ToString("yyyy-MM-dd"), end = endDate.ToString("yyyy-MM-dd"), label = periodLabel },
-                forecast_days = forecastDays,
-                domain,
-                // Pass through the forecast result as-is (it contains kpis, charts, narrative, etc.)
-                forecast_result = forecastResult
-            });
+            // 8) Prepare forecast data structure
+            // Flatten the forecast result so frontend can access series/kpis directly
+            var forecastResultJson = JsonSerializer.Serialize(forecastResult);
+            var forecastResultDoc = JsonDocument.Parse(forecastResultJson);
+            var forecastResultRoot = forecastResultDoc.RootElement;
 
+            var forecastData = new Dictionary<string, object?>
+            {
+                ["report_title"] = $"{domain} Forecast",
+                ["period"] = new { start = startDate.ToString("yyyy-MM-dd"), end = endDate.ToString("yyyy-MM-dd"), label = periodLabel },
+                ["forecast_days"] = forecastDays,
+                ["domain"] = domain
+            };
+
+            // Flatten forecast result properties into root level
+            foreach (var property in forecastResultRoot.EnumerateObject())
+            {
+                forecastData[property.Name] = JsonSerializer.Deserialize<object>(property.Value.GetRawText());
+            }
+            
+            var resultJson = JsonSerializer.Serialize(forecastData);
+            var uiSpecDoc = JsonDocument.Parse(resultJson);
+
+            // 9) Save forecast to database (forecasts table)
+            var paramsNode = new System.Text.Json.Nodes.JsonObject
+            {
+                ["start"] = startDate.ToString("yyyy-MM-dd"),
+                ["end"] = endDate.ToString("yyyy-MM-dd"),
+                ["label"] = periodLabel,
+                ["forecast_days"] = forecastDays
+            };
+
+            var resultNode = System.Text.Json.Nodes.JsonNode.Parse(resultJson)?.AsObject() 
+                ?? new System.Text.Json.Nodes.JsonObject();
+
+            var forecastId = await _forecastStore.SaveAsync(
+                domain: domain,
+                target: "overall", // Could be enhanced to support product-level forecasts
+                horizonDays: forecastDays,
+                @params: paramsNode,
+                result: resultNode,
+                status: "done", // Mark as completed since we just generated it
+                ct: ct
+            );
+
+            // 10) Return success with forecast data
             return new OrchestrationStepResult
             {
                 IsSuccess = true,
                 ReportData = new ReportResult
                 {
-                    Id = Guid.NewGuid(), // Forecast runs aren't saved to DB in this implementation
+                    Id = forecastId, // Now using actual saved forecast ID
                     Title = $"{domain} Forecast",
                     PeriodLabel = periodLabel,
-                    UiSpec = JsonDocument.Parse(resultJson)
+                    UiSpec = uiSpecDoc
                 }
             };
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"[ForecastRunner] ❌ ERROR during forecast generation:");
+            Console.WriteLine($"[ForecastRunner]    Message: {ex.Message}");
+            Console.WriteLine($"[ForecastRunner]    Type: {ex.GetType().Name}");
+            Console.WriteLine($"[ForecastRunner]    Stack: {ex.StackTrace}");
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"[ForecastRunner]    InnerException: {ex.InnerException.Message}");
+            }
+
             return new OrchestrationStepResult
             {
                 IsSuccess = false,

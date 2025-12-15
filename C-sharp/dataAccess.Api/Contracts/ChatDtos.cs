@@ -85,6 +85,12 @@ public class ChatQueryResponse
     /// Breakdown of latency by pipeline step
     /// </summary>
     public LatencyBreakdown? Latency { get; set; }
+
+    /// <summary>
+    /// Structured UI specification for reports and forecasts (JSON)
+    /// Contains charts, tables, KPIs, etc. for frontend rendering
+    /// </summary>
+    public System.Text.Json.JsonDocument? UiSpec { get; set; }
 }
 
 /// <summary>

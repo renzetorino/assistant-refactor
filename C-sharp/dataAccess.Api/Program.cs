@@ -200,7 +200,7 @@ builder.Services.AddSingleton<dataAccess.Services.IEmbeddingService, dataAccess.
 builder.Services.AddSingleton<dataAccess.Services.IntentExampleRetriever>();
 
 // In-memory JSON FAQ service for business rules RAG (replaces Vertex AI)
-builder.Services.AddSingleton<dataAccess.Services.IJsonFaqService, dataAccess.Services.JsonFaqService>();
+builder.Services.AddScoped<dataAccess.Services.IJsonFaqService, dataAccess.Services.JsonFaqService>();
 
 // NOTE: YamlIntentRunner is already registered above.
 // It will automatically receive IntentExampleRetriever via constructor injection.

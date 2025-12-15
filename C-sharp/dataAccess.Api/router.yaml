@@ -28,6 +28,7 @@ intent_classification:
     - chitchat
     - faq
     - nlq.query
+    - nlq  # Alias for nlq.query (LLM sometimes shortens it)
     - reports.inventory
     - reports.expense
     - reports.sales

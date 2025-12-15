@@ -141,13 +141,20 @@ namespace Shared.Allowlists
                 },
                 ["orders"] = new(StringComparer.OrdinalIgnoreCase)
                 {
-                    "order_id",
-                    "order_date",
-                    "total_amount",
-                    "order_status",
-                    "created_at",
-                    "updated_at",
-                    "amount_paid",
+                    "orderid",  // actual column name (no underscore)
+                    "order_id",  // legacy alias
+                    "orderdate",  // actual column name
+                    "order_date",  // legacy alias
+                    "totalamount",  // actual column name (no underscore)
+                    "total_amount",  // legacy alias (with underscore)
+                    "orderstatus",  // actual column name
+                    "order_status",  // legacy alias
+                    "createdat",  // actual column name
+                    "created_at",  // legacy alias
+                    "updatedat",  // actual column name
+                    "updated_at",  // legacy alias
+                    "amount_paid",  // actual column name (with underscore)
+                    "amountpaid",  // legacy alias
                     "change"
                 },
                 ["planned_payments"] = new(StringComparer.OrdinalIgnoreCase)
@@ -192,14 +199,21 @@ namespace Shared.Allowlists
                 },
                 ["products"] = new(StringComparer.OrdinalIgnoreCase)
                 {
-                    "product_id",
-                    "product_name",
+                    "productid",  // actual column name (no underscore)
+                    "product_id",  // legacy alias
+                    "productname",  // actual column name
+                    "product_name",  // legacy alias
                     "description",
-                    "supplier_id",
-                    "created_at",
-                    "updated_at",
-                    "image_url",
-                    "updated_by_user_id"
+                    "supplierid",  // actual column name
+                    "supplier_id",  // legacy alias
+                    "createdat",  // actual column name
+                    "created_at",  // legacy alias
+                    "updatedat",  // actual column name
+                    "updated_at",  // legacy alias
+                    "image_url",  // actual column name (with underscore)
+                    "imageurl",  // legacy alias
+                    "updatedbyuserid",  // actual column name
+                    "updated_by_user_id"  // legacy alias
                 },
                 ["sales"] = new(StringComparer.OrdinalIgnoreCase)
                 {

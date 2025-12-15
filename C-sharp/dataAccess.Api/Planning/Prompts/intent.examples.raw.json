@@ -695,6 +695,286 @@
       "tags": ["dynamic_sql", "specific-query", "supplier-ranking"],
       "context": null,
       "embedding": []
+    },
+    {
+      "id": 70,
+      "input": "What is your return policy?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "policy", "returns"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 71,
+      "input": "Do you offer discounts for senior citizens and PWDs?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "policy", "discounts"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 72,
+      "input": "How does the system handle low stock alerts?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "system", "inventory"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 73,
+      "input": "How is customer data protected?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "security", "privacy"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 74,
+      "input": "What are the cash handling procedures?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "policy", "cash"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 75,
+      "input": "How do I reset my password?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "account", "password"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 76,
+      "input": "Why can't I log in to my account?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "account", "login"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 77,
+      "input": "Can I void a sales transaction?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "sales", "void"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 78,
+      "input": "How do I process a refund?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "sales", "refund"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 79,
+      "input": "What payment methods are supported?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "sales", "payment"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 80,
+      "input": "How do I mark items as damaged or defective?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "inventory", "defective"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 81,
+      "input": "How do I add new products to inventory?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "inventory", "add-product"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 82,
+      "input": "What is the reorder point and how do I set it?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "inventory", "reorder"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 83,
+      "input": "How does the forecasting system work?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "forecasting", "how-to"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 84,
+      "input": "How much historical data is needed for accurate forecasts?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "forecasting", "requirements"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 85,
+      "input": "What is a confidence score in forecasting?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "forecasting", "metrics"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 86,
+      "input": "Can I forecast both sales and expenses?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "forecasting", "capabilities"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 87,
+      "input": "What types of reports can I generate?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "reports", "types"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 88,
+      "input": "How do I export data from the system?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "reports", "export"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 89,
+      "input": "Can I schedule automatic reports?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "reports", "automation"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 90,
+      "input": "What languages does the AI assistant support?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "ai", "language"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 91,
+      "input": "What can I ask the AI assistant?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "ai", "capabilities"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 92,
+      "input": "How accurate is the AI assistant?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "ai", "accuracy"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 93,
+      "input": "What should I do if the system is slow?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "system", "performance"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 94,
+      "input": "How do I update my business information?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "system", "settings"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 95,
+      "input": "What are the business hours for support?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "support", "hours"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 96,
+      "input": "How often should I change my password?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "security", "password"],
+      "context": null,
+      "embedding": []
+    },
+    {
+      "id": 97,
+      "input": "What should I do if I suspect unauthorized access?",
+      "intent": "faq",
+      "domain": null,
+      "confidence": 0.95,
+      "tags": ["faq", "security", "breach"],
+      "context": null,
+      "embedding": []
     }
   ]
 }

@@ -61,27 +61,66 @@ namespace dataAccess.Services
                 // 2. Generate query embedding
                 var queryEmbedding = await _embeddingService.GetEmbeddingAsync(userQuery);
 
+                // DEBUG: Check if embedding generation worked
+                _logger.LogInformation(
+                    "[RAG] Generated query embedding: dim={Dim}, first 5 values=[{V1:F3}, {V2:F3}, {V3:F3}, {V4:F3}, {V5:F3}]",
+                    queryEmbedding.Length,
+                    queryEmbedding[0], queryEmbedding[1], queryEmbedding[2], queryEmbedding[3], queryEmbedding[4]
+                );
+
+                // DEBUG: Check example embeddings
+                var firstExample = examples.FirstOrDefault();
+                if (firstExample != null)
+                {
+                    _logger.LogInformation(
+                        "[RAG] First example: \"{Input}\" (intent={Intent}), embedding dim={Dim}, first 5 values=[{V1:F3}, {V2:F3}, {V3:F3}, {V4:F3}, {V5:F3}]",
+                        firstExample.Input,
+                        firstExample.Intent,
+                        firstExample.Embedding?.Length ?? 0,
+                        firstExample.Embedding?[0] ?? 0f,
+                        firstExample.Embedding?[1] ?? 0f,
+                        firstExample.Embedding?[2] ?? 0f,
+                        firstExample.Embedding?[3] ?? 0f,
+                        firstExample.Embedding?[4] ?? 0f
+                    );
+                }
+
                 // 3. Compute cosine similarity with all examples
                 var similarities = examples
                     .Select(ex => new
                     {
                         Example = ex,
-                        Similarity = CosineSimilarity(queryEmbedding, ex.Embedding)
+                        Similarity = ex.Embedding != null ? CosineSimilarity(queryEmbedding, ex.Embedding) : 0f
                     })
-                    .Where(x => x.Similarity >= minSimilarity)
                     .OrderByDescending(x => x.Similarity)
+                    .ToList();
+
+                // DEBUG: Show top 3 similarities before filtering
+                _logger.LogInformation(
+                    "[RAG] Top 3 similarities (before filter): {S1:F3} ({I1}), {S2:F3} ({I2}), {S3:F3} ({I3})",
+                    similarities.ElementAtOrDefault(0)?.Similarity ?? 0f,
+                    similarities.ElementAtOrDefault(0)?.Example.Intent ?? "null",
+                    similarities.ElementAtOrDefault(1)?.Similarity ?? 0f,
+                    similarities.ElementAtOrDefault(1)?.Example.Intent ?? "null",
+                    similarities.ElementAtOrDefault(2)?.Similarity ?? 0f,
+                    similarities.ElementAtOrDefault(2)?.Example.Intent ?? "null"
+                );
+
+                var filtered = similarities
+                    .Where(x => x.Similarity >= minSimilarity)
                     .Take(topK)
                     .ToList();
 
                 _logger.LogInformation(
                     "[RAG] Retrieved {Count} relevant examples for query: \"{Query}\" " +
-                    "(top similarity: {TopScore:F3})",
-                    similarities.Count,
+                    "(top similarity: {TopScore:F3}, threshold: {Threshold:F2})",
+                    filtered.Count,
                     userQuery,
-                    similarities.FirstOrDefault()?.Similarity ?? 0f
+                    similarities.FirstOrDefault()?.Similarity ?? 0f,
+                    minSimilarity
                 );
 
-                return similarities.Select(s => s.Example).ToList();
+                return filtered.Select(s => s.Example).ToList();
             }
             catch (Exception ex)
             {
