@@ -13,7 +13,9 @@
   gap: 15px;
 }
 
-
+.headers-pp h3 {
+  visibility: hidden;
+}
 
 :focus {
   outline: 0;
@@ -22,8 +24,9 @@
 }
 
 .mydict {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   flex-shrink: 0;
+  margin-right: 3px;
 }
 
 .mydict div {

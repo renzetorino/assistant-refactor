@@ -23,7 +23,14 @@ const Dashboard = () => {
   const [productsError, setProductsError] = useState(null);
   const [expenseChartData, setExpenseChartData] = useState([]);
   const [activityLogs, setActivityLogs] = useState([]);
-
+  
+  // Help tooltip states for each component
+  const [showHelpSummary, setShowHelpSummary] = useState(false);
+  const [showHelpDailySales, setShowHelpDailySales] = useState(false);
+  const [showHelpExpense, setShowHelpExpense] = useState(false);
+  const [showHelpProducts, setShowHelpProducts] = useState(false);
+  const [showHelpNotifications, setShowHelpNotifications] = useState(false);
+  const [showHelpActivity, setShowHelpActivity] = useState(false);
 
   function downloadTemplate() {
     const headers = [
@@ -38,7 +45,6 @@ const Dashboard = () => {
       "amountpaid",
     ];
 
-    // one helpful example row
     const sample = [
       "10001",
       "2025-10-04",
@@ -70,7 +76,6 @@ const Dashboard = () => {
       a.remove();
       URL.revokeObjectURL(url);
     } else {
-      // CSV fallback
       const rows = [headers, sample];
       const csv = rows
         .map(r =>
@@ -243,7 +248,6 @@ const Dashboard = () => {
     try {
       setProductsLoading(true);
 
-      // Fetch all order items
       const { data: orderData, error: orderError } = await supabase
         .from('orderitems')
         .select(`
@@ -258,14 +262,12 @@ const Dashboard = () => {
 
       if (orderError) throw orderError;
 
-      // Fetch all products
       const { data: allProducts, error: productsError } = await supabase
         .from('products')
         .select('productid, productname, image_url');
 
       if (productsError) throw productsError;
 
-      // Process order items into summary
       const summary = {};
       orderData.forEach(item => {
         const id = item.productid;
@@ -286,30 +288,25 @@ const Dashboard = () => {
         summary[id].timesBought.add(item.orderid);
       });
 
-      // Convert to array
       const sellingArray = Object.values(summary).map(item => ({
         ...item,
         timesBought: item.timesBought.size,
       }));
 
-      // Sort by quantity (descending)
       sellingArray.sort((a, b) => b.totalQuantity - a.totalQuantity);
 
-      // Top 5 selling products
       const topSelling = sellingArray.slice(0, 5);
       setTopSellingProducts(topSelling);
 
-      // Least 5 selling products (products with sales but lowest quantities)
       const leastSelling = sellingArray.length > 5 
         ? sellingArray.slice(-5).reverse() 
         : [];
       setLeastSellingProducts(leastSelling);
 
-      // Not selling products (products with no sales at all)
       const soldProductIds = new Set(sellingArray.map(p => p.productid));
       const notSelling = allProducts
         .filter(product => !soldProductIds.has(product.productid))
-        .slice(0, 10) // Limit to 10 products
+        .slice(0, 10)
         .map(product => ({
           productid: product.productid,
           productname: product.productname,
@@ -363,23 +360,112 @@ const Dashboard = () => {
 
         <div className="main-content">
           <div className="dashboard-content">
+            {/* Sales Summary with Help */}
             <div className="dashboard-panel sales-summary">
-              <div className="panel-header-with-action">
+              <div className="panel-header-with-help">
+                <div className="header-left-dash">
+                  <h3>Business Summary</h3>
+                  <div className="help-wrapper-dash">
+                    <button 
+                      className="help-button-dash"
+                      onClick={() => setShowHelpSummary(!showHelpSummary)}
+                      aria-label="Help"
+                    >
+                      ?
+                    </button>
+                   {showHelpSummary && (
+                      <div className="help-box-dash">
+                        <div className="help-arrow-dash"></div>
+                        
+                        <div className="help-content-dash">
+                          <p>Gen TIPS</p>
+                        </div>
+                        
+                        {/* Separator line */}
+                        <div className="help-separator-dash"></div>
+                        
+                        <div className="help-content-dash">
+                          <p>AI</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="panel-content-summary">
                 <SalesSummaryDashboard />
               </div>
             </div>
 
             <div className="charts-section">
+              {/* Daily Sales with Help */}
               <div className="dashboard-panel daily-sales">
-                <h3>Daily Gross Sales</h3>
+                <div className="panel-header-with-help">
+                  <div className="header-left-dash">
+                    <h3>Daily Gross Sales</h3>
+                    <div className="help-wrapper-dash">
+                      <button 
+                        className="help-button-dash"
+                        onClick={() => setShowHelpDailySales(!showHelpDailySales)}
+                        aria-label="Help"
+                      >
+                        ?
+                      </button>
+                      {showHelpDailySales && (
+                        <div className="help-box-dash">
+                          <div className="help-arrow-dash"></div>
+                          
+                          <div className="help-content-dash">
+                            <p>Gen TIPS</p>
+                          </div>
+                          
+                          <div className="help-separator-dash"></div>
+                          
+                          <div className="help-content-dash">
+                            <p>AI</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
                 <div className="panel-content">
                   <DailyGrossSales/>
                 </div>
               </div>
 
               <div className="bottom-section">
+                {/* Monthly Expense with Help */}
                 <div className="dashboard-panel monthly-expense">
-                  <h3>Monthly Expense</h3>
+                  <div className="panel-header-with-help">
+                    <div className="header-left-dash">
+                      <h3>Monthly Expense</h3>
+                      <div className="help-wrapper-dash">
+                        <button 
+                          className="help-button-dash"
+                          onClick={() => setShowHelpExpense(!showHelpExpense)}
+                          aria-label="Help"
+                        >
+                          ?
+                        </button>
+                        {showHelpExpense && (
+                          <div className="help-box-dash">
+                            <div className="help-arrow-dash"></div>
+                            
+                            <div className="help-content-dash">
+                              <p>Gen TIPS</p>
+                            </div>
+                            
+                            <div className="help-separator-dash"></div>
+                            
+                            <div className="help-content-dash">
+                              <p>AI</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                   <div className="panel-content" style={{ minWidth: 0 }}>
                     {expenseChartData.length === 0 ? (
                       <p style={{ padding: 12 }}>No expense data yet.</p>
@@ -403,7 +489,37 @@ const Dashboard = () => {
                   </div>
                 </div>
 
+                {/* Top Selling with Help */}
                 <div className="dashboard-panel top-selling">
+                  <div className="panel-header-with-help">
+                    <div className="header-left-dash">
+                      <h3>Products Performance</h3>
+                      <div className="help-wrapper-dash">
+                        <button 
+                          className="help-button-dash"
+                          onClick={() => setShowHelpProducts(!showHelpProducts)}
+                          aria-label="Help"
+                        >
+                          ?
+                        </button>
+                        {showHelpProducts && (
+                          <div className="help-box-dash">
+                            <div className="help-arrow-dash"></div>
+                            
+                            <div className="help-content-dash">
+                              <p>Gen TIPS</p>
+                            </div>
+                            
+                            <div className="help-separator-dash"></div>
+                            
+                            <div className="help-content-dash">
+                              <p>AI</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                   <div className="panel-content">
                     {productsLoading ? (
                       <div className="loading-state">
@@ -442,18 +558,77 @@ const Dashboard = () => {
                   window.location.href = "/";
                 }}
               >
-                ⏻              </button>
+                ⏻
+              </button>
             </div>
 
+            {/* Notifications with Help */}
             <div className="notification-panel">
-              <h3>Notifications</h3>
+              <div className="panel-header-with-help">
+                <div className="header-left-dash">
+                  <h3>Notifications</h3>
+                  <div className="help-wrapper-dash">
+                    <button 
+                      className="help-button-dash"
+                      onClick={() => setShowHelpNotifications(!showHelpNotifications)}
+                      aria-label="Help"
+                    >
+                      ?
+                    </button>
+                    {showHelpNotifications && (
+                      <div className="help-box-dash">
+                        <div className="help-arrow-dash"></div>
+                        
+                        <div className="help-content-dash">
+                          <p>Gen TIPS</p>
+                        </div>
+                        
+                        <div className="help-separator-dash"></div>
+                        
+                        <div className="help-content-dash">
+                          <p>AI</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
               <div className="activity-container">
                 <Notifications />
               </div>
             </div>
 
+            {/* Activity with Help */}
             <div className="activity-panel">
-              <h3>Recent Activity</h3>
+              <div className="panel-header-with-help">
+                <div className="header-left-dash">
+                  <h3>Recent Activity</h3>
+                  <div className="help-wrapper-dash">
+                    <button 
+                      className="help-button-dash"
+                      onClick={() => setShowHelpActivity(!showHelpActivity)}
+                      aria-label="Help"
+                    >
+                      ?
+                    </button>
+                    {showHelpActivity && (
+                      <div className="help-box-dash">
+                        <div className="help-arrow-dash"></div>
+                        
+                        <div className="help-content-dash">
+                          <p>Gen TIPS</p>
+                        </div>
+                        
+                        <div className="help-separator-dash"></div>
+                        
+                        <div className="help-content-dash">
+                          <p>AI</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
               <div className="activity-container">
                 <ul className="activity-list">
                   {activityLogs.length === 0 ? (
