@@ -7,6 +7,7 @@ const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selec
   const [_loading, setLoading] = useState(true);
   const [isTransactionsExpanded, setIsTransactionsExpanded] = useState(false);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const getWeekRange = useCallback((weekStartDate) => {
     const start = new Date(weekStartDate);
@@ -255,7 +256,35 @@ const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selec
   return (
     <div className={`net-income-container ${isSummaryExpanded ? 'expanded' : ''}`}>
       <div className="net-income-header">
-        <h3>Sales Summary - {getPeriodLabel()}</h3>
+        <div className="panel-header-with-help">
+          <div className="header-left-dash">
+            <h3>Sales Summary - {getPeriodLabel()}</h3>
+            <div className="help-wrapper-dash">
+              <button 
+                className="help-button-dash"
+                onClick={() => setShowHelp(!showHelp)}
+                aria-label="Help"
+              >
+                ?
+              </button>
+              {showHelp && (
+                <div className="help-box-dash">
+                  <div className="help-arrow-dash"></div>
+                  
+                  <div className="help-content-dash">
+                    <p>GEN TIPS</p>
+                  </div>
+                  
+                  <div className="help-separator-dash"></div>
+                  
+                  <div className="help-content-dash">
+                    <p>AI Tips</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
         <div className="header-controls">
           <button 
             className="summary-expand-btn" 

@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
 import '../stylecss/PointOfSales/SalesReceipt.css';
 
-const SalesReceipt = ({ orderId, onClose }) => {
+const SalesReceipt = ({ orderId, orderCode: propOrderCode, onClose }) => {
   const [receiptData, setReceiptData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [businessData, setBusinessData] = useState(null);
+  const [orderCode, setOrderCode] = useState(propOrderCode || null);
   const receiptRef = useRef(null);
 
   useEffect(() => {
@@ -15,14 +17,27 @@ const SalesReceipt = ({ orderId, onClose }) => {
 
   const fetchReceiptData = async () => {
     try {
-      // Fetch order details
+      // Fetch order details with business information
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
-        .select('*')
+        .select(`
+          *,
+          business_role (
+            businessid,
+            businessname,
+            businesscode,
+            businessAddress
+          )
+        `)
         .eq('orderid', orderId)
         .single();
 
       if (orderError) throw orderError;
+
+      // Set order code from database if not provided as prop
+      if (!propOrderCode && orderData.ordercode) {
+        setOrderCode(orderData.ordercode);
+      }
 
       // Fetch order items with product details
       const { data: itemsData, error: itemsError } = await supabase
@@ -33,23 +48,44 @@ const SalesReceipt = ({ orderId, onClose }) => {
           unitprice,
           subtotal,
           productid,
-          productcategoryid,
-          products (
-            productname
-          ),
-          productcategory (
-            color,
-            agesize
-          )
+          productcategoryid
         `)
         .eq('orderid', orderId);
 
       if (itemsError) throw itemsError;
 
+      // Fetch product details separately
+      const productIds = [...new Set(itemsData.map(item => item.productid))];
+      const { data: productsData } = await supabase
+        .from('products')
+        .select('productid, productname')
+        .in('productid', productIds);
+
+      // Fetch product category details
+      const categoryIds = itemsData.map(item => item.productcategoryid);
+      const { data: categoriesData } = await supabase
+        .from('productcategory')
+        .select('productcategoryid, color, agesize')
+        .in('productcategoryid', categoryIds);
+
+      // Create maps for quick lookup
+      const productsMap = new Map((productsData || []).map(p => [p.productid, p]));
+      const categoriesMap = new Map((categoriesData || []).map(c => [c.productcategoryid, c]));
+
+      // Combine data
+      const enrichedItems = itemsData.map(item => ({
+        ...item,
+        products: {
+          productname: productsMap.get(item.productid)?.productname || 'Unknown Product'
+        },
+        productcategory: categoriesMap.get(item.productcategoryid) || {}
+      }));
+
       setReceiptData({
         order: orderData,
-        items: itemsData
+        items: enrichedItems
       });
+      setBusinessData(orderData.business_role);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching receipt data:', error);
@@ -76,7 +112,6 @@ const SalesReceipt = ({ orderId, onClose }) => {
 
   const handleDownload = async () => {
     try {
-      // Load jsPDF from CDN if not already loaded
       if (!window.jspdf) {
         const script = document.createElement('script');
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
@@ -89,21 +124,15 @@ const SalesReceipt = ({ orderId, onClose }) => {
       }
 
       const { jsPDF } = window.jspdf;
-      
-      // 80mm width thermal paper (3.15 inches)
-      const pageWidth = 80; // mm
-      const margin = 5; // mm
+      const pageWidth = 80;
+      const margin = 5;
       const contentWidth = pageWidth - (margin * 2);
-      
-      // Calculate initial height (will add pages if needed)
       let currentHeight = 10;
       
-      // Calculate approximate final height first
-      let estimatedHeight = 100; // Base height for header, footer, etc.
-      estimatedHeight += receiptData.items.length * 20; // Approximate per item
-      const finalHeight = Math.max(Math.min(estimatedHeight, 300), 200); // Between 200-300mm
+      let estimatedHeight = 100;
+      estimatedHeight += receiptData.items.length * 20;
+      const finalHeight = Math.max(Math.min(estimatedHeight, 300), 200);
       
-      // Create document with custom dimensions
       const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -112,58 +141,60 @@ const SalesReceipt = ({ orderId, onClose }) => {
 
       const { date, time } = formatDateTime(receiptData.order.orderdate);
       
-      // Set font
       doc.setFont('courier');
       
-      // Header - Business Name
+      // Header - Platform Name
       doc.setFontSize(14);
       doc.setFont('courier', 'bold');
       doc.text('BuiswAIz', pageWidth / 2, currentHeight, { align: 'center' });
       currentHeight += 7;
       
-      // Order ID
+      // Receipt Number (Order Code)
       doc.setFontSize(10);
       doc.setFont('courier', 'normal');
-      doc.text(`Order ID: #${orderId}`, pageWidth / 2, currentHeight, { align: 'center' });
+      const displayCode = orderCode || `ORDER-${orderId}`;
+      doc.text(`Receipt #: ${displayCode}`, pageWidth / 2, currentHeight, { align: 'center' });
       currentHeight += 8;
       
-      // Info Section
+      // Business Information
       doc.setFontSize(8);
       doc.setFont('courier', 'bold');
       doc.text('Store Name:', margin, currentHeight);
       doc.setFont('courier', 'normal');
-      doc.text('ARTekoh', margin + 20, currentHeight);
+      const storeName = businessData?.businessname || 'N/A';
+      doc.text(storeName, margin + 20, currentHeight);
       currentHeight += 5;
       
-      doc.setFont('courier', 'bold');
-      doc.text('Address:', margin, currentHeight);
-      doc.setFont('courier', 'normal');
-      currentHeight += 4;
-      doc.text('98 E. Santos St.', margin, currentHeight);
-      currentHeight += 4;
-      doc.text('Concepcion Uno', margin, currentHeight);
-      currentHeight += 4;
-      doc.text('Marikina City', margin, currentHeight);
-      currentHeight += 5;
+      // Address
+      if (businessData?.businessAddress) {
+        doc.setFont('courier', 'bold');
+        doc.text('Address:', margin, currentHeight);
+        doc.setFont('courier', 'normal');
+        currentHeight += 4;
+        const addressLines = doc.splitTextToSize(businessData.businessAddress, contentWidth);
+        addressLines.forEach(line => {
+          doc.text(line, margin, currentHeight);
+          currentHeight += 4;
+        });
+      }
+      currentHeight += 1;
       
       doc.text(`Date: ${date}`, margin, currentHeight);
       currentHeight += 4;
       doc.text(`Time: ${time}`, margin, currentHeight);
       currentHeight += 7;
 
-      // Separator line
+      // Separator
       doc.setLineWidth(0.3);
       doc.line(margin, currentHeight, pageWidth - margin, currentHeight);
       currentHeight += 5;
 
-      // "Not official receipt" notice
+      // Notice
       doc.setFont('courier', 'normal');
       doc.setFontSize(7);
-      const noticeText = 'This is not the official receipt';
-      doc.text(noticeText, pageWidth / 2, currentHeight, { align: 'center' });
+      doc.text('This is not the official receipt', pageWidth / 2, currentHeight, { align: 'center' });
       currentHeight += 5;
       
-      // Separator line
       doc.line(margin, currentHeight, pageWidth - margin, currentHeight);
       currentHeight += 5;
       
@@ -175,7 +206,6 @@ const SalesReceipt = ({ orderId, onClose }) => {
       doc.text('Price', pageWidth - margin, currentHeight, { align: 'right' });
       currentHeight += 4;
       
-      // Separator line
       doc.setLineWidth(0.1);
       doc.line(margin, currentHeight, pageWidth - margin, currentHeight);
       currentHeight += 4;
@@ -185,7 +215,6 @@ const SalesReceipt = ({ orderId, onClose }) => {
       doc.setFontSize(8);
       
       receiptData.items.forEach((item, index) => {
-        // Product name (wrap if too long)
         const productName = item.products?.productname || 'Unknown Product';
         const maxWidth = contentWidth - 5;
         const lines = doc.splitTextToSize(productName, maxWidth);
@@ -195,7 +224,6 @@ const SalesReceipt = ({ orderId, onClose }) => {
           currentHeight += 4;
         });
         
-        // Variant info
         if (item.productcategory?.agesize || item.productcategory?.color) {
           const variant = [item.productcategory?.agesize, item.productcategory?.color]
             .filter(Boolean)
@@ -206,19 +234,16 @@ const SalesReceipt = ({ orderId, onClose }) => {
           doc.setFontSize(8);
         }
         
-        // Quantity and Price on same line
         const qtyY = currentHeight;
         doc.text(`${item.quantity}x`, pageWidth - margin - 25, qtyY);
         doc.text(`P${item.unitprice.toFixed(2)}`, pageWidth - margin, qtyY, { align: 'right' });
         currentHeight += 4;
         
-        // Subtotal
         doc.setFont('courier', 'bold');
         doc.text(`P${item.subtotal.toFixed(2)}`, pageWidth - margin, currentHeight, { align: 'right' });
         doc.setFont('courier', 'normal');
         currentHeight += 5;
         
-        // Add space between items
         if (index < receiptData.items.length - 1) {
           currentHeight += 2;
         }
@@ -226,12 +251,12 @@ const SalesReceipt = ({ orderId, onClose }) => {
       
       currentHeight += 3;
       
-      // Separator line
+      // Separator
       doc.setLineWidth(0.3);
       doc.line(margin, currentHeight, pageWidth - margin, currentHeight);
       currentHeight += 5;
       
-      // Totals Section
+      // Totals
       doc.setFont('courier', 'bold');
       doc.setFontSize(9);
       doc.text('TOTAL:', margin, currentHeight);
@@ -248,11 +273,10 @@ const SalesReceipt = ({ orderId, onClose }) => {
       doc.text(`P${receiptData.order.change.toFixed(2)}`, pageWidth - margin, currentHeight, { align: 'right' });
       currentHeight += 8;
       
-      // Separator line
       doc.line(margin, currentHeight, pageWidth - margin, currentHeight);
       currentHeight += 6;
       
-      // Signature section
+      // Signature
       doc.setFont('courier', 'bold');
       doc.setFontSize(8);
       doc.text('Signature:', margin, currentHeight);
@@ -272,8 +296,10 @@ const SalesReceipt = ({ orderId, onClose }) => {
       currentHeight += 4;
       doc.text('Please come again', pageWidth / 2, currentHeight, { align: 'center' });
       
-      // Save the PDF
-      doc.save(`Receipt_Order_${orderId}.pdf`);
+      const filename = orderCode 
+        ? `Receipt_${orderCode}.pdf`
+        : `Receipt_Order_${orderId}.pdf`;
+      doc.save(filename);
       
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -297,6 +323,7 @@ const SalesReceipt = ({ orderId, onClose }) => {
   }
 
   const { date, time } = formatDateTime(receiptData.order.orderdate);
+  const displayCode = orderCode || `ORDER-${orderId}`;
 
   return (
     <div className="receipt-modal-overlay">
@@ -310,12 +337,16 @@ const SalesReceipt = ({ orderId, onClose }) => {
             <div className="receipt-container">
               <div className="receipt-header">
                 <div className="business-name">BuiswAIz</div>
-                <div className="order-id">Order ID: #{orderId}</div>
+                <div className="order-id" style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 'bold' }}>
+                  Receipt #: {displayCode}
+                </div>
               </div>
 
               <div className="info-section">
-                <div><span className="info-label">Store Name:</span> ARTekoh</div>
-                <div><span className="info-label">Address:</span> 98 E. Santos St. Concepcion Uno Marikina City</div>
+                <div><span className="info-label">Store Name:</span> {businessData?.businessname || 'N/A'}</div>
+                {businessData?.businessAddress && (
+                  <div><span className="info-label">Address:</span> {businessData.businessAddress}</div>
+                )}
                 <div><span className="info-label">Date:</span> {date}</div>
                 <div><span className="info-label">Time:</span> {time}</div>
               </div>

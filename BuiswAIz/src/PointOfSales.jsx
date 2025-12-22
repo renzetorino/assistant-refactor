@@ -15,13 +15,18 @@ const PointOfSales = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [loading, setLoading] = useState(true);
-  // eslint-disable-next-line no-unused-vars
   const [user, setUser] = useState(null);
+  const [userBusinessId, setUserBusinessId] = useState(null);
+  const [businessInfo, setBusinessInfo] = useState(null);
   const [categories, setCategories] = useState(['All']);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [orderData, setOrderData] = useState({});
 
-  // Fetch user authentication 
+  // Help tooltip states
+  const [showHelpItems, setShowHelpItems] = useState(false);
+  const [showHelpSelling, setShowHelpSelling] = useState(false);
+
+  // Fetch user authentication and business information
   useEffect(() => {
     let mounted = true;
 
@@ -37,7 +42,7 @@ const PointOfSales = () => {
         
         const { data: profile, error: profileError } = await supabase
           .from('systemuser')
-          .select('*')
+          .select('*, business_id')
           .eq('userid', user.id)
           .single();
         
@@ -47,8 +52,31 @@ const PointOfSales = () => {
           console.error("Error fetching user profile:", profileError);
           return;
         }
-        
+
+        if (!profile.business_id) {
+          alert('No business assigned to your account. Please contact administrator.');
+          window.location.href = '/Dashboard';
+          return;
+        }
+
         setUser(profile);
+        setUserBusinessId(profile.business_id);
+
+        const { data: business, error: businessError } = await supabase
+          .from('business_role')
+          .select('*')
+          .eq('businessid', profile.business_id)
+          .single();
+
+        if (!mounted) return;
+
+        if (businessError) {
+          console.error("Error fetching business info:", businessError);
+          return;
+        }
+
+        setBusinessInfo(business);
+        
       } catch (error) {
         console.error("Authentication error:", error);
         if (mounted) window.location.href = '/';
@@ -59,58 +87,124 @@ const PointOfSales = () => {
     return () => { mounted = false; };
   }, []);
 
-  // Fetch products from Supabase
+  // Fetch products from Supabase filtered by business
   const fetchProducts = useCallback(async () => {
+    if (!userBusinessId) {
+      return;
+    }
+
     try {
-      const { data, error } = await supabase
+      const { data: businessProducts, error: productsError } = await supabase
+        .from('products')
+        .select('productid, productname, description, image_url, businessid, createdbyuserid')
+        .or(`businessid.eq.${userBusinessId},businessid.is.null`);
+
+      if (productsError) {
+        console.error('Error fetching products:', productsError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (!businessProducts || businessProducts.length === 0) {
+        console.log('No products found');
+        setProducts([]);
+        setLoading(false);
+        return;
+      }
+
+      const validProducts = [];
+      for (const product of businessProducts) {
+        let isValid = false;
+
+        if (product.businessid === userBusinessId) {
+          isValid = true;
+        }
+        else if (!product.businessid && product.createdbyuserid) {
+          const { data: creatorData } = await supabase
+            .from('systemuser')
+            .select('business_id')
+            .eq('userid', product.createdbyuserid)
+            .single();
+          
+          if (creatorData?.business_id === userBusinessId) {
+            isValid = true;
+            await supabase
+              .from('products')
+              .update({ businessid: userBusinessId })
+              .eq('productid', product.productid);
+            product.businessid = userBusinessId;
+          }
+        }
+        else if (!product.businessid && !product.createdbyuserid) {
+          const { count } = await supabase
+            .from('business_role')
+            .select('*', { count: 'exact', head: true });
+          
+          if (count === 1) {
+            isValid = true;
+            await supabase
+              .from('products')
+              .update({ businessid: userBusinessId })
+              .eq('productid', product.productid);
+            product.businessid = userBusinessId;
+          }
+        }
+
+        if (isValid) {
+          validProducts.push(product);
+        }
+      }
+
+      if (validProducts.length === 0) {
+        console.log('No valid products for this business');
+        setProducts([]);
+        setLoading(false);
+        return;
+      }
+
+      const productIds = validProducts.map(p => p.productid);
+      
+      const { data: categories, error: categoriesError } = await supabase
         .from('productcategory')
-        .select(`
-          productcategoryid,
-          productid,
-          price,
-          cost,
-          color,
-          agesize,
-          currentstock,
-          reorderpoint,
-          products (
-            productname,
-            description,
-            image_url
-          )
-        `)
+        .select('*')
+        .in('productid', productIds)
         .gt('currentstock', 0)
         .order('productcategoryid');
 
-      if (error) {
-        console.error('Error fetching products:', error.message);
+      if (categoriesError) {
+        console.error('Error fetching categories:', categoriesError.message);
+        setLoading(false);
         return;
       }
-      
-      const transformedProducts = data?.map(item => ({
-        productcategoryid: item.productcategoryid,
-        productid: item.productid,
-        productname: item.products?.productname || 'Unknown Product',
-        description: item.products?.description || '',
-        image_url: item.products?.image_url || '',
-        price: item.price,
-        cost: item.cost,
-        color: item.color,
-        agesize: item.agesize,
-        currentstock: item.currentstock,
-        reorderpoint: item.reorderpoint,
-        // Create category label from agesize only
-        categoryLabel: item.agesize || 'Uncategorized',
-        displayName: [
-          item.products?.productname,
-          item.color && `(${item.color})`,
-          item.agesize && `[${item.agesize}]`
-        ].filter(Boolean).join(' ')
-      })) || [];
+
+      const transformedProducts = categories.map(cat => {
+        const product = validProducts.find(p => p.productid === cat.productid);
+        return {
+          productcategoryid: cat.productcategoryid,
+          productid: cat.productid,
+          productname: product?.productname || 'Unknown Product',
+          description: product?.description || '',
+          image_url: product?.image_url || '',
+          price: cat.price,
+          cost: cat.cost,
+          color: cat.color,
+          agesize: cat.agesize,
+          currentstock: cat.currentstock,
+          reorderpoint: cat.reorderpoint,
+          businessid: product?.businessid || userBusinessId,
+          categoryLabel: cat.agesize || 'Uncategorized',
+          displayName: [
+            product?.productname,
+            cat.color && `(${cat.color})`,
+            cat.agesize && `[${cat.agesize}]`
+          ].filter(Boolean).join(' ')
+        };
+      });
+
+      console.log(`Found ${transformedProducts.length} products for business ${userBusinessId}`);
       
       setProducts(transformedProducts);
       
-      // Extract unique categories from agesize only
       const uniqueCategories = ['All', ...new Set(
         transformedProducts
           .map(p => p.agesize)
@@ -123,13 +217,14 @@ const PointOfSales = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userBusinessId]);
 
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+    if (userBusinessId) {
+      fetchProducts();
+    }
+  }, [userBusinessId, fetchProducts]);
 
-  // Add to cart
   const addToCart = (product) => {
     const existingItem = cart.find(item => item.productcategoryid === product.productcategoryid);
     
@@ -149,12 +244,10 @@ const PointOfSales = () => {
     }
   };
 
-  // Remove from cart
   const removeFromCart = (productCategoryId) => {
     setCart(cart.filter(item => item.productcategoryid !== productCategoryId));
   };
 
-  // Update quantity
   const updateQuantity = (productCategoryId, newQuantity) => {
     if (newQuantity <= 0) {
       removeFromCart(productCategoryId);
@@ -174,7 +267,6 @@ const PointOfSales = () => {
     ));
   };
 
-  // Generate unique order ID
   const generateUniqueOrderId = async () => {
     try {
       const { data, error } = await supabase
@@ -195,7 +287,33 @@ const PointOfSales = () => {
     }
   };
 
-  // Complete transaction - Updated to accept datetime parameter
+  const generateOrderCode = async () => {
+    try {
+      const businessCode = businessInfo?.businesscode || 'BIZ';
+      const timestamp = Date.now().toString(36).toUpperCase();
+      const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+      
+      const orderCode = `${businessCode}-${timestamp}-${random}`;
+      
+      const { data: existing } = await supabase
+        .from('orders')
+        .select('ordercode')
+        .eq('ordercode', orderCode)
+        .single();
+      
+      if (existing) {
+        return generateOrderCode();
+      }
+      
+      return orderCode;
+    } catch (error) {
+      const businessCode = businessInfo?.businesscode || 'BIZ';
+      const timestamp = Date.now().toString(36).toUpperCase();
+      const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+      return `${businessCode}-${timestamp}-${random}`;
+    }
+  };
+
   const completeTransaction = async (dateTimeData) => {
     if (cart.length === 0) {
       alert('Cart is empty!');
@@ -204,6 +322,11 @@ const PointOfSales = () => {
 
     if (!amountPaid || parseFloat(amountPaid) <= 0) {
       alert('Please enter the amount paid by customer.');
+      return;
+    }
+
+    if (!userBusinessId) {
+      alert('Business information not found. Please refresh and try again.');
       return;
     }
 
@@ -217,24 +340,25 @@ const PointOfSales = () => {
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const total = subtotal;
 
-    // Determine order status based on payment
     const paidAmount = parseFloat(amountPaid);
     const orderStatus = paidAmount >= total ? 'COMPLETE' : 'INCOMPLETE';
     const change = paidAmount >= total ? (paidAmount - total) : 0;
 
     try {
       const uniqueOrderId = await generateUniqueOrderId();
-      
-      // Use the provided date and time
+      const orderCode = await generateOrderCode();
       const orderDateTime = `${orderDate} ${orderTime}:00`;
 
       const orderRecord = {
         orderid: uniqueOrderId,
+        ordercode: orderCode,
         totalamount: total,
         orderdate: orderDateTime,
         orderstatus: orderStatus,
         amount_paid: paidAmount,
-        change: change
+        change: change,
+        userid: user.userid,
+        businessid: userBusinessId
       };
       
       const { error: orderError } = await supabase
@@ -259,7 +383,6 @@ const PointOfSales = () => {
 
       if (itemsError) throw new Error(`Order items creation failed: ${itemsError.message}`);
 
-      // Update inventory stock
       for (const item of cart) {
         const newStock = item.currentstock - item.quantity;
         
@@ -274,17 +397,17 @@ const PointOfSales = () => {
         if (stockError) throw new Error(`Stock update failed: ${stockError.message}`);
       }
       
-      // Set order data for modal
       setOrderData({
         orderId: uniqueOrderId,
+        orderCode: orderCode,
         totalAmount: total,
         amountPaid: paidAmount,
         change: change,
         status: orderStatus,
-        itemCount: cart.length
+        itemCount: cart.length,
+        businessName: businessInfo?.businessname
       });
       
-      // Clear cart and show success modal
       setCart([]);
       setAmountPaid('');
       setShowSuccessModal(true);
@@ -296,7 +419,6 @@ const PointOfSales = () => {
     }
   };
 
-  // Clear cart handler
   const handleClearCart = () => {
     setCart([]);
     setAmountPaid('');
@@ -319,7 +441,7 @@ const PointOfSales = () => {
                 <li onClick={() => navigate("/expenses")}>Expenses</li>
                 <li onClick={() => navigate("/assistant")}>AI Assistant</li>
               </ul>
-              <p className="nav-header">Related</p>
+              <p className="nav-header">RELATED</p>
               <ul>
                 <li onClick={() => navigate("/supplier")}>Supplier</li>
                 <li className="active">Point of Sales</li>
@@ -339,6 +461,14 @@ const PointOfSales = () => {
     <div className="pos-page">
       <header className="header-bar">
         <h1 className="header-title">BuiswAIz</h1>
+        {businessInfo && (
+          <div className="business-info-header">
+            <span className="business-name">{businessInfo.businessname}</span>
+            {businessInfo.businesscode && (
+              <span className="business-code">Code: {businessInfo.businesscode}</span>
+            )}
+          </div>
+        )}
       </header>
       
       <div className="pos-main-section">
@@ -362,25 +492,99 @@ const PointOfSales = () => {
         </aside>
 
         <div className="pos-content">
-          <ItemsPanel
-            products={products}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            selectedCategory={selectedCategory}
-            setSelectedCategory={setSelectedCategory}
-            categories={categories}
-            onAddToCart={addToCart}
-          />
+          {products.length === 0 ? (
+            <div className="no-products-message">
+              <h3>No Products Available</h3>
+              <p>Your business ({businessInfo?.businessname}) doesn't have any products in stock yet.</p>
+              <button onClick={() => navigate("/inventory")} className="go-to-inventory-btn">
+                Go to Inventory
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="pos-panel-wrapper">
+                <div className="pos-panel-header">
+                  <div className="header-left-dash">
+                    <h3>Available Items</h3>
+                    <div className="help-wrapper-dash">
+                      <button 
+                        className="help-button-dash"
+                        onClick={() => setShowHelpItems(!showHelpItems)}
+                        aria-label="Help"
+                      >
+                        ?
+                      </button>
+                      {showHelpItems && (
+                        <div className="help-box-dash">
+                          <div className="help-arrow-dash"></div>
+                          
+                          <div className="help-content-dash">
+                            <p>Gen TIPS</p>
+                          </div>
+                          
+                          <div className="help-separator-dash"></div>
+                          
+                          <div className="help-content-dash">
+                            <p>AI</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <ItemsPanel
+                  products={products}
+                  searchTerm={searchTerm}
+                  setSearchTerm={setSearchTerm}
+                  selectedCategory={selectedCategory}
+                  setSelectedCategory={setSelectedCategory}
+                  categories={categories}
+                  onAddToCart={addToCart}
+                />
+              </div>
 
-          <SellingPanel
-            cart={cart}
-            amountPaid={amountPaid}
-            setAmountPaid={setAmountPaid}
-            onUpdateQuantity={updateQuantity}
-            onRemoveFromCart={removeFromCart}
-            onCompleteTransaction={completeTransaction}
-            onClearCart={handleClearCart}
-          />
+              <div className="pos-panel-wrapper">
+                <div className="pos-panel-header">
+                  <div className="header-left-dash">
+                    <h3>Checkout</h3>
+                    <div className="help-wrapper-dash">
+                      <button 
+                        className="help-button-dash"
+                        onClick={() => setShowHelpSelling(!showHelpSelling)}
+                        aria-label="Help"
+                      >
+                        ?
+                      </button>
+                      {showHelpSelling && (
+                        <div className="help-box-dash">
+                          <div className="help-arrow-dash"></div>
+                          
+                          <div className="help-content-dash">
+                            <p>Gen TIPS</p>
+                          </div>
+                          
+                          <div className="help-separator-dash"></div>
+                          
+                          <div className="help-content-dash">
+                            <p>AI</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <SellingPanel
+                  cart={cart}
+                  amountPaid={amountPaid}
+                  setAmountPaid={setAmountPaid}
+                  onUpdateQuantity={updateQuantity}
+                  onRemoveFromCart={removeFromCart}
+                  onCompleteTransaction={completeTransaction}
+                  onClearCart={handleClearCart}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
       
