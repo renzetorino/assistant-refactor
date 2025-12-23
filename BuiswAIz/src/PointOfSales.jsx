@@ -94,10 +94,11 @@ const PointOfSales = () => {
     }
 
     try {
+      // FIXED: Only fetch products that belong to this business
       const { data: businessProducts, error: productsError } = await supabase
         .from('products')
-        .select('productid, productname, description, image_url, businessid, createdbyuserid')
-        .or(`businessid.eq.${userBusinessId},businessid.is.null`);
+        .select('productid, productname, description, image_url, businessid')
+        .eq('businessid', userBusinessId); // Only get products for THIS business
 
       if (productsError) {
         console.error('Error fetching products:', productsError.message);
@@ -106,63 +107,13 @@ const PointOfSales = () => {
       }
 
       if (!businessProducts || businessProducts.length === 0) {
-        console.log('No products found');
+        console.log('No products found for this business');
         setProducts([]);
         setLoading(false);
         return;
       }
 
-      const validProducts = [];
-      for (const product of businessProducts) {
-        let isValid = false;
-
-        if (product.businessid === userBusinessId) {
-          isValid = true;
-        }
-        else if (!product.businessid && product.createdbyuserid) {
-          const { data: creatorData } = await supabase
-            .from('systemuser')
-            .select('business_id')
-            .eq('userid', product.createdbyuserid)
-            .single();
-          
-          if (creatorData?.business_id === userBusinessId) {
-            isValid = true;
-            await supabase
-              .from('products')
-              .update({ businessid: userBusinessId })
-              .eq('productid', product.productid);
-            product.businessid = userBusinessId;
-          }
-        }
-        else if (!product.businessid && !product.createdbyuserid) {
-          const { count } = await supabase
-            .from('business_role')
-            .select('*', { count: 'exact', head: true });
-          
-          if (count === 1) {
-            isValid = true;
-            await supabase
-              .from('products')
-              .update({ businessid: userBusinessId })
-              .eq('productid', product.productid);
-            product.businessid = userBusinessId;
-          }
-        }
-
-        if (isValid) {
-          validProducts.push(product);
-        }
-      }
-
-      if (validProducts.length === 0) {
-        console.log('No valid products for this business');
-        setProducts([]);
-        setLoading(false);
-        return;
-      }
-
-      const productIds = validProducts.map(p => p.productid);
+      const productIds = businessProducts.map(p => p.productid);
       
       const { data: categories, error: categoriesError } = await supabase
         .from('productcategory')
@@ -178,7 +129,7 @@ const PointOfSales = () => {
       }
 
       const transformedProducts = categories.map(cat => {
-        const product = validProducts.find(p => p.productid === cat.productid);
+        const product = businessProducts.find(p => p.productid === cat.productid);
         return {
           productcategoryid: cat.productcategoryid,
           productid: cat.productid,
@@ -267,8 +218,10 @@ const PointOfSales = () => {
     ));
   };
 
+  // Modified: Generate unique order ID globally (not per business)
   const generateUniqueOrderId = async () => {
     try {
+      // Get the highest order ID across ALL businesses (for primary key uniqueness)
       const { data, error } = await supabase
         .from('orders')
         .select('orderid')
@@ -277,6 +230,7 @@ const PointOfSales = () => {
       
       if (error) throw new Error(`Database error: ${error.message}`);
       
+      // If no orders exist at all, start at 1
       if (!data || data.length === 0) return 1;
       
       const highestOrderId = parseInt(data[0].orderid, 10);
@@ -287,30 +241,46 @@ const PointOfSales = () => {
     }
   };
 
+  // Modified: Generate order code starting from ORDER-1 per business
   const generateOrderCode = async () => {
     try {
-      const businessCode = businessInfo?.businesscode || 'BIZ';
-      const timestamp = Date.now().toString(36).toUpperCase();
-      const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+      // Get the count of orders for THIS BUSINESS ONLY
+      const { count, error } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('businessid', userBusinessId);
       
-      const orderCode = `${businessCode}-${timestamp}-${random}`;
+      if (error) throw error;
       
-      const { data: existing } = await supabase
+      // Next order number for this business (count + 1)
+      const nextOrderNumber = (count || 0) + 1;
+      const orderCode = `ORDER-${nextOrderNumber}`;
+      
+      // Double check if this order code already exists for this business
+      const { data: existing, error: checkError } = await supabase
         .from('orders')
         .select('ordercode')
         .eq('ordercode', orderCode)
-        .single();
+        .eq('businessid', userBusinessId)
+        .maybeSingle();
+      
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
       
       if (existing) {
-        return generateOrderCode();
+        // If somehow exists, use fallback with timestamp
+        const timestamp = Date.now().toString(36).toUpperCase();
+        return `ORDER-${nextOrderNumber}-${timestamp}`;
       }
       
       return orderCode;
     } catch (error) {
-      const businessCode = businessInfo?.businesscode || 'BIZ';
+      // Fallback: if error occurs, try to generate safely
+      console.error('Error generating order code:', error);
       const timestamp = Date.now().toString(36).toUpperCase();
-      const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-      return `${businessCode}-${timestamp}-${random}`;
+      const random = Math.random().toString(36).substring(2, 4).toUpperCase();
+      return `ORDER-${timestamp}-${random}`;
     }
   };
 

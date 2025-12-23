@@ -290,7 +290,7 @@ const OrderSales = ({ orderData, onInvoiceSelect, businessName }) => {
             <thead>
               <tr>
                 <th>Product Name</th>
-                <th>Receipt Number</th>
+                <th>Order Code</th>
                 <th>Status</th>
                 <th>Quantity</th>
                 <th>Price</th>

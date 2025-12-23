@@ -683,9 +683,6 @@ body {
   background: #94a3b8;
 }
 
-/* Add these styles to the END of your existing Dashboard.css file */
-
-/* ===== CENTRALIZED HELP TOOLTIP STYLES ===== */
 
 /* Panel header with help button */
 .panel-header-with-help {
@@ -693,7 +690,7 @@ body {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 12px;
-  width: 100%;
+  width: 40%;
 }
 
 .header-left-dash {
@@ -722,7 +719,7 @@ body {
   border-radius: 50%;
   background: #ffffff;
   color: rgb(0, 0, 0);
-  border-color: black;
+  border-color: #fff;
   cursor: pointer;
   font-size: 14px;
   font-weight: bold;
@@ -732,11 +729,6 @@ body {
   transition: all 0.2s ease;
   box-shadow: 0 2px 6px rgba(4, 180, 252, 0.3);
   padding: 0;
-  flex-shrink: 0;
-}
-
-.help-button-dash:active {
-  transform: scale(0.95);
 }
 
 /* Help tooltip box - FLEXIBLE width, FIXED height with scrolling */
@@ -746,9 +738,10 @@ body {
   left: 50%;
   transform: translateX(-50%);
   min-width: 200px;
-  max-width: 600px;
+  max-width: 200px;
   width: auto;
-  height: 80px;
+  min-height: 80px;
+  max-height: 1000px;
   background: white;
   border-radius: 12px;
   padding: 20px;
