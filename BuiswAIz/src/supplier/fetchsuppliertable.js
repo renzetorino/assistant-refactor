@@ -1,10 +1,15 @@
+// supplier/fetchsuppliertable.js
 import { supabase } from "../supabase";
 
-export async function fetchSupplier() {
+// Fetch suppliers only for the current business
+export async function fetchSupplier(businessId) {
+  if (!businessId) return [];
+
   const { data, error } = await supabase
     .from("suppliers")
-    .select(`*`)
-    .order("supplierid", { descending: false }); 
+    .select("*")
+    .eq("businessid", businessId)   // 🔹 filter by business
+    .order("supplierid", { ascending: true });
 
   if (error) {
     console.error("Fetch error:", error);
@@ -14,12 +19,15 @@ export async function fetchSupplier() {
   return data;
 }
 
+// Fetch suppliers with product counts for the current business
+export async function fetchSupplierWithProducts(businessId) {
+  if (!businessId) return [];
 
-export async function fetchSupplierWithProducts() {
   const { data, error } = await supabase
     .from("supplier_with_products")
     .select("*")
-    .order("totalproducts", { ascending: false });  
+    .eq("businessid", businessId)  // 🔹 filter by business
+    .order("totalproducts", { ascending: false });
 
   if (error) {
     console.error("Fetch error (with products):", error);

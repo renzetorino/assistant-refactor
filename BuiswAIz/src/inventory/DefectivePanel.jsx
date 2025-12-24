@@ -50,53 +50,57 @@ const DefectivePanel = ({ defectiveItems, user, loadDefectiveItems, onAddDefect 
         {defectiveItems.length === 0 ? (
           <p className="no-low-stock">No defective items reported.</p>
         ) : (
-          defectiveItems.map((item) => (
-            <div key={item.defectiveitemid} className="defective-item">
+          defectiveItems.map((item) => {
+            if (!item.products) return null; // safety for missing product
 
-              {/* Product Image */}
-              {item.products?.image_url ? (
-                <img
-                  src={item.products.image_url}
-                  alt={item.products.productname || "Product"}
-                  className="defectimg-placeholder"
-                />
-              ) : (
-                <div className="defectimg-placeholder" />
-              )}
+            return (
+              <div key={item.defectiveitemid} className="defective-item">
 
-              {/* Product Info */}
-              <div className="defective-details">
-                <div className="defect-main">
-                  <span className="defect-name">{item.products?.productname || "Unnamed"}</span>
+                {/* Product Image */}
+                {item.products.image_url ? (
+                  <img
+                    src={item.products.image_url}
+                    alt={item.products.productname || "Product"}
+                    className="defectimg-placeholder"
+                  />
+                ) : (
+                  <div className="defectimg-placeholder" />
+                )}
 
-                  {item.productcategory && (
-                    <div className="variant-info">
-                      <span>Color: {item.productcategory.color || "N/A"}</span>
-                      <span>Size/Age: {item.productcategory.agesize || "N/A"}</span>
-                    </div>
-                  )}
+                {/* Product Info */}
+                <div className="defective-details">
+                  <div className="defect-main">
+                    <span className="defect-name">{item.products.productname || "Unnamed"}</span>
 
-                  <span className="Quantity">Quantity: {item.quantity} pcs</span>
-                  <span className="ReportedDate">
-                    Reported: {item.reporteddate ? new Date(item.reporteddate).toLocaleDateString() : "N/A"}
-                  </span>
-                  <span className="Description">{item.defectdescription}</span>
-                </div>
+                    {item.productcategory && (
+                      <div className="variant-info">
+                        <span>Color: {item.productcategory.color || "N/A"}</span>
+                        <span>Size/Age: {item.productcategory.agesize || "N/A"}</span>
+                      </div>
+                    )}
 
-                {/* Status Dropdown */}
-                <div className="defect-status">
-                  <select
-                    className="status-dropdown"
-                    value={item.status}
-                    onChange={(e) => handleStatusChange(item.defectiveitemid, e.target.value)}
-                  >
-                    <option value="In-Process">In-Process</option>
-                    <option value="Returned">Returned</option>
-                  </select>
+                    <span className="Quantity">Quantity: {item.quantity} pcs</span>
+                    <span className="ReportedDate">
+                      Reported: {item.reporteddate ? new Date(item.reporteddate).toLocaleDateString() : "N/A"}
+                    </span>
+                    <span className="Description">{item.defectdescription}</span>
+                  </div>
+
+                  {/* Status Dropdown */}
+                  <div className="defect-status">
+                    <select
+                      className="status-dropdown"
+                      value={item.status}
+                      onChange={(e) => handleStatusChange(item.defectiveitemid, e.target.value)}
+                    >
+                      <option value="In-Process">In-Process</option>
+                      <option value="Returned">Returned</option>
+                    </select>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

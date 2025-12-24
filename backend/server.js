@@ -34,40 +34,246 @@ app.get("/", (req, res) => {
   res.send("Backend is running");
 });
 
-// TODO: Add your API routes here (e.g., /api/add-product, /api/get-products)
 app.post("/api/add-product", upload.single("image"), async (req, res) => {
   try {
-    const { productname, description, suppliername, categories, userid } = req.body;
+    const {
+      productname,
+      description,
+      suppliername,
+      categories,
+      userid, // coming from frontend
+    } = req.body;
 
-    if (!productname || !description || !suppliername || !categories?.length) {
+    // 🔴 Basic validation
+    if (!productname || !suppliername || !categories || !userid) {
       return res.status(400).json({ error: "Missing required fields." });
     }
 
-    // 1️⃣ Find supplier
+    // 1️⃣ Validate user & get business
+    const { data: userData, error: userError } = await supabase
+      .from("systemuser")
+      .select("userid, business_id")
+      .eq("userid", userid)
+      .single();
+
+    if (userError || !userData) {
+      return res.status(401).json({ error: "Invalid user." });
+    }
+
+    const businessid = userData.business_id;
+    if (!businessid) {
+      return res.status(400).json({ error: "User is not linked to a business." });
+    }
+
+    // 2️⃣ Find supplier in SAME business
     const { data: supplierData, error: supplierError } = await supabase
       .from("suppliers")
       .select("supplierid")
       .eq("suppliername", suppliername)
+      .eq("businessid", businessid)
       .single();
 
     if (supplierError || !supplierData) {
-      return res.status(404).json({ error: "Supplier not found." });
+      return res
+        .status(404)
+        .json({ error: "Supplier not found for this business." });
     }
 
-    // 2️⃣ Handle image upload + compression
-    let imageUrl = "";
+    // 3️⃣ Handle image upload + compression
+    let imageUrl = null;
     if (req.file) {
       const compressedBuffer = await sharp(req.file.buffer)
         .resize(800)
         .webp({ quality: 70 })
         .toBuffer();
 
-      const filePath = `${Date.now()}_${req.file.originalname}.webp`;
+      const filePath = `products/${Date.now()}_${productname}.webp`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(filePath, compressedBuffer, { contentType: "image/webp" });
+
+      if (uploadError) return res.status(500).json({ error: "Image upload failed." });
+
+      const { data: publicData } = supabase.storage
+        .from("product-images")
+        .getPublicUrl(filePath);
+
+      imageUrl = publicData.publicUrl;
+    }
+
+    // 4️⃣ Insert product (WITH USER + BUSINESS)
+    const { data: productData, error: productError } = await supabase
+      .from("products")
+      .insert([{
+        productname,
+        description,
+        supplierid: supplierData.supplierid,
+        image_url: imageUrl,
+        businessid,
+        createdbyuserid: userid,
+        updatedbyuserid: userid,
+      }])
+      .select("productid")
+      .single();
+
+    if (productError) {
+      console.error(productError);
+      return res.status(500).json({ error: "Failed to create product." });
+    }
+
+    // 5️⃣ Parse categories (FormData safe)
+    let parsedCategories = categories;
+    if (typeof categories === "string") parsedCategories = JSON.parse(categories);
+
+    if (!Array.isArray(parsedCategories) || parsedCategories.length === 0) {
+      return res.status(400).json({ error: "At least one category is required." });
+    }
+
+    // 6️⃣ Insert product categories
+    const categoryInserts = parsedCategories.map((cat) => ({
+      productid: productData.productid,
+      color: cat.color || null,
+      agesize: cat.agesize || null,
+      cost: Number(cat.cost) || 0,
+      price: Number(cat.price) || 0,
+      currentstock: Number(cat.currentstock) || 0,
+      reorderpoint: Number(cat.reorderpoint) || 0,
+    }));
+
+    const { data: insertedCategories, error: categoryError } = await supabase
+      .from("productcategory")
+      .insert(categoryInserts)
+      .select(); // select returns inserted rows
+
+    if (categoryError) {
+      console.error(categoryError);
+      return res.status(500).json({ error: "Failed to add product categories." });
+    }
+
+    // ✅ 6.1 Automatically create stock_setting for each category
+    for (let cat of insertedCategories) {
+      const { error: stockError } = await supabase
+        .from("stock_setting")
+        .insert([{
+          productid: productData.productid,
+          productcategoryid: cat.productcategoryid,
+          max_stock: 50, // default max stock
+        }]);
+      if (stockError) console.error("Failed to create stock_setting:", stockError);
+    }
+
+    // 7️⃣ Activity log
+    await supabase.from("activitylog").insert([{
+      action_type: "add_product",
+      action_desc: `added ${productname}`,
+      done_user: userid,
+      businessid,
+    }]);
+
+    // 8️⃣ Done
+    return res.status(201).json({
+      message: "Product added successfully.",
+      productid: productData.productid,
+      imageUrl,
+    });
+
+  } catch (err) {
+    console.error("ADD PRODUCT ERROR:", err);
+    return res.status(500).json({ error: "Server error." });
+  }
+});
+
+
+
+
+app.get("/api/get-suppliers", async (req, res) => {
+  try {
+    const { businessId } = req.query;
+
+    if (!businessId) {
+      return res.status(400).json({ error: "businessId is required" });
+    }
+
+    const { data, error } = await supabase
+      .from("suppliers")
+      .select("*")
+      .eq("supplierstatus", "Active")
+      .eq("businessid", businessId);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error("Get suppliers error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
+
+app.post("/api/update-product", upload.single("image"), async (req, res) => {
+  try {
+    const { productid, productname, description, supplierid, userid } = req.body;
+
+    if (!productid || !productname || !description || !supplierid || !userid) {
+      return res.status(400).json({ error: "Missing required fields." });
+    }
+
+    /* 1️⃣ Get user's businessid */
+    const { data: userProfile, error: userError } = await supabase
+      .from("systemuser")
+      .select("business_id")
+      .eq("userid", userid)
+      .single();
+
+    if (userError || !userProfile) {
+      return res.status(403).json({ error: "User not found." });
+    }
+
+    const businessid = userProfile.business_id;
+
+    /* 2️⃣ Verify product belongs to same business */
+    const { data: product, error: productError } = await supabase
+      .from("products")
+      .select("image_url, businessid")
+      .eq("productid", productid)
+      .single();
+
+    if (productError || !product) {
+      return res.status(404).json({ error: "Product not found." });
+    }
+
+    if (product.businessid !== businessid) {
+      return res.status(403).json({ error: "Unauthorized product access." });
+    }
+
+    let imageUrl = product.image_url;
+
+    /* 3️⃣ Handle image update */
+    if (req.file) {
+      // Delete old image
+      if (product.image_url) {
+        const oldPath = product.image_url.split("/product-images/")[1];
+        if (oldPath) {
+          await supabase.storage.from("product-images").remove([oldPath]);
+        }
+      }
+
+      // Compress & upload new image
+      const compressedBuffer = await sharp(req.file.buffer)
+        .resize(800, null, { fit: "inside" })
+        .jpeg({ quality: 60 })
+        .toBuffer();
+
+      const filePath = `${businessid}/${Date.now()}_${req.file.originalname}`;
 
       const { error: uploadError } = await supabase.storage
         .from("product-images")
         .upload(filePath, compressedBuffer, {
-          contentType: "image/webp",
+          contentType: "image/jpeg",
         });
 
       if (uploadError) {
@@ -81,195 +287,43 @@ app.post("/api/add-product", upload.single("image"), async (req, res) => {
       imageUrl = publicData.publicUrl;
     }
 
-    // 3️⃣ Insert product
-    const { data: productData, error: productError } = await supabase
-      .from("products")
-      .insert([
-        {
-          productname,
-          description,
-          supplierid: supplierData.supplierid,
-          image_url: imageUrl,
-        },
-      ])
-      .select("productid")
-      .single();
-
-    if (productError) {
-      return res.status(500).json({ error: "Failed to create product." });
-    }
-
-    // 4️⃣ Parse categories if JSON string (from FormData)
-    let parsedCategories = categories;
-    if (typeof categories === "string") {
-      parsedCategories = JSON.parse(categories);
-    }
-
-    // 5️⃣ Insert categories and get IDs
-    const categoryInserts = parsedCategories.map((cat) => ({
-      productid: productData.productid,
-      color: cat.color,
-      agesize: cat.agesize,
-      cost: parseFloat(cat.cost) || 0,
-      price: parseFloat(cat.price) || 0,
-      currentstock: parseInt(cat.currentstock) || 0,
-      reorderpoint: parseInt(cat.reorderpoint) || 0,
-    }));
-
-    const { data: insertedCategories, error: catError } = await supabase
-      .from("productcategory")
-      .insert(categoryInserts)
-      .select("productcategoryid");
-
-    if (catError) {
-      return res.status(500).json({ error: "Failed to add categories." });
-    }
-
-    // 6️⃣ Automatically create stock settings for each category
-    for (let i = 0; i < insertedCategories.length; i++) {
-      const categoryId = insertedCategories[i].productcategoryid;
-      const maxStock = parseInt(parsedCategories[i].currentstock) || 10; // default 10
-
-      const { error: stockError } = await supabase
-        .from("stock_setting")
-        .insert([
-          {
-            productid: productData.productid,
-            productcategoryid: categoryId,
-            max_stock: maxStock,
-          },
-        ]);
-
-      if (stockError) console.error("Failed to insert stock setting:", stockError);
-    }
-
-    // 7️⃣ Log activity
-    if (userid) {
-      await supabase.from("activitylog").insert([
-        {
-          action_type: "add_product",
-          action_desc: `added ${productname} with ${insertedCategories.length} categories`,
-          done_user: userid,
-        },
-      ]);
-    }
-
-    // 8️⃣ Return success
-    return res
-      .status(200)
-      .json({ message: "Product added successfully.", imageUrl });
-
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Server error." });
-  }
-});
-
-
-app.get("/api/get-suppliers", async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from("suppliers")
-      .select("*")
-      .eq("supplierstatus", "Active");
-
-    if (error) return res.status(500).json({ error: error.message });
-    res.json(data);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-app.post("/api/update-product", upload.single("image"), async (req, res) => {
-  try {
-    const { productid, productname, description, supplierid, userid } = req.body;
-
-    if (!productid || !productname || !description || !supplierid) {
-      return res.status(400).json({ error: "Missing required fields." });
-    }
-
-    let imageUrl = null;
-
-    if (req.file) {
-      // 1. Get old image from database
-      const { data: oldProduct, error: fetchError } = await supabase
-        .from("products")
-        .select("image_url")
-        .eq("productid", productid)
-        .single();
-
-      if (fetchError) {
-        console.error(fetchError);
-      }
-
-      // 2. Delete old image from Supabase storage
-      if (oldProduct?.image_url) {
-      // ✅ Extract the correct file path after the bucket name
-        const oldPath = oldProduct.image_url.split("/product-images/")[1];
-
-        if (oldPath) {
-          const {} = await supabase.storage
-            .from("product-images")
-            .remove([oldPath]);
-        }
-      }
-
-
-      // 3. Compress and upload new image
-      const compressedBuffer = await sharp(req.file.buffer)
-        .resize(800, null, { fit: "inside" })
-        .jpeg({ quality: 60 })
-        .toBuffer();
-
-      const filePath = `${Date.now()}_${req.file.originalname}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("product-images")
-        .upload(filePath, compressedBuffer, { contentType: "image/jpeg" });
-
-      if (uploadError) return res.status(500).json({ error: "Failed to upload image." });
-
-      const { data: publicData } = supabase.storage
-        .from("product-images")
-        .getPublicUrl(filePath);
-
-      imageUrl = publicData.publicUrl;
-    }
-
-    // 4. Update product in DB
+    /* 4️⃣ Update product (BUSINESS-SAFE) */
     const { error: updateError } = await supabase
       .from("products")
       .update({
         productname,
         description,
         supplierid,
-        ...(imageUrl && { image_url: imageUrl }),
-        updatedat: new Date().toISOString(),   // 👈 update timestamp
-        updatedbyuserid: userid || null,       // 👈 log who updated
+        image_url: imageUrl,
+        updatedat: new Date().toISOString(),
+        updatedbyuserid: userid,
       })
-      .eq("productid", productid);
+      .eq("productid", productid)
+      .eq("businessid", businessid); // 🔥 IMPORTANT
 
-    if (updateError) return res.status(500).json({ error: "Failed to update product." });
-
-    // 5. Log activity
-    if (userid) {
-      await supabase.from("activitylog").insert([
-        {
-          action_type: "update_product",
-          action_desc: `updated ${productname}`,
-          done_user: userid,
-        },
-      ]);
+    if (updateError) {
+      return res.status(500).json({ error: "Failed to update product." });
     }
 
-    res.status(200).json({ message: "Product updated successfully.", imageUrl });
+    /* 5️⃣ Log activity */
+    await supabase.from("activitylog").insert([
+      {
+        businessid: businessid,
+        action_type: "update_product",
+        action_desc: `updated ${productname}`,
+        done_user: userid,
+      },
+    ]);
+
+    res.status(200).json({
+      message: "Product updated successfully.",
+      imageUrl,
+    });
   } catch (err) {
-    console.error(err);
+    console.error("Update product error:", err);
     res.status(500).json({ error: "Server error." });
   }
 });
-
 
 
 
@@ -455,18 +509,43 @@ app.get("/api/categories/:productid", async (req, res) => {
 // Get all products
 app.get("/api/products", async (req, res) => {
   try {
+    const { userid } = req.query;
+
+    if (!userid) {
+      return res.status(400).json({ error: "userid is required" });
+    }
+
+    // 1️⃣ Get user's business
+    const { data: user, error: userErr } = await supabase
+      .from("systemuser")
+      .select("business_id")
+      .eq("userid", userid)
+      .single();
+
+    if (userErr || !user) {
+      return res.status(403).json({ error: "User not found" });
+    }
+
+    const businessid = user.business_id;
+
+    // 2️⃣ Fetch products ONLY for this business
     const { data, error } = await supabase
       .from("products")
       .select("productid, productname")
+      .eq("businessid", businessid)
       .order("productname");
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
     res.json(data);
   } catch (err) {
-    console.error(err);
+    console.error("Get products error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 // Add defective item
 app.post("/api/add-defective-item", async (req, res) => {
@@ -478,28 +557,64 @@ app.post("/api/add-defective-item", async (req, res) => {
       status,
       defectdescription,
       reporteddate,
-      userid, // user submitting the report
+      userid,
     } = req.body;
 
-    if (!productid || !productcategoryid || !quantity || !status || !reporteddate) {
+    if (
+      !productid ||
+      !productcategoryid ||
+      !quantity ||
+      !status ||
+      !reporteddate ||
+      !userid
+    ) {
       return res.status(400).json({ error: "Missing required fields." });
     }
 
-    // Fetch category stock
+    /* 1️⃣ Get user's business */
+    const { data: user, error: userErr } = await supabase
+      .from("systemuser")
+      .select("business_id")
+      .eq("userid", userid)
+      .single();
+
+    if (userErr || !user) {
+      return res.status(403).json({ error: "User not found." });
+    }
+
+    const businessid = user.business_id;
+
+    /* 2️⃣ Get category (NO businessid here) */
     const { data: category, error: catErr } = await supabase
       .from("productcategory")
-      .select("currentstock")
+      .select("currentstock, productid")
       .eq("productcategoryid", productcategoryid)
       .single();
 
-    if (catErr || !category)
-      return res.status(400).json({ error: "Category not found." });
+    if (catErr || !category) {
+      return res.status(404).json({ error: "Category not found." });
+    }
+
+    /* 3️⃣ Verify product belongs to user's business */
+    const { data: product, error: prodErr } = await supabase
+      .from("products")
+      .select("businessid")
+      .eq("productid", category.productid)
+      .single();
+
+    if (prodErr || !product) {
+      return res.status(404).json({ error: "Product not found." });
+    }
+
+    if (product.businessid !== businessid) {
+      return res.status(403).json({ error: "Unauthorized access." });
+    }
 
     if (parseInt(quantity) > category.currentstock) {
       return res.status(400).json({ error: "Quantity exceeds current stock." });
     }
 
-    // Insert defective item — include reportedbyuserid here ✅
+    /* 4️⃣ Insert defective item */
     const { error: insertErr } = await supabase.from("defectiveitems").insert([
       {
         productid,
@@ -508,43 +623,44 @@ app.post("/api/add-defective-item", async (req, res) => {
         status,
         defectdescription,
         reporteddate,
-        reportedbyuserid: userid, // ✅ new column included
+        reportedbyuserid: userid,
       },
     ]);
 
-    if (insertErr)
-      return res
-        .status(500)
-        .json({ error: insertErr.message || JSON.stringify(insertErr) });
+    if (insertErr) {
+      return res.status(500).json({ error: insertErr.message });
+    }
 
-    // Update stock
+    /* 5️⃣ Update stock */
     const { error: updateErr } = await supabase
       .from("productcategory")
-      .update({ currentstock: category.currentstock - quantity })
+      .update({
+        currentstock: category.currentstock - parseInt(quantity),
+      })
       .eq("productcategoryid", productcategoryid);
 
-    if (updateErr)
-      return res
-        .status(500)
-        .json({ error: updateErr.message || JSON.stringify(updateErr) });
-
-    // Log activity
-    if (userid) {
-      await supabase.from("activitylog").insert([
-        {
-          action_type: "add_defect",
-          action_desc: `added ${quantity} defective item(s) for product ${productid}, category ${productcategoryid}`,
-          done_user: userid,
-        },
-      ]);
+    if (updateErr) {
+      return res.status(500).json({ error: updateErr.message });
     }
+
+    /* 6️⃣ Log activity (WITH businessid) */
+    await supabase.from("activitylog").insert([
+      {
+        businessid,
+        action_type: "add_defect",
+        action_desc: `added ${quantity} defective item(s)`,
+        done_user: userid,
+      },
+    ]);
 
     res.status(200).json({ message: "Defective item added successfully." });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message || "Server error." });
+    console.error("Add defective error:", err);
+    res.status(500).json({ error: "Server error." });
   }
 });
+
+
 
 // POST /api/restock
 app.post("/api/restock", async (req, res) => {
@@ -610,92 +726,99 @@ app.post("/api/restock", async (req, res) => {
 
 app.post("/api/reorder", async (req, res) => {
   try {
-    const { productid, productcategoryid, supplierid } = req.body;
+    const { productid, productcategoryid, userid } = req.body;
 
     // ✅ Validate input
-    if (!productid || !productcategoryid || !supplierid) {
+    if (!productid || !productcategoryid || !userid) {
       return res.status(400).json({ error: "Missing required fields." });
     }
 
-    // 1️⃣ Fetch current stock of the category
+    // 1️⃣ Fetch user & business
+    const { data: userData, error: userError } = await supabase
+      .from("systemuser")
+      .select("userid, business_id")
+      .eq("userid", userid)
+      .single();
+    if (userError || !userData) return res.status(401).json({ error: "Invalid user." });
+
+    const businessid = userData.business_id;
+
+    // 2️⃣ Fetch product info (including supplierid)
+    const { data: product, error: productError } = await supabase
+      .from("products")
+      .select("productname, supplierid")
+      .eq("productid", productid)
+      .single();
+    if (productError || !product) return res.status(404).json({ error: "Product not found." });
+
+    // 3️⃣ Fetch supplier info
+    const { data: supplier, error: supplierError } = await supabase
+      .from("suppliers")
+      .select("suppliername, supplieremail")
+      .eq("supplierid", product.supplierid)
+      .single();
+    if (supplierError || !supplier) return res.status(404).json({ error: "Supplier not found." });
+
+    // 4️⃣ Fetch product category info
     const { data: category, error: catError } = await supabase
       .from("productcategory")
       .select("currentstock, cost, color, agesize")
       .eq("productcategoryid", productcategoryid)
       .single();
-
     if (catError || !category) return res.status(404).json({ error: "Product category not found." });
 
-    // 2️⃣ Fetch max_stock from stock_setting
+    // 5️⃣ Fetch max_stock from stock_setting
     const { data: stockSetting, error: stockError } = await supabase
       .from("stock_setting")
       .select("max_stock")
       .eq("productcategoryid", productcategoryid)
+      .eq("productid", productid)
       .single();
-
     if (stockError || !stockSetting) return res.status(500).json({ error: "Stock setting not found." });
 
-    // 3️⃣ Calculate order quantity
+    // 6️⃣ Calculate order quantity
     const order_qty = stockSetting.max_stock;
     if (order_qty <= 0) return res.status(400).json({ error: "Stock is already at or above max." });
 
-    // 4️⃣ Check for existing pending orders
+    // 7️⃣ Check for existing pending orders
     const { data: existingOrder, error: checkError } = await supabase
       .from("purchase_orders")
       .select("purchaseorderid")
       .eq("productid", productid)
       .eq("productcategoryid", productcategoryid)
-      .eq("supplierid", supplierid)
+      .eq("supplierid", product.supplierid)
       .eq("status", "Pending")
       .maybeSingle();
-
     if (checkError) return res.status(500).json({ error: "Failed to check existing orders." });
     if (existingOrder) return res.status(400).json({ error: "A pending order already exists for this product/category/supplier." });
 
-    // 5️⃣ Fetch product info
-    const { data: product, error: productError } = await supabase
-      .from("products")
-      .select("productname")
-      .eq("productid", productid)
-      .single();
-
-    if (productError || !product) return res.status(404).json({ error: "Product not found." });
-
-    // 6️⃣ Fetch supplier info
-    const { data: supplier, error: supplierError } = await supabase
-      .from("suppliers")
-      .select("suppliername, supplieremail")
-      .eq("supplierid", supplierid)
-      .single();
-
-    if (supplierError || !supplier) return res.status(404).json({ error: "Supplier not found." });
-
-    // 7️⃣ Insert purchase order
+    // 8️⃣ Insert purchase order including userid & businessid
     const total_cost = order_qty * category.cost;
     const { data: newOrder, error: orderError } = await supabase
       .from("purchase_orders")
       .insert([{
         productid,
         productcategoryid,
-        supplierid,
+        supplierid: product.supplierid,
         order_qty,
         unit_cost: category.cost,
         total_cost,
         status: "Pending",
+        userid,        // ✅ include user who reordered
+        businessid,    // ✅ include business
       }])
       .select()
       .single();
-
     if (orderError || !newOrder) return res.status(500).json({ error: "Failed to create purchase order." });
 
-    // 8️⃣ Send email to supplier (using SendGrid)
+    // 9️⃣ Send email to supplier
     try {
       const confirmLink = `${process.env.CONFIRM_BASE_URL}/api/confirm-order?purchaseorderid=${newOrder.purchaseorderid}`;
       const rejectLink = `${process.env.CONFIRM_BASE_URL}/api/reject-order?purchaseorderid=${newOrder.purchaseorderid}`;
 
-      const msg = {
+      await sgMail.send({
         to: supplier.supplieremail,
-        from: process.env.SYSTEM_EMAIL, // verified SendGrid sender
+        from: process.env.SYSTEM_EMAIL,
         subject: `Reorder Request - ${product.productname}`,
         text: `Hello ${supplier.suppliername},
 
@@ -705,20 +828,18 @@ Product: ${product.productname}
 Variant: ${category.color || ""} ${category.agesize || ""}
 Quantity: ${order_qty}
 
-Please respond to this order by clicking one of the links below:
+Please respond by clicking one of the links:
 
 ✅ Confirm order: ${confirmLink}
 ❌ Reject order: ${rejectLink}
 
 - IBuisness-Buiswaiz`,
-      };
-
-      await sgMail.send(msg);
+      });
     } catch (emailError) {
       console.error("SendGrid email error:", emailError);
       return res.status(200).json({
         success: true,
-        message: "Purchase order created, but failed to send email via SendGrid.",
+        message: "Purchase order created, but failed to send email.",
         purchaseOrderId: newOrder.purchaseorderid,
       });
     }
@@ -735,6 +856,8 @@ Please respond to this order by clicking one of the links below:
     res.status(500).json({ error: "Server error." });
   }
 });
+
+
 
 app.get("/api/confirm-order", async (req, res) => {
   const { purchaseorderid } = req.query;
@@ -814,86 +937,95 @@ app.get("/api/reject-order", async (req, res) => {
 app.post("/api/update-defect-status", async (req, res) => {
   try {
     const { defectiveItemId, newStatus, userId } = req.body;
-    if (!defectiveItemId || !newStatus) {
+
+    if (!defectiveItemId || !newStatus || !userId) {
       return res.status(400).json({ error: "Missing parameters" });
     }
 
-    // 1️⃣ Update defect status in the database
-    const { error: updateError } = await supabase
-      .from("defectiveitems")
-      .update({ status: newStatus })
-      .eq("defectiveitemid", defectiveItemId);
+    /* 1️⃣ Get user's business */
+    const { data: user, error: userErr } = await supabase
+      .from("systemuser")
+      .select("business_id")
+      .eq("userid", userId)
+      .single();
 
-    if (updateError) {
-      console.error("Error updating defect status:", updateError.message);
-      return res.status(500).json({ error: "Failed to update defect status" });
+    if (userErr || !user) {
+      return res.status(403).json({ error: "User not found." });
     }
 
-    // 2️⃣ Fetch defect + product + supplier + category info
+    const businessid = user.business_id;
+
+    /* 2️⃣ Fetch defect + product (for authorization) */
     const { data: defectData, error: defectFetchError } = await supabase
       .from("defectiveitems")
       .select(`
+        defectiveitemid,
         quantity,
         defectdescription,
         productcategoryid,
         products (
+          productid,
           productname,
-          supplierid
+          supplierid,
+          businessid
         )
       `)
       .eq("defectiveitemid", defectiveItemId)
       .single();
 
     if (defectFetchError || !defectData) {
-      console.error("Error fetching defect product:", defectFetchError?.message);
-      return res.status(500).json({ error: "Failed to fetch defect product" });
+      return res.status(404).json({ error: "Defective item not found" });
     }
 
-    const productName = defectData.products?.productname || "Unknown Product";
-    const supplierId = defectData.products?.supplierid;
+    /* 3️⃣ BUSINESS SECURITY CHECK */
+    if (defectData.products.businessid !== businessid) {
+      return res.status(403).json({ error: "Unauthorized access" });
+    }
+
+    /* 4️⃣ Update defect status */
+    const { error: updateError } = await supabase
+      .from("defectiveitems")
+      .update({ status: newStatus })
+      .eq("defectiveitemid", defectiveItemId);
+
+    if (updateError) {
+      return res.status(500).json({ error: "Failed to update defect status" });
+    }
+
+    const productName = defectData.products.productname;
+    const supplierId = defectData.products.supplierid;
     const quantity = defectData.quantity || 1;
     const defectDescription = defectData.defectdescription || "N/A";
     const productCategoryId = defectData.productcategoryid;
 
-    // 3️⃣ Log activity
-    if (userId) {
-      await supabase.from("activitylog").insert([{
+    /* 5️⃣ Log activity (WITH businessid ✅) */
+    await supabase.from("activitylog").insert([
+      {
+        businessid: businessid,
         action_type: "update_defect_status",
         action_desc: `updated status of ${productName} to ${newStatus}`,
         done_user: userId,
-      }]);
-    }
+      },
+    ]);
 
-    // 4️⃣ If status is Returned → send email to supplier
+    /* 6️⃣ If Returned → notify supplier */
     if (newStatus === "Returned" && supplierId) {
-      // Fetch supplier info
-      const { data: supplierData, error: supplierFetchError } = await supabase
+      const { data: supplierData } = await supabase
         .from("suppliers")
         .select("suppliername, supplieremail")
         .eq("supplierid", supplierId)
         .single();
 
-      if (supplierFetchError || !supplierData) {
-        console.error("Error fetching supplier info:", supplierFetchError?.message);
-        return res.status(500).json({ error: "Failed to fetch supplier info" });
-      }
-
-      // Fetch product category info
-      const { data: categoryData, error: categoryError } = await supabase
+      const { data: categoryData } = await supabase
         .from("productcategory")
         .select("color, agesize")
         .eq("productcategoryid", productCategoryId)
         .single();
 
-      const categoryColor = categoryData?.color || "N/A";
-      const categorySize = categoryData?.agesize || "N/A";
-
-      // Build acknowledgment link
       const ackLink = `${process.env.CONFIRM_BASE_URL}/api/acknowledge-defect?defectiveItemId=${defectiveItemId}&supplierId=${supplierId}`;
 
-      // Send email via SendGrid
-      try {
-        const msg = {
+      if (supplierData?.supplieremail) {
+        await sgMail.send({
           to: supplierData.supplieremail,
           from: process.env.SYSTEM_EMAIL,
           subject: `Defective Item Returned - ${productName}`,
@@ -902,20 +1034,15 @@ app.post("/api/update-defect-status", async (req, res) => {
 A defective item has been returned:
 
 Product: ${productName}
-Variant: Color: ${categoryColor}, Size/Age: ${categorySize}
+Variant: Color: ${categoryData?.color || "N/A"}, Size/Age: ${categoryData?.agesize || "N/A"}
 Quantity: ${quantity}
 Defect Description: ${defectDescription}
 
-Please acknowledge receipt by clicking the link below:
-
-✅ Acknowledge: ${ackLink}
+Acknowledge here:
+${ackLink}
 
 - BuiswAIz`,
-        };
-
-        await sgMail.send(msg);
-      } catch (err) {
-        console.error("SendGrid email error:", err);
+        });
       }
     }
 
@@ -926,6 +1053,7 @@ Please acknowledge receipt by clicking the link below:
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 
 // ---------------------------

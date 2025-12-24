@@ -20,7 +20,10 @@ import UploadSheets from "./components/UploadSheets";
 import BudgetHistory from "./budget/BudgetHistory";
 import PointOfSales from "./PointOfSales";
 import PlannedPaymentsPage from "./pages/PlannedPaymentsPage";
-
+import Signup from "./Signup";
+import SetupBusiness from './SetupBusiness';
+import CreateBusiness from './createBusiness';
+import JoinBusiness from './joinBusiness';
 
 function App() {
   return (
@@ -34,8 +37,12 @@ function App() {
 
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/setup-business" element={<SetupBusiness />} />
+            <Route path="/create-business" element={<CreateBusiness/>} />
+             <Route path="/join-business" element={<JoinBusiness />} />
 
             {/* Protected routes */}
             <Route path="/Dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
