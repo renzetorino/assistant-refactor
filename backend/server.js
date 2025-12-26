@@ -673,53 +673,82 @@ app.post("/api/restock", async (req, res) => {
     new_price,
     batchCode,
     datereceived,
+    productname,
     user,
   } = req.body;
 
   try {
-    // Insert restockstorage
-    const { error: restockError } = await supabase.from("restockstorage").insert([
-      {
-        productid,
-        productcategoryid,
-        supplierid,
-        new_stock,
-        new_cost,
-        new_price,
-        batchCode,
-        datereceived,
-        created_at: new Date().toISOString()
-      },
-    ]);
+    const now = new Date();
+
+    /* ===============================
+       1️⃣ INSERT RESTOCK STORAGE
+    =============================== */
+    const { error: restockError } = await supabase
+      .from("restockstorage")
+      .insert([
+        {
+          productid,
+          productcategoryid,
+          supplierid,
+          new_stock,
+          new_cost,
+          new_price,
+          batchCode,
+          datereceived,
+          created_at: now.toISOString(),
+
+          // 🔐 ownership
+          userid: user.userid,
+          businessid: user.business_id,
+        },
+      ]);
 
     if (restockError) throw restockError;
 
-    // Add expense
-    const totalExpense = parseInt(new_stock, 10) * parseFloat(new_cost);
-    const expenseDate = new Date();
+    /* ===============================
+       2️⃣ INSERT EXPENSE
+    =============================== */
+    const totalExpense =
+      Number(new_stock) * Number(new_cost);
 
-    await supabase.from("expenses").insert([
-      {
-        expensedate: expenseDate.toISOString(),
-        amount: totalExpense,
-        description: `Restock of productid ${productid}`,
-        category: "Inventory",
-        createdbyuserid: user?.userid || null,
-      },
-    ]);
+    const { error: expenseError } = await supabase
+      .from("expenses")
+      .insert([
+        {
+          user_id: user.userid,
+          occurred_on: now.toISOString().split("T")[0],
+          category_id: "5e4b2625-86ba-4066-adaa-4657700c118c",
+          amount: totalExpense,
+          notes: `Inventory Restock for ${productname}`,
+          status: "cleared",
+          business_id: user.business_id
+        },
+      ]);
 
-    // Add log
+    if (expenseError) throw expenseError;
+
+    /* ===============================
+       3️⃣ ACTIVITY LOG (OPTIONAL)
+    =============================== */
     await supabase.from("activitylog").insert([
       {
-        action_desc: `Stored product ${productid} to the storage`,
-        done_user: user?.userid || null,
+        action_desc: `Stored ${productname} to inventory`,
+        done_user: user.userid,
+        businessid: user.business_id,
       },
     ]);
 
-    res.status(200).json({ success: true, message: "Restock added successfully" });
+    res.status(200).json({
+      success: true,
+      message: "Restock and expense recorded successfully",
+    });
+
   } catch (err) {
-    console.error("Restock API error:", err.message);
-    res.status(500).json({ success: false, error: err.message });
+    console.error("Restock API error:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
   }
 });
 
