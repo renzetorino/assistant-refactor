@@ -567,4 +567,4 @@ const PointOfSales = () => {
   );
 };
 
-export default PointOfSales;
+export default PointOfSales;  

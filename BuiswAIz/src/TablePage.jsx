@@ -574,7 +574,7 @@ const TablePage = () => {
           ) : (
             <>
               <div className="table-flex-wrapper">
-                {/* Row 1, Column 1 - Sales Summary */}
+                {/* Row 1, Column 1 - Sales Summary - UPDATED: Added userBusinessId prop */}
                 <div className="net-income">
                   <SalesSummary 
                     orderData={filteredOrderData}
@@ -585,6 +585,7 @@ const TablePage = () => {
                     selectedDay={selectedDay}
                     startDate={startDate}
                     endDate={endDate}
+                    userBusinessId={userBusinessId}
                   />
                 </div>
 

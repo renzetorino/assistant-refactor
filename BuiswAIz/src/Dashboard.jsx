@@ -15,6 +15,8 @@ const Dashboard = () => {
   const navigate = useNavigate(); 
 
   const [user, setUser] = useState(null);
+  const [userBusinessId, setUserBusinessId] = useState(null);
+  const [businessInfo, setBusinessInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [topSellingProducts, setTopSellingProducts] = useState([]);
   const [leastSellingProducts, setLeastSellingProducts] = useState([]);
@@ -31,73 +33,6 @@ const Dashboard = () => {
   const [showHelpProducts, setShowHelpProducts] = useState(false);
   const [showHelpNotifications, setShowHelpNotifications] = useState(false);
   const [showHelpActivity, setShowHelpActivity] = useState(false);
-
-  function downloadTemplate() {
-    const headers = [
-      "orderid",
-      "orderdate",     
-      "productname",
-      "color",
-      "agesize",
-      "quantity",
-      "unitprice",
-      "subtotal",     
-      "amountpaid",
-    ];
-
-    const sample = [
-      "10001",
-      "2025-10-04",
-      "Basic Tee",
-      "Black",
-      "M",
-      "2",
-      "250",
-      "500",
-      "500",
-    ];
-
-    const hasXLSX = typeof window !== "undefined" && window.XLSX;
-
-    if (hasXLSX) {
-      const ws = window.XLSX.utils.aoa_to_sheet([headers, sample]);
-      const wb = window.XLSX.utils.book_new();
-      window.XLSX.utils.book_append_sheet(wb, ws, "Sales Upload Template");
-      const wbout = window.XLSX.write(wb, { bookType: "xlsx", type: "array" });
-      const blob = new Blob([wbout], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "sales_upload_template.xlsx";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } else {
-      const rows = [headers, sample];
-      const csv = rows
-        .map(r =>
-          r
-            .map(v => {
-              const s = String(v ?? "");
-              return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-            })
-            .join(",")
-        )
-        .join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "sales_upload_template.csv";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }
-  }
 
   function getExpenseDate(row) {
     const raw =
@@ -151,8 +86,78 @@ const Dashboard = () => {
     }));
   }
 
+  // Fetch user authentication and business information
+  useEffect(() => {
+    let mounted = true;
+
+    const getUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (!mounted) return;
+
+        if (error || !user) {
+          window.location.href = '/';
+          return;
+        }
+        
+        const { data: profile, error: profileError } = await supabase
+          .from('systemuser')
+          .select('*, business_id')
+          .eq('userid', user.id)
+          .single();
+        
+        if (!mounted) return;
+        
+        if (profileError) {
+          console.error("Error fetching user profile:", profileError);
+          return;
+        }
+
+        if (!profile.business_id) {
+          alert('No business assigned to your account. Please contact administrator.');
+          window.location.href = '/Dashboard';
+          return;
+        }
+
+        setUser(profile);
+        setUserBusinessId(profile.business_id);
+
+        // Fetch business details
+        const { data: business, error: businessError } = await supabase
+          .from('business_role')
+          .select('*')
+          .eq('businessid', profile.business_id)
+          .single();
+
+        if (!mounted) return;
+
+        if (businessError) {
+          console.error("Error fetching business info:", businessError);
+          return;
+        }
+
+        setBusinessInfo(business);
+        setLoading(false);
+        
+      } catch (error) {
+        console.error("Authentication error:", error);
+        if (mounted) window.location.href = '/';
+      }
+    };
+    
+    getUser();
+    return () => { mounted = false; };
+  }, []);
+
+  // Load expense chart data - ONLY when userBusinessId is available
   useEffect(() => {
     const loadChartData = async () => {
+      // ✅ CRITICAL: Don't fetch if no business ID
+      if (!userBusinessId) {
+        console.log('Waiting for userBusinessId...');
+        return;
+      }
+
       const now = new Date();
       const y = now.getFullYear();
       const m = now.getMonth();
@@ -164,7 +169,8 @@ const Dashboard = () => {
 
       const { data, error } = await supabase
         .from("expenses")
-        .select("id, occurred_on, amount")
+        .select("id, occurred_on, amount, business_id")
+        .eq("business_id", userBusinessId) // Filter by business
         .gte("occurred_on", startStr)
         .lt("occurred_on", nextStr);
 
@@ -179,12 +185,20 @@ const Dashboard = () => {
     };
 
     loadChartData();
-  }, []);
+  }, [userBusinessId]);
 
+  // Load activity logs - ONLY when userBusinessId is available
   const loadActivityLogs = async () => {
+    // ✅ CRITICAL: Don't fetch if no business ID
+    if (!userBusinessId) {
+      console.log('Waiting for userBusinessId for activity logs...');
+      return;
+    }
+
     const { data, error } = await supabase
       .from("activitylog")
       .select("*, systemuser(username)")
+      .eq("businessid", userBusinessId) // Filter by business
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -212,42 +226,58 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    loadActivityLogs();
-    const id = setInterval(loadActivityLogs, 5000);
-    return () => clearInterval(id);
-  }, []);
+    if (userBusinessId) {
+      loadActivityLogs();
+      const id = setInterval(loadActivityLogs, 5000);
+      return () => clearInterval(id);
+    }
+  }, [userBusinessId]);
 
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) {
-        window.location.href = '/';
-        return;
-      }
-
-      const { data: profile, error: profileError } = await supabase
-        .from('systemuser')
-        .select('*')
-        .eq('userid', user.id)
-        .single();
-
-      if (profileError) {
-        console.error("Error fetching user profile:", profileError);
-        setLoading(false);
-        return;
-      }
-
-      setUser(profile);
-      setLoading(false);
-    };
-    
-    getUser();
-  }, []);
-
+  // Fetch top selling products - ONLY when userBusinessId is available
   const fetchTopSellingProducts = async () => {
+    // ✅ CRITICAL: Don't fetch if no business ID
+    if (!userBusinessId) {
+      console.log('Waiting for userBusinessId for products...');
+      setProductsLoading(false);
+      return;
+    }
+
     try {
       setProductsLoading(true);
 
+      // First get orders for this business
+      const { data: businessOrders, error: ordersError } = await supabase
+        .from('orders')
+        .select('orderid')
+        .eq('businessid', userBusinessId);
+
+      if (ordersError) throw ordersError;
+
+      if (!businessOrders || businessOrders.length === 0) {
+        setTopSellingProducts([]);
+        setLeastSellingProducts([]);
+        
+        // Get all products for this business for "not selling"
+        const { data: allProducts } = await supabase
+          .from('products')
+          .select('productid, productname, image_url')
+          .eq('businessid', userBusinessId);
+        
+        const notSelling = (allProducts || []).slice(0, 10).map(product => ({
+          productid: product.productid,
+          productname: product.productname,
+          image_url: product.image_url,
+          totalQuantity: 0,
+          timesBought: 0,
+        }));
+        setNotSellingProducts(notSelling);
+        setProductsLoading(false);
+        return;
+      }
+
+      const orderIds = businessOrders.map(o => o.orderid);
+
+      // Get order items for these orders
       const { data: orderData, error: orderError } = await supabase
         .from('orderitems')
         .select(`
@@ -256,23 +286,26 @@ const Dashboard = () => {
           quantity,
           unitprice,
           subtotal,
-          createdat,
-          products (productname, image_url)
-        `);
+          createdat
+        `)
+        .in('orderid', orderIds);
 
       if (orderError) throw orderError;
 
+      // Get all products for this business
       const { data: allProducts, error: productsError } = await supabase
         .from('products')
-        .select('productid, productname, image_url');
+        .select('productid, productname, image_url, businessid')
+        .eq('businessid', userBusinessId);
 
       if (productsError) throw productsError;
 
       const summary = {};
       orderData.forEach(item => {
         const id = item.productid;
-        const name = item.products?.productname || 'Unknown';
-        const imageUrl = item.products?.image_url || '';
+        const product = allProducts.find(p => p.productid === id);
+        const name = product?.productname || 'Unknown';
+        const imageUrl = product?.image_url || '';
 
         if (!summary[id]) {
           summary[id] = {
@@ -329,13 +362,41 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    fetchTopSellingProducts();
-  }, []);
+    if (userBusinessId) {
+      fetchTopSellingProducts();
+    }
+  }, [userBusinessId]);
+
+  // ✅ Show loading state while waiting for business ID
+  if (loading || !userBusinessId) {
+    return (
+      <div className="dashboard-page">
+        <header className="header-bar">
+          <h1 className="header-title">BuiswAIz</h1>
+        </header>
+        <div className="main-section" style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          minHeight: '80vh'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ fontSize: '18px', color: '#666' }}>Loading dashboard...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-page">
       <header className="header-bar">
         <h1 className="header-title">BuiswAIz</h1>
+        {businessInfo && (
+          <div className="business-info-header">
+            <span className="business-name">{businessInfo.businessname}</span>
+          </div>
+        )}
       </header>
 
       <div className="main-section">
@@ -381,7 +442,6 @@ const Dashboard = () => {
                           <p>Gen TIPS</p>
                         </div>
                         
-                        {/* Separator line */}
                         <div className="help-separator-dash"></div>
                         
                         <div className="help-content-dash">
@@ -393,7 +453,7 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="panel-content-summary">
-                <SalesSummaryDashboard />
+                <SalesSummaryDashboard userBusinessId={userBusinessId} />
               </div>
             </div>
 
@@ -430,7 +490,7 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <div className="panel-content">
-                  <DailyGrossSales/>
+                  <DailyGrossSales userBusinessId={userBusinessId} />
                 </div>
               </div>
 
@@ -534,6 +594,7 @@ const Dashboard = () => {
                         topSellingProducts={topSellingProducts}
                         leastSellingProducts={leastSellingProducts}
                         notSellingProducts={notSellingProducts}
+                        userBusinessId={userBusinessId}
                       />
                     )}
                   </div>
@@ -547,7 +608,7 @@ const Dashboard = () => {
               <div className="user-left">
                 <div className="user-avatar" />
                 <div className="user-username">
-                  {loading ? "Loading..." : user?.username || "No username found"}
+                  {user?.username || "No username found"}
                 </div>
               </div>
               <button
@@ -594,7 +655,7 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="activity-container">
-                <Notifications />
+                <Notifications userBusinessId={userBusinessId} />
               </div>
             </div>
 

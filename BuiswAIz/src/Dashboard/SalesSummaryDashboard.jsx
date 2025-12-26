@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import '../stylecss/Dashboard/SalesSummaryDashboard.css';
 
-const SalesSummaryDashboard = () => {
+const SalesSummaryDashboard = ({ userBusinessId }) => {
   const [salesData, setSalesData] = useState({
     todaysSale: 0,
     yesterdaysSale: 0,
@@ -16,10 +16,14 @@ const SalesSummaryDashboard = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchSalesData();
-  }, []);
+    if (userBusinessId) {
+      fetchSalesData();
+    }
+  }, [userBusinessId]);
 
   const fetchSalesData = async () => {
+    if (!userBusinessId) return;
+
     try {
       setLoading(true);
 
@@ -52,10 +56,11 @@ const SalesSummaryDashboard = () => {
       let todaysTotalUnitsSold = 0;
       let totalDefectiveItems = 0;
 
-      // Fetch today's orders (Today's Sale)
+      // FIXED: Fetch today's orders filtered by business
       const { data: todaysOrders, error: todaysError } = await supabase
         .from('orders')
-        .select('orderid, totalamount, orderdate')
+        .select('orderid, totalamount, orderdate, businessid')
+        .eq('businessid', userBusinessId)
         .gte('orderdate', todayStart)
         .lte('orderdate', todayEnd);
 
@@ -82,20 +87,22 @@ const SalesSummaryDashboard = () => {
         }
       }
 
-      // Fetch yesterday's sales for percentage change
+      // FIXED: Fetch yesterday's sales for percentage change (filtered by business)
       const { data: yesterdaysOrders } = await supabase
         .from('orders')
-        .select('totalamount, orderdate')
+        .select('totalamount, orderdate, businessid')
+        .eq('businessid', userBusinessId)
         .gte('orderdate', `${yesterdayString} 00:00:00`)
         .lte('orderdate', `${yesterdayString} 23:59:59`);
       if (yesterdaysOrders) {
         yesterdaysSale = yesterdaysOrders.reduce((sum, order) => sum + (parseFloat(order.totalamount) || 0), 0);
       }
 
-      // Fetch today's expenses
+      // FIXED: Fetch today's expenses filtered by business
       const { data: todaysExpensesData, error: expensesError } = await supabase
         .from('expenses')
-        .select('amount, occurred_on')
+        .select('amount, occurred_on, business_id')
+        .eq('business_id', userBusinessId)
         .eq('occurred_on', todayString);
 
       if (!expensesError && todaysExpensesData) {
@@ -104,10 +111,11 @@ const SalesSummaryDashboard = () => {
         }, 0);
       }
 
-      // Fetch total defective items (all time)
+      // FIXED: Fetch total defective items filtered by business
       const { data: defectiveItemsData, error: defectiveError } = await supabase
         .from('defectiveitems')
-        .select('quantity');
+        .select('quantity, businessid')
+        .eq('businessid', userBusinessId);
 
       if (!defectiveError && defectiveItemsData) {
         totalDefectiveItems = defectiveItemsData.reduce((sum, item) => {

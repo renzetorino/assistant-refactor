@@ -5,12 +5,12 @@ import "react-toastify/dist/ReactToastify.css";
 import "../stylecss/ProductAvailability.css";
 
 const ProductAvailability = ({ lowStockProducts }) => {
-  // ✅ Track loading per product category
   const [loadingIds, setLoadingIds] = useState([]);
+  const [showHelp, setShowHelp] = useState(false);
 
   const handleReorder = async (category) => {
     const id = category.productcategoryid;
-    setLoadingIds((prev) => [...prev, id]); // mark as loading
+    setLoadingIds((prev) => [...prev, id]);
 
     try {
       const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/reorder`, {
@@ -31,13 +31,39 @@ const ProductAvailability = ({ lowStockProducts }) => {
       console.error(err);
       toast.error("Failed to reorder");
     } finally {
-      setLoadingIds((prev) => prev.filter((i) => i !== id)); // remove from loading
+      setLoadingIds((prev) => prev.filter((i) => i !== id));
     }
   };
 
   return (
     <div className="availability-panel">
-      <h3>Product Availability</h3>
+      <div className="header-left-dash">
+        <h3>Product Availability</h3>
+        <div className="help-wrapper-dash">
+          <button 
+            className="help-button-dash"
+            onClick={() => setShowHelp(!showHelp)}
+            aria-label="Help"
+          >
+            ?
+          </button>
+          {showHelp && (
+            <div className="help-box-dash">
+              <div className="help-arrow-dash"></div>
+              
+              <div className="help-content-dash">
+                <p>Gen TIPS</p>
+              </div>
+              
+              <div className="help-separator-dash"></div>
+              
+              <div className="help-content-dash">
+                <p>AI</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
       <div className="availability-container">
         {lowStockProducts.length === 0 ? (
           <p className="no-low-stock">✅ All items are sufficiently stocked.</p>
@@ -63,7 +89,6 @@ const ProductAvailability = ({ lowStockProducts }) => {
                 ? formatDistanceToNow(parseISO(category.updatedstock), { addSuffix: true })
                 : "No recent updates";
 
-              // ✅ Determine if this category is currently loading
               const isLoading = loadingIds.includes(category.productcategoryid);
 
               return (
@@ -112,9 +137,9 @@ const ProductAvailability = ({ lowStockProducts }) => {
                     <button
                       className="reorder-btn"
                       onClick={() => handleReorder(category)}
-                      disabled={isLoading} // disable button while loading
+                      disabled={isLoading}
                     >
-                      {isLoading ? "Reordering..." : "Reorder"} {/* show loading */}
+                      {isLoading ? "Reordering..." : "Reorder"}
                     </button>
                   </div>
                 </div>
