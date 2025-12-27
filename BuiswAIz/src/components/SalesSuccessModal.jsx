@@ -15,11 +15,6 @@ const SalesSuccessModal = ({ isOpen, onClose, orderData }) => {
     setShowReceipt(false);
   };
 
-  const handleCloseAll = () => {
-    setShowReceipt(false);
-    onClose();
-  };
-
   return (
     <>
       {/* Main Success Modal */}
@@ -34,13 +29,23 @@ const SalesSuccessModal = ({ isOpen, onClose, orderData }) => {
                 </svg>
               </div>
               <h3>Transaction Complete!</h3>
-              <p className="success-subtitle">Order #{orderData.orderId} has been processed successfully</p>
+              <p className="success-subtitle">
+                Order {orderData.orderCode ? `#${orderData.orderCode}` : `#${orderData.orderId}`} has been processed successfully
+              </p>
             </div>
 
             {/* Modal Body */}
             <div className="success-modal-body">
               {/* Transaction Details */}
               <div className="transaction-details">
+                {orderData.orderCode && (
+                  <div className="detail-row">
+                    <span className="detail-label">Receipt Number</span>
+                    <span className="detail-value" style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+                      {orderData.orderCode}
+                    </span>
+                  </div>
+                )}
                 <div className="detail-row">
                   <span className="detail-label">Order ID</span>
                   <span className="detail-value">#{orderData.orderId}</span>
@@ -98,6 +103,7 @@ const SalesSuccessModal = ({ isOpen, onClose, orderData }) => {
       {showReceipt && (
         <SalesReceipt
           orderId={orderData.orderId}
+          orderCode={orderData.orderCode}
           onClose={handleCloseReceipt}
         />
       )}

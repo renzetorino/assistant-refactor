@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import '../stylecss/Dashboard/Notifications.css';
 
-const Notifications = () => {
+const Notifications = ({ userBusinessId }) => {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +34,8 @@ const Notifications = () => {
             color,
             agesize,
             products (productname)
-          `);
+          `)
+          .eq('businessid', userBusinessId);
 
         if (stockError) {
           if (!stockError.message.includes('does not exist')) throw stockError;
@@ -72,6 +73,7 @@ const Notifications = () => {
           .from('orders')
           .select('orderid, orderdate, orderstatus')
           .eq('orderstatus', 'INCOMPLETE')
+          .eq('businessid', userBusinessId)
           .order('orderdate', { ascending: false })
           .limit(10);
 
@@ -111,6 +113,7 @@ const Notifications = () => {
           suppliers (suppliername)
                 `)
           .in('status', ['Confirmed', 'Pending'])
+          .eq('businessid', userBusinessId)
           .order('confirmed_at', { ascending: false })
           .limit(10);
 
@@ -155,6 +158,7 @@ const Notifications = () => {
               )
             )
           `)
+          .eq('businessid', userBusinessId)
           .order('reporteddate', { ascending: false })
           .limit(10);
 

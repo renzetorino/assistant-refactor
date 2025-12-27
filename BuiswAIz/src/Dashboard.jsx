@@ -15,6 +15,8 @@ const Dashboard = () => {
   const navigate = useNavigate(); 
 
   const [user, setUser] = useState(null);
+  const [userBusinessId, setUserBusinessId] = useState(null);
+  const [businessInfo, setBusinessInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [topSellingProducts, setTopSellingProducts] = useState([]);
   const [leastSellingProducts, setLeastSellingProducts] = useState([]);
@@ -23,6 +25,15 @@ const Dashboard = () => {
   const [productsError, setProductsError] = useState(null);
   const [expenseChartData, setExpenseChartData] = useState([]);
   const [activityLogs, setActivityLogs] = useState([]);
+
+  
+  // Help tooltip states for each component
+  const [showHelpSummary, setShowHelpSummary] = useState(false);
+  const [showHelpDailySales, setShowHelpDailySales] = useState(false);
+  const [showHelpExpense, setShowHelpExpense] = useState(false);
+  const [showHelpProducts, setShowHelpProducts] = useState(false);
+  const [showHelpNotifications, setShowHelpNotifications] = useState(false);
+  const [showHelpActivity, setShowHelpActivity] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -119,6 +130,7 @@ const Dashboard = () => {
     }
   }
 
+
   function getExpenseDate(row) {
     const raw =
       row.occured_on ??
@@ -171,8 +183,78 @@ const Dashboard = () => {
     }));
   }
 
+  // Fetch user authentication and business information
+  useEffect(() => {
+    let mounted = true;
+
+    const getUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (!mounted) return;
+
+        if (error || !user) {
+          window.location.href = '/';
+          return;
+        }
+        
+        const { data: profile, error: profileError } = await supabase
+          .from('systemuser')
+          .select('*, business_id')
+          .eq('userid', user.id)
+          .single();
+        
+        if (!mounted) return;
+        
+        if (profileError) {
+          console.error("Error fetching user profile:", profileError);
+          return;
+        }
+
+        if (!profile.business_id) {
+          alert('No business assigned to your account. Please contact administrator.');
+          window.location.href = '/Dashboard';
+          return;
+        }
+
+        setUser(profile);
+        setUserBusinessId(profile.business_id);
+
+        // Fetch business details
+        const { data: business, error: businessError } = await supabase
+          .from('business_role')
+          .select('*')
+          .eq('businessid', profile.business_id)
+          .single();
+
+        if (!mounted) return;
+
+        if (businessError) {
+          console.error("Error fetching business info:", businessError);
+          return;
+        }
+
+        setBusinessInfo(business);
+        setLoading(false);
+        
+      } catch (error) {
+        console.error("Authentication error:", error);
+        if (mounted) window.location.href = '/';
+      }
+    };
+    
+    getUser();
+    return () => { mounted = false; };
+  }, []);
+
+  // Load expense chart data - ONLY when userBusinessId is available
   useEffect(() => {
     const loadChartData = async () => {
+      // ✅ CRITICAL: Don't fetch if no business ID
+      if (!userBusinessId) {
+        console.log('Waiting for userBusinessId...');
+        return;
+      }
+
       const now = new Date();
       const y = now.getFullYear();
       const m = now.getMonth();
@@ -184,7 +266,8 @@ const Dashboard = () => {
 
       const { data, error } = await supabase
         .from("expenses")
-        .select("id, occurred_on, amount")
+        .select("id, occurred_on, amount, business_id")
+        .eq("business_id", userBusinessId) // Filter by business
         .gte("occurred_on", startStr)
         .lt("occurred_on", nextStr);
 
@@ -199,12 +282,20 @@ const Dashboard = () => {
     };
 
     loadChartData();
-  }, []);
+  }, [userBusinessId]);
 
+  // Load activity logs - ONLY when userBusinessId is available
   const loadActivityLogs = async () => {
+    // ✅ CRITICAL: Don't fetch if no business ID
+    if (!userBusinessId) {
+      console.log('Waiting for userBusinessId for activity logs...');
+      return;
+    }
+
     const { data, error } = await supabase
       .from("activitylog")
       .select("*, systemuser(username)")
+      .eq("businessid", userBusinessId) // Filter by business
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -232,43 +323,58 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    loadActivityLogs();
-    const id = setInterval(loadActivityLogs, 5000);
-    return () => clearInterval(id);
-  }, []);
+    if (userBusinessId) {
+      loadActivityLogs();
+      const id = setInterval(loadActivityLogs, 5000);
+      return () => clearInterval(id);
+    }
+  }, [userBusinessId]);
 
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) {
-        window.location.href = '/';
-        return;
-      }
-
-      const { data: profile, error: profileError } = await supabase
-        .from('systemuser')
-        .select('*')
-        .eq('userid', user.id)
-        .single();
-
-      if (profileError) {
-        console.error("Error fetching user profile:", profileError);
-        setLoading(false);
-        return;
-      }
-
-      setUser(profile);
-      setLoading(false);
-    };
-    
-    getUser();
-  }, []);
-
+  // Fetch top selling products - ONLY when userBusinessId is available
   const fetchTopSellingProducts = async () => {
+    // ✅ CRITICAL: Don't fetch if no business ID
+    if (!userBusinessId) {
+      console.log('Waiting for userBusinessId for products...');
+      setProductsLoading(false);
+      return;
+    }
+
     try {
       setProductsLoading(true);
 
-      // Fetch all order items
+      // First get orders for this business
+      const { data: businessOrders, error: ordersError } = await supabase
+        .from('orders')
+        .select('orderid')
+        .eq('businessid', userBusinessId);
+
+      if (ordersError) throw ordersError;
+
+      if (!businessOrders || businessOrders.length === 0) {
+        setTopSellingProducts([]);
+        setLeastSellingProducts([]);
+        
+        // Get all products for this business for "not selling"
+        const { data: allProducts } = await supabase
+          .from('products')
+          .select('productid, productname, image_url')
+          .eq('businessid', userBusinessId);
+        
+        const notSelling = (allProducts || []).slice(0, 10).map(product => ({
+          productid: product.productid,
+          productname: product.productname,
+          image_url: product.image_url,
+          totalQuantity: 0,
+          timesBought: 0,
+        }));
+        setNotSellingProducts(notSelling);
+        setProductsLoading(false);
+        return;
+      }
+
+      const orderIds = businessOrders.map(o => o.orderid);
+
+      // Get order items for these orders
       const { data: orderData, error: orderError } = await supabase
         .from('orderitems')
         .select(`
@@ -277,25 +383,26 @@ const Dashboard = () => {
           quantity,
           unitprice,
           subtotal,
-          createdat,
-          products (productname, image_url)
-        `);
+          createdat
+        `)
+        .in('orderid', orderIds);
 
       if (orderError) throw orderError;
 
-      // Fetch all products
+      // Get all products for this business
       const { data: allProducts, error: productsError } = await supabase
         .from('products')
-        .select('productid, productname, image_url');
+        .select('productid, productname, image_url, businessid')
+        .eq('businessid', userBusinessId);
 
       if (productsError) throw productsError;
 
-      // Process order items into summary
       const summary = {};
       orderData.forEach(item => {
         const id = item.productid;
-        const name = item.products?.productname || 'Unknown';
-        const imageUrl = item.products?.image_url || '';
+        const product = allProducts.find(p => p.productid === id);
+        const name = product?.productname || 'Unknown';
+        const imageUrl = product?.image_url || '';
 
         if (!summary[id]) {
           summary[id] = {
@@ -311,30 +418,25 @@ const Dashboard = () => {
         summary[id].timesBought.add(item.orderid);
       });
 
-      // Convert to array
       const sellingArray = Object.values(summary).map(item => ({
         ...item,
         timesBought: item.timesBought.size,
       }));
 
-      // Sort by quantity (descending)
       sellingArray.sort((a, b) => b.totalQuantity - a.totalQuantity);
 
-      // Top 5 selling products
       const topSelling = sellingArray.slice(0, 5);
       setTopSellingProducts(topSelling);
 
-      // Least 5 selling products (products with sales but lowest quantities)
       const leastSelling = sellingArray.length > 5 
         ? sellingArray.slice(-5).reverse() 
         : [];
       setLeastSellingProducts(leastSelling);
 
-      // Not selling products (products with no sales at all)
       const soldProductIds = new Set(sellingArray.map(p => p.productid));
       const notSelling = allProducts
         .filter(product => !soldProductIds.has(product.productid))
-        .slice(0, 10) // Limit to 10 products
+        .slice(0, 10)
         .map(product => ({
           productid: product.productid,
           productname: product.productname,
@@ -357,8 +459,31 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    fetchTopSellingProducts();
-  }, []);
+    if (userBusinessId) {
+      fetchTopSellingProducts();
+    }
+  }, [userBusinessId]);
+
+  // ✅ Show loading state while waiting for business ID
+  if (loading || !userBusinessId) {
+    return (
+      <div className="dashboard-page">
+        <header className="header-bar">
+          <h1 className="header-title">BuiswAIz</h1>
+        </header>
+        <div className="main-section" style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          minHeight: '80vh'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ fontSize: '18px', color: '#666' }}>Loading dashboard...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-page">
@@ -388,23 +513,111 @@ const Dashboard = () => {
 
         <div className="main-content">
           <div className="dashboard-content">
+            {/* Sales Summary with Help */}
             <div className="dashboard-panel sales-summary">
-              <div className="panel-header-with-action">
-                <SalesSummaryDashboard />
+              <div className="panel-header-with-help">
+                <div className="header-left-dash">
+                  <h3>Business Summary</h3>
+                  <div className="help-wrapper-dash">
+                    <button 
+                      className="help-button-dash"
+                      onClick={() => setShowHelpSummary(!showHelpSummary)}
+                      aria-label="Help"
+                    >
+                      ?
+                    </button>
+                   {showHelpSummary && (
+                      <div className="help-box-dash">
+                        <div className="help-arrow-dash"></div>
+                        
+                        <div className="help-content-dash">
+                          <p>Gen TIPS</p>
+                        </div>
+                        
+                        <div className="help-separator-dash"></div>
+                        
+                        <div className="help-content-dash">
+                          <p>AI</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="panel-content-summary">
+                <SalesSummaryDashboard userBusinessId={userBusinessId} />
               </div>
             </div>
 
             <div className="charts-section">
+              {/* Daily Sales with Help */}
               <div className="dashboard-panel daily-sales">
-                <h3>Daily Gross Sales</h3>
+                <div className="panel-header-with-help">
+                  <div className="header-left-dash">
+                    <h3>Daily Gross Sales</h3>
+                    <div className="help-wrapper-dash">
+                      <button 
+                        className="help-button-dash"
+                        onClick={() => setShowHelpDailySales(!showHelpDailySales)}
+                        aria-label="Help"
+                      >
+                        ?
+                      </button>
+                      {showHelpDailySales && (
+                        <div className="help-box-dash">
+                          <div className="help-arrow-dash"></div>
+                          
+                          <div className="help-content-dash">
+                            <p>Gen TIPS</p>
+                          </div>
+                          
+                          <div className="help-separator-dash"></div>
+                          
+                          <div className="help-content-dash">
+                            <p>AI</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
                 <div className="panel-content">
-                  <DailyGrossSales/>
+                  <DailyGrossSales userBusinessId={userBusinessId} />
                 </div>
               </div>
 
               <div className="bottom-section">
+                {/* Monthly Expense with Help */}
                 <div className="dashboard-panel monthly-expense">
-                  <h3>Monthly Expense</h3>
+                  <div className="panel-header-with-help">
+                    <div className="header-left-dash">
+                      <h3>Monthly Expense</h3>
+                      <div className="help-wrapper-dash">
+                        <button 
+                          className="help-button-dash"
+                          onClick={() => setShowHelpExpense(!showHelpExpense)}
+                          aria-label="Help"
+                        >
+                          ?
+                        </button>
+                        {showHelpExpense && (
+                          <div className="help-box-dash">
+                            <div className="help-arrow-dash"></div>
+                            
+                            <div className="help-content-dash">
+                              <p>Gen TIPS</p>
+                            </div>
+                            
+                            <div className="help-separator-dash"></div>
+                            
+                            <div className="help-content-dash">
+                              <p>AI</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                   <div className="panel-content" style={{ minWidth: 0 }}>
                     {expenseChartData.length === 0 ? (
                       <p style={{ padding: 12 }}>No expense data yet.</p>
@@ -428,7 +641,37 @@ const Dashboard = () => {
                   </div>
                 </div>
 
+                {/* Top Selling with Help */}
                 <div className="dashboard-panel top-selling">
+                  <div className="panel-header-with-help">
+                    <div className="header-left-dash">
+                      <h3>Products Performance</h3>
+                      <div className="help-wrapper-dash">
+                        <button 
+                          className="help-button-dash"
+                          onClick={() => setShowHelpProducts(!showHelpProducts)}
+                          aria-label="Help"
+                        >
+                          ?
+                        </button>
+                        {showHelpProducts && (
+                          <div className="help-box-dash">
+                            <div className="help-arrow-dash"></div>
+                            
+                            <div className="help-content-dash">
+                              <p>Gen TIPS</p>
+                            </div>
+                            
+                            <div className="help-separator-dash"></div>
+                            
+                            <div className="help-content-dash">
+                              <p>AI</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                   <div className="panel-content">
                     {productsLoading ? (
                       <div className="loading-state">
@@ -443,6 +686,7 @@ const Dashboard = () => {
                         topSellingProducts={topSellingProducts}
                         leastSellingProducts={leastSellingProducts}
                         notSellingProducts={notSellingProducts}
+                        userBusinessId={userBusinessId}
                       />
                     )}
                   </div>
@@ -456,7 +700,7 @@ const Dashboard = () => {
               <div className="user-left">
                 <div className="user-avatar" />
                 <div className="user-username">
-                  {loading ? "Loading..." : user?.username || "No username found"}
+                  {user?.username || "No username found"}
                 </div>
               </div>
               <button
@@ -467,18 +711,77 @@ const Dashboard = () => {
                   window.location.href = "/";
                 }}
               >
-                ⏻              </button>
+                ⏻
+              </button>
             </div>
 
+            {/* Notifications with Help */}
             <div className="notification-panel">
-              <h3>Notifications</h3>
+              <div className="panel-header-with-help">
+                <div className="header-left-dash">
+                  <h3>Notifications</h3>
+                  <div className="help-wrapper-dash">
+                    <button 
+                      className="help-button-dash"
+                      onClick={() => setShowHelpNotifications(!showHelpNotifications)}
+                      aria-label="Help"
+                    >
+                      ?
+                    </button>
+                    {showHelpNotifications && (
+                      <div className="help-box-dash">
+                        <div className="help-arrow-dash"></div>
+                        
+                        <div className="help-content-dash">
+                          <p>Gen TIPS</p>
+                        </div>
+                        
+                        <div className="help-separator-dash"></div>
+                        
+                        <div className="help-content-dash">
+                          <p>AI</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
               <div className="activity-container">
-                <Notifications />
+                <Notifications userBusinessId={userBusinessId} />
               </div>
             </div>
 
+            {/* Activity with Help */}
             <div className="activity-panel">
-              <h3>Recent Activity</h3>
+              <div className="panel-header-with-help">
+                <div className="header-left-dash">
+                  <h3>Recent Activity</h3>
+                  <div className="help-wrapper-dash">
+                    <button 
+                      className="help-button-dash"
+                      onClick={() => setShowHelpActivity(!showHelpActivity)}
+                      aria-label="Help"
+                    >
+                      ?
+                    </button>
+                    {showHelpActivity && (
+                      <div className="help-box-dash">
+                        <div className="help-arrow-dash"></div>
+                        
+                        <div className="help-content-dash">
+                          <p>Gen TIPS</p>
+                        </div>
+                        
+                        <div className="help-separator-dash"></div>
+                        
+                        <div className="help-content-dash">
+                          <p>AI</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
               <div className="activity-container">
                 <ul className="activity-list">
                   {activityLogs.length === 0 ? (

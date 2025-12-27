@@ -1,10 +1,10 @@
-// inventory/DefectivePanel.jsx
-import React from "react";
+import React, { useState } from "react";
 import "../stylecss/DefectPanel.css";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const DefectivePanel = ({ defectiveItems, user, loadDefectiveItems, onAddDefect }) => {
+  const [showHelp, setShowHelp] = useState(false);
 
   const handleStatusChange = async (defectiveItemId, newStatus) => {
     if (!user) {
@@ -42,7 +42,33 @@ const DefectivePanel = ({ defectiveItems, user, loadDefectiveItems, onAddDefect 
   return (
     <div className="defective-panel">
       <div className="panel-title-row">
-        <h3>Defective Items</h3>
+        <div className="header-left-dash">
+          <h3>Defective Items</h3>
+          <div className="help-wrapper-dash">
+            <button 
+              className="help-button-dash"
+              onClick={() => setShowHelp(!showHelp)}
+              aria-label="Help"
+            >
+              ?
+            </button>
+            {showHelp && (
+              <div className="help-box-dash">
+                <div className="help-arrow-dash"></div>
+                
+                <div className="help-content-dash">
+                  <p>Gen TIPS</p>
+                </div>
+                
+                <div className="help-separator-dash"></div>
+                
+                <div className="help-content-dash">
+                  <p>AI</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
         <button className="panel-action-button" onClick={onAddDefect}>+ Add Defect</button>
       </div>
 

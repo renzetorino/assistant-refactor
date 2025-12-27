@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import jsPDF from 'jspdf';
+import { supabase } from '../supabase';
 
 const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
   const [showUpdateForm, setShowUpdateForm] = useState(false);
@@ -10,8 +11,36 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
   const [errors, setErrors] = useState({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [businessInfo, setBusinessInfo] = useState(null);
 
-  // Memoize calculations to prevent unnecessary recalculations
+  // Fetch business information
+  useEffect(() => {
+    const fetchBusinessInfo = async () => {
+      if (invoice.orders?.businessid) {
+        try {
+          const { data, error } = await supabase
+            .from('business_role')
+            .select('businessname, businessAddress')
+            .eq('businessid', invoice.orders.businessid)
+            .single();
+          
+          if (!error && data) {
+            setBusinessInfo(data);
+          }
+        } catch (err) {
+          console.error('Error fetching business info:', err);
+        }
+      }
+    };
+
+    fetchBusinessInfo();
+  }, [invoice.orders]);
+
+  // Get order code or fallback to order ID
+  const orderCode = useMemo(() => {
+    return invoice.ordercode || invoice.orders?.ordercode || `ORDER-${invoice.orderid || invoice.orders?.orderid || 'N/A'}`;
+  }, [invoice.ordercode, invoice.orders, invoice.orderid]);
+
   const calculatedTotal = useMemo(() => {
     if (invoice.orderItems && invoice.orderItems.length > 0) {
       return invoice.totalOrderAmount || invoice.orderItems.reduce((sum, item) => sum + item.subtotal, 0);
@@ -19,7 +48,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     return invoice.subtotal;
   }, [invoice.orderItems, invoice.totalOrderAmount, invoice.subtotal]);
 
-  // Memoize amount paid calculation
   const amountPaid = useMemo(() => {
     if (invoice.orders?.amount_paid !== undefined && invoice.orders?.amount_paid !== null) {
       return invoice.orders.amount_paid;
@@ -33,7 +61,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     return null;
   }, [invoice.orders, invoice.amount_paid, invoice.orderItems]);
 
-  // Memoize change calculation
   const change = useMemo(() => {
     if (amountPaid === null || amountPaid === undefined) {
       return 0;
@@ -52,7 +79,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     return amountPaid - calculatedTotal;
   }, [amountPaid, invoice.orders, invoice.change, invoice.orderItems, calculatedTotal]);
 
-  // Memoize order status calculation
   const orderStatus = useMemo(() => {
     let status = '';
     
@@ -72,21 +98,16 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     return 'INCOMPLETE';
   }, [invoice.orders, invoice.orderstatus, invoice.orderItems]);
 
-  // Memoize incomplete order check
   const isIncompleteOrder = useMemo(() => {
     return orderStatus === 'INCOMPLETE';
   }, [orderStatus]);
 
-  // Fixed helper function to get product variant display
   const getVariantDisplay = useCallback((item) => {
     const variants = [];
     
     let color = null;
     let agesize = null;
     
-    // Check multiple possible locations for variant data
-    
-    // Option 1: From productcategory nested object (most likely location for invoice items)
     if (item.productcategory?.color && item.productcategory.color.trim() !== '') {
       color = item.productcategory.color;
     }
@@ -94,7 +115,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
       agesize = item.productcategory.agesize;
     }
     
-    // Option 2: Direct properties on item (for direct invoice data)
     if (!color && item.color && typeof item.color === 'string' && item.color.trim() !== '') {
       color = item.color;
     }
@@ -102,7 +122,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
       agesize = item.agesize;
     }
     
-    // Build variants array with better formatting
     if (color) {
       variants.push(`${color}`);
     }
@@ -113,7 +132,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     return variants.length > 0 ? `${variants.join(' - ')}` : '';
   }, []);
 
-  // Initialize update form with current payment data
   useEffect(() => {
     if (showUpdateForm && invoice) {
       const currentAmountPaid = amountPaid || 0;
@@ -124,7 +142,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     }
   }, [showUpdateForm, invoice, amountPaid]);
 
-  // Auto-calculate change when amount paid changes with debouncing
   useEffect(() => {
     if (!showUpdateForm || !updateData.amountPaid) return;
 
@@ -137,12 +154,11 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
         ...prev,
         change: calculatedChange >= 0 ? calculatedChange.toFixed(2) : '0.00'
       }));
-    }, 100); // 100ms debounce
+    }, 100);
 
     return () => clearTimeout(timeoutId);
   }, [updateData.amountPaid, showUpdateForm, calculatedTotal]);
 
-  // Optimize date and time formatting
   const formatDateTime = useCallback((timestamp) => {
     return new Date(timestamp).toLocaleString('en-US', {
       year: 'numeric',
@@ -154,7 +170,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     });
   }, []);
 
-  // Format date only (for PDF)
   const formatDate = useCallback((timestamp) => {
     return new Date(timestamp).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -163,7 +178,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     });
   }, []);
 
-  // Format time only (for PDF)
   const formatTime = useCallback((timestamp) => {
     return new Date(timestamp).toLocaleTimeString('en-US', {
       hour: '2-digit',
@@ -172,12 +186,10 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     });
   }, []);
 
-  // Optimize currency formatting
   const formatCurrency = useCallback((amount) => {
     return amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }, []);
 
-  // Enhanced PDF download with proper variant display and time
   const handleDownloadPDF = useCallback(() => {
     const generatePDF = () => {
       try {
@@ -185,15 +197,13 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
         const timestamp = invoice.createdat || invoice.orderItems?.[0]?.orders?.orderdate || new Date();
         const date = formatDate(timestamp);
         const time = formatTime(timestamp);
-        const orderId = invoice.orderid || invoice.orders?.orderid || 'N/A';
 
-        // Header: BUISWAIZ on left, Order No. on right
+        // Header: BUISWAIZ on left, Receipt Number on right
         doc.setFontSize(12);
         doc.setFont(undefined, 'normal');
-        doc.text('BuiswAlz', 20, 20);
-        doc.text(`Order No. ${orderId}`, 190, 20, { align: 'right' });
+        doc.text('BuiswAIz', 20, 20);
+        doc.text(`Receipt #: ${orderCode}`, 190, 20, { align: 'right' });
         
-        // Horizontal line under header
         doc.line(20, 25, 190, 25);
         
         // INVOICE title
@@ -201,12 +211,13 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
         doc.setFont(undefined, 'bold');
         doc.text('INVOICE', 20, 40);
         
-        // Store Name (NEW)
+        // Store Name
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
         doc.text(`Store Name:`, 20, 52);
         doc.setFont(undefined, 'normal');
-        doc.text('ARTekoh', 48, 52);
+        const storeName = businessInfo?.businessname || 'N/A';
+        doc.text(storeName, 48, 52);
         
         // Time and Date
         doc.setFont(undefined, 'bold');
@@ -223,7 +234,8 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
         doc.setFont(undefined, 'bold');
         doc.text('Store Location:', 20, 76);
         doc.setFont(undefined, 'normal');
-        doc.text('98 E. Santos St. Concepcion Uno Marikina City', 50, 76);
+        const storeLocation = businessInfo?.businessAddress || '98 E. Santos St. Concepcion Uno Marikina City';
+        doc.text(storeLocation, 50, 76);
         
         // Items table header
         let yPosition = 91;
@@ -285,26 +297,23 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
         doc.text('Thank you for your business!', 20, yPosition);
         doc.text('Signature:', 135, yPosition);
 
-        doc.save(`Invoice_${orderId}.pdf`);
+        doc.save(`Invoice_${orderCode}.pdf`);
       } catch (error) {
         console.error('Error generating PDF:', error);
         alert('Error generating PDF. Please try again.');
       }
     };
 
-    // Use requestIdleCallback for better performance, fallback to setTimeout
     if ('requestIdleCallback' in window) {
       requestIdleCallback(generatePDF, { timeout: 1000 });
     } else {
       setTimeout(generatePDF, 0);
     }
-  }, [invoice, formatDate, formatTime, formatCurrency, orderStatus, getVariantDisplay]);
+  }, [invoice, formatDate, formatTime, orderStatus, getVariantDisplay, orderCode, businessInfo]);
 
-  // Optimize form handlers with useCallback and debouncing
   const handleUpdateDataChange = useCallback((e) => {
     const { name, value } = e.target;
     
-    // Use requestAnimationFrame for smoother updates
     requestAnimationFrame(() => {
       setUpdateData(prev => ({
         ...prev,
@@ -363,7 +372,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     }
   }, [validateUpdateForm, invoice.orderid, updateData, onUpdateOrder]);
 
-  // Optimize event handlers with passive event listeners where possible
   const handleCancelUpdate = useCallback(() => {
     requestAnimationFrame(() => {
       setShowUpdateForm(false);
@@ -388,7 +396,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     });
   }, []);
 
-  // Optimize modal close with event delegation
   const handleModalOverlayClick = useCallback((e) => {
     if (e.target === e.currentTarget) {
       requestAnimationFrame(() => {
@@ -410,9 +417,11 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
             <div className="invoice-details-new">
               {/* Header */}
               <div className="invoice-header-new">
-                <div className="invoice-brand">BuiswAlz</div>
+                <div className="invoice-brand">BuiswAIz</div>
                 <div className="invoice-order-no">
-                  <span>Order No. {invoice.orderid || invoice.orders?.orderid || 'N/A'}</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 'bold' }}>
+                    Receipt #: {orderCode}
+                  </span>
                   {isIncompleteOrder && (
                     <button 
                       className="complete-order-btn-inline"
@@ -433,7 +442,7 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
               {/* Store Name, Time, Date, and Status */}
               <div className="invoice-meta-new">
                 <div className="meta-item">
-                  <strong>Store Name:</strong> ARTekoh
+                  <strong>Store Name:</strong> {businessInfo?.businessname || 'Loading...'}
                 </div>
                 <div className="meta-item">
                   <strong>Time and Date:</strong> {formatDateTime(invoice.orderdate || invoice.orderItems?.[0]?.orders?.orderdate || new Date())}
@@ -442,7 +451,7 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
                   <strong>Status:</strong> <span className={`status-badge-new ${orderStatus.toLowerCase()}`}>{orderStatus}</span>
                 </div>
                 <div className="meta-item">
-                  <strong>Store Location:</strong> 98 E. Santos St. Concepcion Uno Marikina City
+                  <strong>Store Location:</strong> {businessInfo?.businessAddress || '98 E. Santos St. Concepcion Uno Marikina City'}
                 </div>
               </div>
 
@@ -468,8 +477,8 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
                             <td>{item.products?.productname || 'N/A'}</td>
                             <td>{variantDisplay || '-'}</td>
                             <td>{item.quantity}</td>
-                            <td>P{item.unitprice}</td>
-                            <td>P{item.subtotal}</td>
+                            <td>₱{item.unitprice}</td>
+                            <td>₱{item.subtotal}</td>
                           </tr>
                         );
                       })
@@ -478,8 +487,8 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
                         <td>{invoice.products?.productname || 'N/A'}</td>
                         <td>{getVariantDisplay(invoice) || '-'}</td>
                         <td>{invoice.quantity}</td>
-                        <td>{invoice.unitprice}</td>
-                        <td>{invoice.subtotal}</td>
+                        <td>₱{invoice.unitprice}</td>
+                        <td>₱{invoice.subtotal}</td>
                       </tr>
                     )}
                   </tbody>
@@ -489,7 +498,7 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
               <div className="invoice-total-section">
                 <div className="total-amount-row-new">
                   <span className="total-label">Total Amount</span>
-                  <span className="total-value">P{calculatedTotal}</span>
+                  <span className="total-value">₱{calculatedTotal}</span>
                 </div>
               </div>
 
@@ -588,7 +597,7 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
                 <h3>Order Completed</h3>
               </div>
               <div className="success-body">
-                <p>Order <strong>{invoice.orderid || invoice.orders?.orderid || 'N/A'}</strong> has been successfully completed!</p>
+                <p>Order <strong style={{ fontFamily: 'monospace' }}>{orderCode}</strong> has been successfully completed!</p>
                 <div className="success-details">
                   <div className="success-detail-row">
                     <span>Amount Paid:</span>

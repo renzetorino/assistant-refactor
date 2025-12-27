@@ -2,11 +2,12 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase';
 import '../stylecss/Sales/SalesSummary.css';
 
-const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selectedWeek, selectedDay, startDate, endDate }) => {
+const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selectedWeek, selectedDay, startDate, endDate, userBusinessId }) => {
   const [expenses, setExpenses] = useState([]);
   const [_loading, setLoading] = useState(true);
   const [isTransactionsExpanded, setIsTransactionsExpanded] = useState(false);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const getWeekRange = useCallback((weekStartDate) => {
     const start = new Date(weekStartDate);
@@ -16,44 +17,44 @@ const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selec
   }, []);
 
   // Helper function to extract date in YYYY-MM-DD format
-  const getLocalDateString = useCallback((dateString) => {
-    if (!dateString) return null;
-    
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return null;
-      
-      // Extract local year, month, day
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      
-      return `${year}-${month}-${day}`;
-    } catch (error) {
-      return null;
-    }
-  }, []);
 
-  // Fetch expenses data
+
+  // FIXED: Fetch expenses data filtered by business_id
   useEffect(() => {
     const fetchExpenses = async () => {
+      if (!userBusinessId) {
+        setLoading(false);
+        return;
+      }
+
       try {
+        // Filter expenses by business_id
         const { data, error } = await supabase
           .from('expenses')
-          .select('amount, occurred_on');
+          .select('amount, occurred_on, business_id')
+          .eq('business_id', userBusinessId); // Only get expenses for this business
 
         if (!error) {
+          console.log(`Fetched ${data?.length || 0} expenses for business ${userBusinessId}`);
+          if (data && data.length > 0) {
+            console.log('Sample expense dates:', data.slice(0, 3).map(e => ({
+              occurred_on: e.occurred_on,
+              amount: e.amount
+            })));
+          }
           setExpenses(data || []);
+        } else {
+          console.error('Error fetching expenses:', error);
         }
       } catch (error) {
-        // Silent error handling
+        console.error('Unexpected error fetching expenses:', error);
       } finally {
         setLoading(false);
       }
     };
 
     fetchExpenses();
-  }, []);
+  }, [userBusinessId]);
 
   // Filter expenses based on calendar selection
   const filteredExpenses = useMemo(() => {
@@ -61,12 +62,20 @@ const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selec
       const occurredOn = expense.occurred_on;
       if (!occurredOn) return false;
 
-      // Get standardized date string
-      const itemDateStr = getLocalDateString(occurredOn);
-      if (!itemDateStr) return false;
+      // Parse the date directly from occurred_on (which is a DATE field in the database)
+      // For DATE fields, we can use the string directly without timezone concerns
+      let itemDateStr;
+      
+      if (occurredOn.includes('T')) {
+        // If it's a full timestamp, extract just the date part
+        itemDateStr = occurredOn.split('T')[0];
+      } else {
+        // If it's already just a date, use it as is
+        itemDateStr = occurredOn;
+      }
 
-      // Extract year, month, day from the date string
-      const [year, month] = itemDateStr.split('-').map(Number);
+      // Extract year, month from the date string
+      const [year, month, day] = itemDateStr.split('-').map(Number);
 
       switch (rangeMode) {
         case 'all':
@@ -82,8 +91,8 @@ const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selec
         
         case 'week': {
           const { start, end } = getWeekRange(selectedWeek);
-          const startDateStr = getLocalDateString(start.toISOString());
-          const endDateStr = getLocalDateString(end.toISOString());
+          const startDateStr = start.toISOString().split('T')[0];
+          const endDateStr = end.toISOString().split('T')[0];
           
           return itemDateStr >= startDateStr && itemDateStr <= endDateStr;
         }
@@ -102,8 +111,9 @@ const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selec
       }
     });
 
+    console.log(`Filtering expenses: Total=${expenses.length}, Filtered=${filtered.length}, Mode=${rangeMode}`);
     return filtered;
-  }, [expenses, rangeMode, selectedYear, selectedMonth, selectedWeek, selectedDay, startDate, endDate, getWeekRange, getLocalDateString]);
+  }, [expenses, rangeMode, selectedYear, selectedMonth, selectedWeek, selectedDay, startDate, endDate, getWeekRange]);
 
   // Get filtered orders for transactions display
   const getFilteredOrders = useCallback(() => {
@@ -255,7 +265,35 @@ const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selec
   return (
     <div className={`net-income-container ${isSummaryExpanded ? 'expanded' : ''}`}>
       <div className="net-income-header">
-        <h3>Sales Summary - {getPeriodLabel()}</h3>
+        <div className="panel-header-with-help">
+          <div className="header-left-dash">
+            <h3>Sales Summary - {getPeriodLabel()}</h3>
+            <div className="help-wrapper-dash">
+              <button 
+                className="help-button-dash"
+                onClick={() => setShowHelp(!showHelp)}
+                aria-label="Help"
+              >
+                ?
+              </button>
+              {showHelp && (
+                <div className="help-box-dash">
+                  <div className="help-arrow-dash"></div>
+                  
+                  <div className="help-content-dash">
+                    <p>GEN TIPS</p>
+                  </div>
+                  
+                  <div className="help-separator-dash"></div>
+                  
+                  <div className="help-content-dash">
+                    <p>AI Tips</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
         <div className="header-controls">
           <button 
             className="summary-expand-btn" 

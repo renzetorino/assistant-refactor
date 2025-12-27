@@ -27,6 +27,7 @@ const Inventory = () => {
   const navigate = useNavigate();
   const [restockStorage, setrestockStorage] = useState(false);
   const [showExchangeModal, setShowExchangeModal] = useState(false);
+  const [showHelpInventory, setShowHelpInventory] = useState(false);
 
   // -----------------------------
   // Load products filtered by business
@@ -90,6 +91,7 @@ const Inventory = () => {
   // -----------------------------
   useEffect(() => {
     const getUser = async () => {
+
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error || !user) {
         window.location.href = '/'; // redirect to login
@@ -144,7 +146,6 @@ const Inventory = () => {
       </header>
 
       <div className="main-section">
-        {/* Sidebar */}
         <aside className="sidebar">
           <div className="nav-section">
             <p className="nav-header">GENERAL</p>
@@ -164,11 +165,36 @@ const Inventory = () => {
           </div>
         </aside>
 
-        {/* Main Content */}
         <div className="I-main-content">
           <div className="product-panel">
             <div className="panel-header">
-              <h2 className="panel-title">Inventory</h2>
+              <div className="header-left-dash">
+                <h2 className="panel-title">Inventory</h2>
+                <div className="help-wrapper-dash">
+                  <button 
+                    className="help-button-dash"
+                    onClick={() => setShowHelpInventory(!showHelpInventory)}
+                    aria-label="Help"
+                  >
+                    ?
+                  </button>
+                  {showHelpInventory && (
+                    <div className="help-box-dash">
+                      <div className="help-arrow-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>Gen TIPS</p>
+                      </div>
+                      
+                      <div className="help-separator-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>AI</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="panel-actions">
                 <input
                   id="inventorySearch"
@@ -226,9 +252,9 @@ const Inventory = () => {
                 </tbody>
               </table>
             </div>
-
             <InheritedBatches user={user}/>
           </div>
+
 
           {/* Right Panel */}
           <div className="I-right-panel">
@@ -237,6 +263,9 @@ const Inventory = () => {
                 <div className="I-user-avatar" />
                 <div className="I-user-username">{user ? user.username : "Loading..."}</div>
               </div>
+
+                
+
               <button
                 className="logout-button"
                 onClick={async () => {
@@ -247,6 +276,7 @@ const Inventory = () => {
                 }}
               >
                 ⏻
+
               </button>
             </div>
 

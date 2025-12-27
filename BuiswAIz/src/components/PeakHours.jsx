@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 const PeakHours = ({ orderData }) => {
   const [selectedInterval, setSelectedInterval] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Process order data to get ORDERS (not items) by 3-hour intervals with detailed order info
   const peakHoursData = useMemo(() => {
@@ -144,7 +145,35 @@ const PeakHours = ({ orderData }) => {
   return (
     <div className="peak-hours-wrapper">
       <div className="peak-hours-header">
-        <h3>Peak Hours Orders</h3>
+        <div className="panel-header-with-help">
+          <div className="header-left-dash">
+            <h3>Peak Hours Orders</h3>
+            <div className="help-wrapper-dash">
+              <button 
+                className="help-button-dash"
+                onClick={() => setShowHelp(!showHelp)}
+                aria-label="Help"
+              >
+                ?
+              </button>
+              {showHelp && (
+                <div className="help-box-dash">
+                  <div className="help-arrow-dash"></div>
+                  
+                  <div className="help-content-dash">
+                    <p>GEN TIPS</p>
+                  </div>
+                  
+                  <div className="help-separator-dash"></div>
+                  
+                  <div className="help-content-dash">
+                    <p> AI TIPS</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
         {peakInterval.orders > 0 && (
           <div className="peak-indicator">
             <span className="peak-time">Peak: {peakInterval.timeRange}</span>

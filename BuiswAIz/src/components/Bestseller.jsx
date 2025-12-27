@@ -1,6 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 
 const Bestseller = ({ orderData }) => {
+  const [showHelp, setShowHelp] = useState(false);
+
   // Calculate bestsellers from filtered orderData
   const filteredBestsellers = useMemo(() => {
     if (!orderData || orderData.length === 0) return [];
@@ -34,7 +36,35 @@ const Bestseller = ({ orderData }) => {
   return (
     <div className="bestseller-table-wrapper">
       <div className="bestseller-header">
-        <h3>Bestseller Items</h3>
+        <div className="panel-header-with-help">
+          <div className="header-left-dash">
+            <h3>Bestseller Items</h3>
+            <div className="help-wrapper-dash">
+              <button 
+                className="help-button-dash"
+                onClick={() => setShowHelp(!showHelp)}
+                aria-label="Help"
+              >
+                ?
+              </button>
+              {showHelp && (
+                <div className="help-box-dash">
+                  <div className="help-arrow-dash"></div>
+                  
+                  <div className="help-content-dash">
+                    <p>GEN TIPS</p>
+                  </div>
+                  
+                  <div className="help-separator-dash"></div>
+                  
+                  <div className="help-content-dash">
+                    <p>AI TIPS</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
       <div className="table-scroll-box1">
         <table className="bestseller-table">

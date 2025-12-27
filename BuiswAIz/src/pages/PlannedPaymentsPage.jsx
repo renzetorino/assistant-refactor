@@ -846,6 +846,12 @@ function Section({ title, items, onPaid, onEdit, confirmAction }) {
 export default function PlannedPaymentsPage() {
   const navigate = useNavigate();
 
+
+  const [showHelpNewPayment, setShowHelpNewPayment] = useState(false);
+  const [showHelpOverview, setShowHelpOverview] = useState(false);
+  const [showHelpCompleted, setShowHelpCompleted] = useState(false);
+  const [showHelpCalendar, setShowHelpCalendar] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
   const [history, setHistory] = useState([]);
@@ -1368,6 +1374,35 @@ async function markSeenToday(id) {
 
         {/* Main content */}
         <main className="main">
+          <div className="panel-header-with-help">
+            <div className="header-left-dash">
+              <h3>Planned Payments</h3>
+              <div className="help-wrapper-dash">
+                <button 
+                  className="help-button-dash"
+                  onClick={() => setShowHelpNewPayment(!showHelpNewPayment)}
+                  aria-label="Help"
+                >
+                  ?
+                </button>
+                {showHelpNewPayment && (
+                  <div className="help-box-dash">
+                    <div className="help-arrow-dash"></div>
+                    
+                    <div className="help-content-dash">
+                      <p>GEN TIPS</p>
+                    </div>
+                    
+                    <div className="help-separator-dash"></div>
+                    
+                    <div className="help-content-dash">
+                      <p>AI TIPS</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            </div>
           <div className="planned-header">
             <div className="toolbar-left">
               <button className="btn primary" onClick={() => setOpenCreate(true)}>+ New Planned Payment</button>
@@ -1404,8 +1439,35 @@ async function markSeenToday(id) {
             <aside className="planned-right">
               {/* Overview */}
                <div className="pp-right-card">
-                <div className="pp-right-title">Overview</div>
-
+                  <div className="panel-header-with-help">
+                    <div className="header-left-dash">
+                      <h3>Overview</h3>
+                      <div className="help-wrapper-dash">
+                        <button 
+                          className="help-button-dash"
+                          onClick={() => setShowHelpOverview(!showHelpOverview)}
+                          aria-label="Help"
+                        >
+                          ?
+                        </button>
+                        {showHelpOverview && (
+                          <div className="help-box-dash">
+                            <div className="help-arrow-dash"></div>
+                            
+                            <div className="help-content-dash">
+                              <p>GEN TIPS</p>
+                            </div>
+                            
+                            <div className="help-separator-dash"></div>
+                            
+                            <div className="help-content-dash">
+                              <p>AI TIPS</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 <div className="pp-kpis">
                   <div className="pp-kpi">
                     <div className="pp-kpi-icon">₱</div>
@@ -1458,6 +1520,35 @@ async function markSeenToday(id) {
 
                             {/* Calendar Reminders */}
               <div className="pp-right-card" data-test="calendar-card">
+                <div className="panel-header-with-help">
+                  <div className="header-left-dash">
+                    <h3>Payment Calendar</h3>
+                    <div className="help-wrapper-dash">
+                      <button 
+                        className="help-button-dash"
+                        onClick={() => setShowHelpCalendar(!showHelpCalendar)}
+                        aria-label="Help"
+                      >
+                        ?
+                      </button>
+                      {showHelpCalendar && (
+                        <div className="help-box-dash">
+                          <div className="help-arrow-dash"></div>
+                          
+                          <div className="help-content-dash">
+                            <p><strong>Visual Timeline:</strong> See all payment due dates at a glance | <strong>Click Days:</strong> View or edit payments scheduled for specific dates | <strong>Badge Numbers:</strong> Show how many payments are due each day</p>
+                          </div>
+                          
+                          <div className="help-separator-dash"></div>
+                          
+                          <div className="help-content-dash">
+                            <p>AI TIPS</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
                 <div className="pp-right-title">Payment Calendar</div>
                       <PlannedCalendarInline
                       payments={(items || [])}

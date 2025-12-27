@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
-const OrderSales = ({ orderData, onInvoiceSelect }) => {
+const OrderSales = ({ orderData, onInvoiceSelect, businessName }) => {
   const [filteredData, setFilteredData] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState('orderid-desc');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const dropdownRef = useRef(null);
 
   const sortOptions = [
@@ -73,8 +74,10 @@ const OrderSales = ({ orderData, onInvoiceSelect }) => {
   const updateFilteredData = useCallback((data, search, sortOption) => {
     const filtered = data.filter(item => {
       const productName = item.products?.productname || '';
+      const orderCode = item.orders?.ordercode || '';
       const matchesSearch =
         productName.toLowerCase().includes(search) ||
+        orderCode.toLowerCase().includes(search) ||
         String(item.orderid).toLowerCase().includes(search);
 
       return matchesSearch;
@@ -147,14 +150,22 @@ const OrderSales = ({ orderData, onInvoiceSelect }) => {
     );
   };
 
+  const getOrderCode = (item) => {
+    return item.orders?.ordercode || `ORDER-${item.orderid}`;
+  };
+
   const exportToCSV = () => {
-    const headers = ['Product Name', 'Order Code', 'Status', 'Quantity', 'Price', 'Total Amount', 'Date'];
+    const businessHeader = businessName ? `Business: ${businessName}\n` : '';
+    const exportDate = `Export Date: ${new Date().toLocaleString()}\n\n`;
+    
+    const headers = ['Product Name', 'Receipt Number', 'Status', 'Quantity', 'Price', 'Total Amount', 'Date'];
     
     const rows = filteredData.map(item => {
       const orderDate = item.orders?.orderdate || item.createdat;
+      const orderCode = getOrderCode(item);
       return [
         item.products?.productname || 'N/A',
-        item.orderid,
+        orderCode,
         getOrderStatus(item),
         item.quantity,
         item.unitprice,
@@ -163,17 +174,29 @@ const OrderSales = ({ orderData, onInvoiceSelect }) => {
       ];
     });
     
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
+    const totalOrders = new Set(filteredData.map(item => item.orderid)).size;
+    const totalRevenue = filteredData.reduce((sum, item) => sum + (item.subtotal || 0), 0);
+    const totalItems = filteredData.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    
+    const summarySection = `\n\nSummary:\nTotal Orders: ${totalOrders}\nTotal Items Sold: ${totalItems}\nTotal Revenue: ₱${totalRevenue.toLocaleString()}\n`;
+    
+    const csvContent = 
+      businessHeader +
+      exportDate +
+      headers.join(',') + '\n' +
+      rows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n') +
+      summarySection;
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     
+    const filename = businessName 
+      ? `${businessName.replace(/\s+/g, '_')}_sales_orders_${new Date().toISOString().split('T')[0]}.csv`
+      : `sales_orders_${new Date().toISOString().split('T')[0]}.csv`;
+    
     link.setAttribute('href', url);
-    link.setAttribute('download', `sales_orders_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', filename);
     link.style.visibility = 'hidden';
     
     document.body.appendChild(link);
@@ -184,13 +207,42 @@ const OrderSales = ({ orderData, onInvoiceSelect }) => {
   return (
     <div className="sales-table-wrapper">
       <div className="table-header">
-        <h3>Sales Orders</h3>
+        <div className="panel-header-with-help">
+          <div className="header-left-dash">
+            <h3>Sales Orders</h3>
+            <div className="help-wrapper-dash">
+              <button 
+                className="help-button-dash"
+                onClick={() => setShowHelp(!showHelp)}
+                aria-label="Help"
+              >
+                ?
+              </button>
+              {showHelp && (
+                <div className="help-box-dash">
+                  <div className="help-arrow-dash"></div>
+                  
+                  <div className="help-content-dash">
+                    <p>GEN TIPS</p>
+                  </div>
+                  
+                  <div className="help-separator-dash"></div>
+                  
+                  <div className="help-content-dash">
+                    <p>AI TIPS</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
         
         <button 
           className="export-csv-btn"
           onClick={exportToCSV}
+          title={`Export ${filteredData.length} order${filteredData.length !== 1 ? 's' : ''} to CSV`}
         >
-        Export to CSV
+          Export to CSV
         </button>
         
         <div className="custom-dropdown-wrapper" ref={dropdownRef}>
@@ -222,47 +274,56 @@ const OrderSales = ({ orderData, onInvoiceSelect }) => {
         <input
           type="text"
           className="search-input"
-          placeholder="Search by product name or order code..."
+          placeholder="Search by product name or receipt number..."
           value={searchTerm}
           onChange={handleSearch}
         />
       </div>
       <div className="table-scroll-box">
-        <table>
-          <thead>
-            <tr>
-              <th>Product Name</th>
-              <th>Order Code</th>
-              <th>Status</th>
-              <th>Quantity</th>
-              <th>Price</th>
-              <th>Total Amount</th>
-              <th>Ordered Date</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredData.map((item, index) => (
-              <tr key={index}>
-                <td>{item.products?.productname || 'N/A'}</td>
-                <td>{item.orderid}</td>
-                <td>{getStatusBadge(item)}</td>
-                <td>{item.quantity}</td>
-                <td>₱{item.unitprice.toLocaleString()}</td>
-                <td>₱{item.subtotal.toLocaleString()}</td>
-                <td>{new Date(item.orders?.orderdate || item.createdat).toLocaleDateString()}</td>
-                <td className="table-action">
-                  <button 
-                    className="invoice-btn"
-                    onClick={() => onInvoiceSelect(item)}
-                  >
-                    View Invoice
-                  </button>
-                </td>
+        {filteredData.length === 0 ? (
+          <div className="no-orders-message">
+            <p>No sales orders found{searchTerm ? ' matching your search' : ' for this business'}.</p>
+            {searchTerm && <small>Try adjusting your search terms</small>}
+          </div>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Product Name</th>
+                <th>Order Code</th>
+                <th>Status</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Total Amount</th>
+                <th>Ordered Date</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredData.map((item, index) => (
+                <tr key={index}>
+                  <td>{item.products?.productname || 'N/A'}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: '13px' }}>
+                    {getOrderCode(item)}
+                  </td>
+                  <td>{getStatusBadge(item)}</td>
+                  <td>{item.quantity}</td>
+                  <td>₱{item.unitprice.toLocaleString()}</td>
+                  <td>₱{item.subtotal.toLocaleString()}</td>
+                  <td>{new Date(item.orders?.orderdate || item.createdat).toLocaleDateString()}</td>
+                  <td className="table-action">
+                    <button 
+                      className="invoice-btn"
+                      onClick={() => onInvoiceSelect(item)}
+                    >
+                      View Invoice
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

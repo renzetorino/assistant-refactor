@@ -22,10 +22,12 @@ const TablePage = () => {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showSalesSuccessModal, setShowSalesSuccessModal] = useState(false);
   const [salesSuccessData, setSalesSuccessData] = useState(null);
-  const [_user, setUser] = useState(null);
+  const [user, setUser] = useState(null);
+  const [userBusinessId, setUserBusinessId] = useState(null);
+  const [businessInfo, setBusinessInfo] = useState(null);
 
   // Calendar filtering state
-  const [rangeMode, setRangeMode] = useState('all'); // 'all' | 'year' | 'month' | 'week' | 'day' | 'range'
+  const [rangeMode, setRangeMode] = useState('all');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(formatYYYYMM(new Date()));
   const [selectedWeek, setSelectedWeek] = useState(getCurrentWeekString());
@@ -98,7 +100,7 @@ const TablePage = () => {
       .sort((a, b) => b.totalQuantity - a.totalQuantity);
   }, [orderData]);
 
-  // Optimize user authentication check
+  // Fetch user authentication and business information
   useEffect(() => {
     let mounted = true;
 
@@ -114,7 +116,7 @@ const TablePage = () => {
         
         const { data: profile, error: profileError } = await supabase
           .from('systemuser')
-          .select('*')
+          .select('*, business_id')
           .eq('userid', user.id)
           .single();
         
@@ -124,8 +126,32 @@ const TablePage = () => {
           console.error("Error fetching user profile:", profileError);
           return;
         }
-        
+
+        if (!profile.business_id) {
+          alert('No business assigned to your account. Please contact administrator.');
+          window.location.href = '/Dashboard';
+          return;
+        }
+
         setUser(profile);
+        setUserBusinessId(profile.business_id);
+
+        // Fetch business details
+        const { data: business, error: businessError } = await supabase
+          .from('business_role')
+          .select('*')
+          .eq('businessid', profile.business_id)
+          .single();
+
+        if (!mounted) return;
+
+        if (businessError) {
+          console.error("Error fetching business info:", businessError);
+          return;
+        }
+
+        setBusinessInfo(business);
+        
       } catch (error) {
         console.error("Authentication error:", error);
         if (mounted) window.location.href = '/';
@@ -136,57 +162,92 @@ const TablePage = () => {
     return () => { mounted = false; };
   }, []);
 
-  // Updated products fetching
+  // Updated products fetching with business filter
   const fetchProducts = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('productcategory')
-        .select(`
-          productcategoryid,
-          productid,
-          price,
-          cost,
-          color,
-          agesize,
-          currentstock,
-          reorderpoint,
-          products (
-            productname,
-            description,
-            image_url
-          )
-        `)
-        .order('productcategoryid');
+    if (!userBusinessId) return;
 
-      if (error) {
-        console.error('Error fetching products:', error.message);
+    try {
+      // Fetch products for this business
+      const { data: businessProducts, error: productsError } = await supabase
+        .from('products')
+        .select('productid, productname, description, image_url, businessid')
+        .eq('businessid', userBusinessId);
+
+      if (productsError) {
+        console.error('Error fetching products:', productsError.message);
         return;
       }
-      
-      const transformedProducts = data?.map(item => ({
-        productcategoryid: item.productcategoryid,
-        productid: item.productid,
-        productname: item.products?.productname || 'Unknown Product',
-        description: item.products?.description || '',
-        image_url: item.products?.image_url || '',
-        price: item.price,
-        cost: item.cost,
-        color: item.color,
-        agesize: item.agesize,
-        currentstock: item.currentstock,
-        reorderpoint: item.reorderpoint
-      })) || [];
+
+      if (!businessProducts || businessProducts.length === 0) {
+        setProducts([]);
+        return;
+      }
+
+      const productIds = businessProducts.map(p => p.productid);
+
+      // Fetch product categories
+      const { data: categories, error: categoriesError } = await supabase
+        .from('productcategory')
+        .select('*')
+        .in('productid', productIds)
+        .order('productcategoryid');
+
+      if (categoriesError) {
+        console.error('Error fetching categories:', categoriesError.message);
+        return;
+      }
+
+      const transformedProducts = categories.map(cat => {
+        const product = businessProducts.find(p => p.productid === cat.productid);
+        return {
+          productcategoryid: cat.productcategoryid,
+          productid: cat.productid,
+          productname: product?.productname || 'Unknown Product',
+          description: product?.description || '',
+          image_url: product?.image_url || '',
+          price: cat.price,
+          cost: cat.cost,
+          color: cat.color,
+          agesize: cat.agesize,
+          currentstock: cat.currentstock,
+          reorderpoint: cat.reorderpoint
+        };
+      });
       
       setProducts(transformedProducts);
     } catch (error) {
       console.error('Unexpected error fetching products:', error);
     }
-  }, []);
+  }, [userBusinessId]);
 
-  // Updated order data fetching - FIXED to fetch ALL orderitems
+  // Updated order data fetching with business filter
   const fetchOrderData = useCallback(async () => {
+    if (!userBusinessId) return;
+
     try {
-      // First, fetch all orderitems with their product details
+      // First, fetch orders for this business only
+      const { data: businessOrders, error: ordersError } = await supabase
+        .from('orders')
+        .select('orderid, ordercode, totalamount, orderstatus, amount_paid, change, orderdate, businessid, userid')
+        .eq('businessid', userBusinessId);
+
+      if (ordersError) {
+        console.error('Error fetching orders:', ordersError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (!businessOrders || businessOrders.length === 0) {
+        console.log('No orders found for this business');
+        setOrderData([]);
+        setLoading(false);
+        return;
+      }
+
+      // Get order IDs
+      const orderIds = businessOrders.map(order => order.orderid);
+
+      // Fetch order items for these orders
       const { data: orderItemsData, error: orderItemsError } = await supabase
         .from('orderitems')
         .select(`
@@ -196,102 +257,93 @@ const TablePage = () => {
           quantity,
           unitprice,
           subtotal,
-          createdat,
-          productcategory (
-            productid,
-            price,
-            cost,
-            color,
-            agesize,
-            currentstock,
-            products (
-              productname,
-              image_url,
-              description
-            )
-          )
-        `);
+          createdat
+        `)
+        .in('orderid', orderIds);
 
       if (orderItemsError) {
         console.error('Error fetching order items:', orderItemsError.message);
+        setLoading(false);
         return;
       }
 
-      // Get unique order IDs
-      const orderIds = [...new Set(orderItemsData?.map(item => item.orderid) || [])];
+      // Get unique product IDs from order items
+      const productIds = [...new Set(orderItemsData.map(item => item.productid))];
 
-      // Fetch corresponding orders data
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select('orderid, totalamount, orderstatus, amount_paid, change, orderdate')
-        .in('orderid', orderIds);
+      // Fetch product details
+      const { data: productsData, error: productsDataError } = await supabase
+        .from('products')
+        .select('productid, productname, image_url, description, businessid')
+        .in('productid', productIds)
+        .eq('businessid', userBusinessId);
 
-      if (ordersError) {
-        console.error('Error fetching orders:', ordersError.message);
+      if (productsDataError) {
+        console.error('Error fetching products data:', productsDataError);
       }
 
-      // Create a map of orders for quick lookup
-      const ordersMap = new Map();
-      ordersData?.forEach(order => {
-        ordersMap.set(order.orderid, order);
-      });
+      // Create maps for quick lookup
+      const ordersMap = new Map(businessOrders.map(order => [order.orderid, order]));
+      const productsMap = new Map((productsData || []).map(p => [p.productid, p]));
 
       // Combine the data
-      const transformedData = orderItemsData?.map(item => {
+      const transformedData = orderItemsData.map(item => {
         const orderInfo = ordersMap.get(item.orderid);
+        const productInfo = productsMap.get(item.productid);
         
         return {
           ...item,
           products: {
-            productname: item.productcategory?.products?.productname || 'Unknown Product',
-            image_url: item.productcategory?.products?.image_url || '',
-            description: item.productcategory?.products?.description || ''
+            productname: productInfo?.productname || 'Unknown Product',
+            image_url: productInfo?.image_url || '',
+            description: productInfo?.description || ''
           },
           orders: orderInfo ? {
             totalamount: orderInfo.totalamount,
             orderstatus: orderInfo.orderstatus,
             amount_paid: orderInfo.amount_paid,
             change: orderInfo.change,
-            orderdate: orderInfo.orderdate
+            orderdate: orderInfo.orderdate,
+            ordercode: orderInfo.ordercode,
+            businessid: orderInfo.businessid
           } : {
-            // Fallback if order data is missing
             totalamount: item.subtotal,
             orderstatus: 'INCOMPLETE',
             amount_paid: null,
             change: null,
-            orderdate: item.createdat // Use createdat as fallback
+            orderdate: item.createdat,
+            businessid: userBusinessId
           }
         };
-      }) || [];
+      });
 
+      console.log(`Found ${transformedData.length} order items for business ${userBusinessId}`);
       setOrderData(transformedData);
     } catch (error) {
       console.error('Unexpected error fetching order data:', error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userBusinessId]);
 
   // Initial data fetch
   useEffect(() => {
-    fetchOrderData();
-    fetchProducts();
-  }, [fetchOrderData, fetchProducts]);
+    if (userBusinessId) {
+      fetchOrderData();
+      fetchProducts();
+    }
+  }, [userBusinessId, fetchOrderData, fetchProducts]);
 
-  // Filter data based on calendar selection - FIXED FOR PHILIPPINES TIMEZONE
+  // Filter data based on calendar selection
   const filteredOrderData = useMemo(() => {
     return orderData.filter(item => {
-      // Use orderdate if available, otherwise fall back to createdat
       const orderDate = item.orders?.orderdate || item.createdat;
       if (!orderDate) return false;
 
-      // Parse the date string and create a date in local timezone
       const date = new Date(orderDate);
       if (isNaN(date.getTime())) return false;
 
-      // Extract year, month, day in LOCAL timezone (Philippines)
       const year = date.getFullYear();
-      const month = date.getMonth() + 1; // 0-indexed, so add 1
+      const month = date.getMonth() + 1;
       const day = date.getDate();
 
       switch (rangeMode) {
@@ -308,7 +360,6 @@ const TablePage = () => {
         
         case 'week': {
           const { start, end } = getWeekRange(selectedWeek);
-          // Create date objects using local date components only
           const itemDate = new Date(year, month - 1, day);
           const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
           const endDate = new Date(end.getFullYear(), end.getMonth(), end.getDate());
@@ -316,15 +367,12 @@ const TablePage = () => {
         }
         
         case 'day': {
-          // Compare the date string directly (YYYY-MM-DD format)
           const itemDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
           return itemDateStr === selectedDay;
         }
         
         case 'range': {
-          // Date range filtering
           if (!startDate || !endDate) return false;
-          
           const itemDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
           return itemDateStr >= startDate && itemDateStr <= endDate;
         }
@@ -351,7 +399,8 @@ const TablePage = () => {
           change: updateOrderData.change,
           orderstatus: normalizedStatus
         })
-        .eq('orderid', updateOrderData.orderid);
+        .eq('orderid', updateOrderData.orderid)
+        .eq('businessid', userBusinessId); // Ensure user can only update their business orders
 
       if (orderUpdateError) {
         console.error('Database update error:', orderUpdateError);
@@ -363,7 +412,7 @@ const TablePage = () => {
       console.error('Error updating order:', error);
       throw error;
     }
-  }, [fetchOrderData]);
+  }, [fetchOrderData, userBusinessId]);
 
   const handleInvoiceSelect = useCallback(async (selectedItem) => {
     try {
@@ -377,24 +426,7 @@ const TablePage = () => {
             unitprice,
             subtotal,
             createdat,
-            productcategory (
-              productid,
-              price,
-              color,
-              agesize,
-              products (
-                productname,
-                image_url,
-                description
-              )
-            ),
-            orders (
-              totalamount,
-              orderstatus,
-              amount_paid,
-              change,
-              orderdate
-            )
+            productid
           `)
           .eq('orderid', selectedItem.orderid);
 
@@ -404,28 +436,68 @@ const TablePage = () => {
           return;
         }
 
-        const transformedOrderItems = orderItems?.map(item => ({
-          ...item,
-          products: {
-            productname: item.productcategory?.products?.productname || 'Unknown Product',
-            image_url: item.productcategory?.products?.image_url || ''
-          }
-        })) || [];
+        // Fetch order details
+        const { data: orderDetails, error: orderError } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('orderid', selectedItem.orderid)
+          .eq('businessid', userBusinessId)
+          .single();
+
+        if (orderError) {
+          console.error('Error fetching order details:', orderError);
+          alert('Error loading order details');
+          return;
+        }
+
+        // Fetch product details for the items
+        const productIds = [...new Set(orderItems.map(item => item.productid))];
+        const { data: products, error: productsError } = await supabase
+          .from('products')
+          .select('productid, productname, image_url, description')
+          .in('productid', productIds)
+          .eq('businessid', userBusinessId);
+
+        if (productsError) {
+          console.error('Error fetching products:', productsError);
+        }
+
+        const productsMap = new Map((products || []).map(p => [p.productid, p]));
+
+        const transformedOrderItems = orderItems.map(item => {
+          const product = productsMap.get(item.productid);
+          return {
+            ...item,
+            products: {
+              productname: product?.productname || 'Unknown Product',
+              image_url: product?.image_url || ''
+            },
+            orders: {
+              totalamount: orderDetails.totalamount,
+              orderstatus: orderDetails.orderstatus,
+              amount_paid: orderDetails.amount_paid,
+              change: orderDetails.change,
+              orderdate: orderDetails.orderdate
+            }
+          };
+        });
 
         setSelectedInvoice({
           ...selectedItem,
           orderItems: transformedOrderItems,
-          totalOrderAmount: transformedOrderItems[0]?.orders?.totalamount || 0,
-          orderStatus: transformedOrderItems[0]?.orders?.orderstatus || 'INCOMPLETE',
-          amount_paid: transformedOrderItems[0]?.orders?.amount_paid,
-          change: transformedOrderItems[0]?.orders?.change,
-          orderdate: transformedOrderItems[0]?.orders?.orderdate,
+          totalOrderAmount: orderDetails.totalamount,
+          orderStatus: orderDetails.orderstatus,
+          amount_paid: orderDetails.amount_paid,
+          change: orderDetails.change,
+          orderdate: orderDetails.orderdate,
+          ordercode: orderDetails.ordercode,
           orders: {
-            totalamount: transformedOrderItems[0]?.orders?.totalamount,
-            orderstatus: transformedOrderItems[0]?.orders?.orderstatus,
-            amount_paid: transformedOrderItems[0]?.orders?.amount_paid,
-            change: transformedOrderItems[0]?.orders?.change,
-            orderdate: transformedOrderItems[0]?.orders?.orderdate
+            totalamount: orderDetails.totalamount,
+            orderstatus: orderDetails.orderstatus,
+            amount_paid: orderDetails.amount_paid,
+            change: orderDetails.change,
+            orderdate: orderDetails.orderdate,
+            ordercode: orderDetails.ordercode
           }
         });
       });
@@ -433,7 +505,7 @@ const TablePage = () => {
       console.error('Error loading invoice:', error);
       alert('Error loading invoice details');
     }
-  }, []);
+  }, [userBusinessId]);
 
   const getFilterLabel = () => {
     switch (rangeMode) {
@@ -498,12 +570,11 @@ const TablePage = () => {
 
         <div className="main-content">
           {loading ? (
-            <div className="loading-states">
-            </div>
+            <div className="loading-states">Loading sales data...</div>
           ) : (
             <>
               <div className="table-flex-wrapper">
-                {/* Row 1, Column 1 - Sales Summary */}
+                {/* Row 1, Column 1 - Sales Summary - UPDATED: Added userBusinessId prop */}
                 <div className="net-income">
                   <SalesSummary 
                     orderData={filteredOrderData}
@@ -514,6 +585,7 @@ const TablePage = () => {
                     selectedDay={selectedDay}
                     startDate={startDate}
                     endDate={endDate}
+                    userBusinessId={userBusinessId}
                   />
                 </div>
 
@@ -619,6 +691,7 @@ const TablePage = () => {
                 <OrderSales 
                   orderData={filteredOrderData}
                   onInvoiceSelect={handleInvoiceSelect}
+                  businessName={businessInfo?.businessname}
                 />
 
                 {/* Row 2, Column 2 - Bestseller and Peak Hours */}

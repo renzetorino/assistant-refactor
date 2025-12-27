@@ -65,7 +65,7 @@ const TopSellingProducts = ({ topSellingProducts, leastSellingProducts, notSelli
                 checked={selectedView === 'top'}
                 onChange={() => setSelectedView('top')}
               />
-              <span>Top Selling</span>
+              <span>Top</span>
             </label>
             <label>
               <input 
@@ -74,7 +74,7 @@ const TopSellingProducts = ({ topSellingProducts, leastSellingProducts, notSelli
                 checked={selectedView === 'least'}
                 onChange={() => setSelectedView('least')}
               />
-              <span>Least Selling</span>
+              <span>Least</span>
             </label>
             <label>
               <input 
@@ -83,7 +83,7 @@ const TopSellingProducts = ({ topSellingProducts, leastSellingProducts, notSelli
                 checked={selectedView === 'not'}
                 onChange={() => setSelectedView('not')}
               />
-              <span>Not Selling</span>
+              <span>Not</span>
             </label>
           </div>
         </div>

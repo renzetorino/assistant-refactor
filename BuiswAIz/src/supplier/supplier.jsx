@@ -19,7 +19,11 @@ const Supplier = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showExchangeTable, setShowExchangeTable] = useState(false);
   const [newCost, setNewCost] = useState(0);
-  const [confirmedExchangeCount, setConfirmedExchangeCount] = useState(0);
+  const [confirmedExchangeCount, setConfirmedExchangeCount] = useState(0)
+  const [showHelpSupplierTable, setShowHelpSupplierTable] = useState(false);
+  const [showHelpOrders, setShowHelpOrders] = useState(false);
+  const [showHelpReturned, setShowHelpReturned] = useState(false);
+  const [showHelpStats, setShowHelpStats] = useState(false);
 
   // Load suppliers based on business_id
   const loadSupplier = async (businessid) => {
@@ -179,7 +183,9 @@ const Supplier = () => {
       }
     };
 
+
     getUserAndData();
+
   }, []);
 
   const filteredSuppliers = suppliers.filter((s) =>
@@ -225,7 +231,33 @@ const Supplier = () => {
         <div className="S-main-content">
           <div className="supplier-panel">
             <div className="panel-header">
-              <h2 className="panel-title">Supplier</h2>
+              <div className="header-left-dash">
+                <h2 className="panel-title">Supplier</h2>
+                <div className="help-wrapper-dash">
+                  <button 
+                    className="help-button-dash"
+                    onClick={() => setShowHelpSupplierTable(!showHelpSupplierTable)}
+                    aria-label="Help"
+                  >
+                    ?
+                  </button>
+                  {showHelpSupplierTable && (
+                    <div className="help-box-dash">
+                      <div className="help-arrow-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>Gen TIPS</p>
+                      </div>
+                      
+                      <div className="help-separator-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>AI</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="panel-actions">
                 <input
                   id="supplierSearch"
@@ -299,7 +331,33 @@ const Supplier = () => {
 
             {/* Orders Section */}
             <div className="supplier-orders-section">
-              <h3>Supplier Orders</h3>
+              <div className="header-left-dash">
+                <h3>Supplier Orders</h3>
+                <div className="help-wrapper-dash">
+                  <button 
+                    className="help-button-dash"
+                    onClick={() => setShowHelpOrders(!showHelpOrders)}
+                    aria-label="Help"
+                  >
+                    ?
+                  </button>
+                  {showHelpOrders && (
+                    <div className="help-box-dash">
+                      <div className="help-arrow-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>Gen TIPS</p>
+                      </div>
+                      
+                      <div className="help-separator-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>AI</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="orders-tables-wrapper">
                 <div className="orders-tables-grid">
                   {/* Left Table: Pending/Confirmed */}
@@ -436,7 +494,33 @@ const Supplier = () => {
             </div>
 
             <div className="supply-returned-panel">
-              <h3>Product Returned to Supplier</h3>
+              <div className="header-left-dash">
+                <h3>Product Returned to Supplier</h3>
+                <div className="help-wrapper-dash">
+                  <button 
+                    className="help-button-dash"
+                    onClick={() => setShowHelpReturned(!showHelpReturned)}
+                    aria-label="Help"
+                  >
+                    ?
+                  </button>
+                  {showHelpReturned && (
+                    <div className="help-box-dash">
+                      <div className="help-arrow-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>Gen TIPS</p>
+                      </div>
+                      
+                      <div className="help-separator-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>AI</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="returned-container">
                 {suppliers
                   .sort((a, b) => (b.defectreturned || 0) - (a.defectreturned || 0))
@@ -462,7 +546,33 @@ const Supplier = () => {
             </div>
 
             <div className="supplier-stats-panel">
-              <h3>Supplier Product Stats</h3>
+              <div className="header-left-dash">
+                <h3>Supplier Product Stats</h3>
+                <div className="help-wrapper-dash">
+                  <button 
+                    className="help-button-dash"
+                    onClick={() => setShowHelpStats(!showHelpStats)}
+                    aria-label="Help"
+                  >
+                    ?
+                  </button>
+                  {showHelpStats && (
+                    <div className="help-box-dash">
+                      <div className="help-arrow-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>Gen TIPS</p>
+                      </div>
+                      
+                      <div className="help-separator-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>AI</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="S-stats-container">
                 {supplierStats.map((s, i) => (
                   <div key={i} className="S-stats-row">
@@ -493,7 +603,9 @@ const Supplier = () => {
         <ExchangeTable
           onClose={() => {
             setShowExchangeTable(false);
+
             if(user) loadConfirmedExchanges(user.business_id);
+
           }}
           user={user}
         />

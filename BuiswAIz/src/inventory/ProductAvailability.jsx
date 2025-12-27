@@ -4,8 +4,10 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "../stylecss/ProductAvailability.css";
 
+
 const ProductAvailability = ({ lowStockProducts, user }) => {
   const [loadingIds, setLoadingIds] = useState([]);
+  const [showHelp, setShowHelp] = useState(false);
 
   const handleReorder = async (category) => {
     const id = category.productcategoryid;
@@ -41,7 +43,33 @@ const ProductAvailability = ({ lowStockProducts, user }) => {
 
   return (
     <div className="availability-panel">
-      <h3>Product Availability</h3>
+      <div className="header-left-dash">
+        <h3>Product Availability</h3>
+        <div className="help-wrapper-dash">
+          <button 
+            className="help-button-dash"
+            onClick={() => setShowHelp(!showHelp)}
+            aria-label="Help"
+          >
+            ?
+          </button>
+          {showHelp && (
+            <div className="help-box-dash">
+              <div className="help-arrow-dash"></div>
+              
+              <div className="help-content-dash">
+                <p>Gen TIPS</p>
+              </div>
+              
+              <div className="help-separator-dash"></div>
+              
+              <div className="help-content-dash">
+                <p>AI</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
       <div className="availability-container">
         {lowStockProducts.length === 0 ? (
           <p className="no-low-stock">✅ All items are sufficiently stocked.</p>

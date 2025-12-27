@@ -3,8 +3,7 @@ import { supabase } from '../supabase';
 import '../stylecss/Dashboard/DailyGrossSales.css';
 import UploadSheets, { downloadTemplate } from '../components/UploadSheets'; 
 
-
-const DailyGrossSales = () => {
+const DailyGrossSales = ({userBusinessId}) => {
   const [dailySales, setDailySales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -16,10 +15,20 @@ const DailyGrossSales = () => {
   const [loadingSalesDetails, setLoadingSalesDetails] = useState(false);
 
   useEffect(() => {
-    fetchDailySales();
-  }, []);
+    if (userBusinessId) {
+      fetchDailySales();
+    } else {
+      setLoading(false);
+    }
+  }, [userBusinessId]);
 
   const fetchDailySales = async () => {
+    if (!userBusinessId) {
+      console.warn('userBusinessId is not available');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -29,7 +38,7 @@ const DailyGrossSales = () => {
         const date = new Date(today);
         date.setDate(date.getDate() - i);
         days.push({
-        date: date, 
+          date: date, 
           dateString: date.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }), 
           dayName: date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })
         });
@@ -42,11 +51,13 @@ const DailyGrossSales = () => {
 
         const { data, error } = await supabase
           .from('orders')
-          .select('totalamount, orderdate')
+          .select('totalamount, orderdate, businessid')
+          .eq('businessid', userBusinessId)
           .gte('orderdate', day.dateString)
           .lt('orderdate', nextDayString);
 
         if (error) {
+          console.error(`Error fetching sales for ${day.dateString}:`, error);
           return { ...day, totalSales: 0, transactionCount: 0 };
         }
 
@@ -77,7 +88,8 @@ const DailyGrossSales = () => {
 
       setDailySales(salesWithChanges);
       setError(null);
-    } catch {
+    } catch (err) {
+      console.error('Failed to load daily sales data:', err);
       setError('Failed to load daily sales data');
     } finally {
       setLoading(false);
@@ -85,6 +97,8 @@ const DailyGrossSales = () => {
   };
 
   const fetchSalesDetails = async (dateString) => {
+    if (!userBusinessId) return;
+
     try {
       setLoadingSalesDetails(true);
       
@@ -95,6 +109,7 @@ const DailyGrossSales = () => {
       const { data: orders, error: ordersError } = await supabase
         .from('orders')
         .select('orderid, totalamount, orderdate')
+        .eq('businessid', userBusinessId)
         .gte('orderdate', dateString)
         .lt('orderdate', nextDayString);
 
@@ -107,39 +122,57 @@ const DailyGrossSales = () => {
 
       const orderIds = orders.map(o => o.orderid);
 
+      // Method 1: Separate queries (most reliable)
       const { data: orderItems, error: itemsError } = await supabase
         .from('orderitems')
-        .select(`
-          orderid,
-          productid,
-          productcategoryid,
-          quantity,
-          unitprice,
-          subtotal,
-          productcategory (
-            color,
-            agesize,
-            products (
-              productname,
-              image_url
-            )
-          )
-        `)
+        .select('orderid, productid, productcategoryid, quantity, unitprice, subtotal')
         .in('orderid', orderIds);
 
       if (itemsError) throw itemsError;
 
+      // Get unique product category IDs
+      const categoryIds = [...new Set(orderItems.map(item => item.productcategoryid).filter(Boolean))];
+      
+      // Fetch product categories separately
+      const { data: categories, error: catError } = await supabase
+        .from('productcategory')
+        .select('productcategoryid, color, agesize, productid')
+        .in('productcategoryid', categoryIds);
+
+      if (catError) throw catError;
+
+      // Get unique product IDs
+      const productIds = [
+        ...new Set([
+          ...orderItems.map(item => item.productid).filter(Boolean),
+          ...categories.map(cat => cat.productid).filter(Boolean)
+        ])
+      ];
+
+      // Fetch products separately
+      const { data: products, error: prodError } = await supabase
+        .from('products')
+        .select('productid, productname, image_url')
+        .in('productid', productIds);
+
+      if (prodError) throw prodError;
+
+      // Build items map with looked-up data
       const itemsMap = {};
       orderItems.forEach(item => {
         const id = item.productcategoryid || item.productid;
-        const name = item.productcategory?.products?.productname || 'Unknown Product';
-        const imageUrl = item.productcategory?.products?.image_url || '';
-        const color = item.productcategory?.color || '';
-        const agesize = item.productcategory?.agesize || '';
         
-        // Build category/variant display
+        // Find the category and product
+        const category = categories.find(c => c.productcategoryid === item.productcategoryid);
+        const product = products.find(p => p.productid === (item.productid || category?.productid));
+        
+        const name = product?.productname || 'Unknown Product';
+        const imageUrl = product?.image_url || '';
+        const color = category?.color || '';
+        const agesize = category?.agesize || '';
+        
         const variantParts = [color, agesize].filter(v => v);
-        const category = variantParts.length > 0 ? variantParts.join(', ') : 'No Variant';
+        const categoryDisplay = variantParts.length > 0 ? variantParts.join(', ') : 'No Variant';
         
         const price = Number(String(item.unitprice).replace(/,/g, '')) || 0;
 
@@ -149,7 +182,7 @@ const DailyGrossSales = () => {
             productcategoryid: id,
             productname: name,
             image_url: imageUrl,
-            category: category,
+            category: categoryDisplay,
             quantity: 0,
             unitprice: price,
             totalAmount: 0
@@ -195,6 +228,17 @@ const DailyGrossSales = () => {
       maximumFractionDigits: 0
     })}`;
   };
+
+  // Early return if no businessId
+  if (!userBusinessId) {
+    return (
+      <div className="daily-sales-container">
+        <div className="daily-sales-loading">
+          <p>Initializing...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -291,7 +335,6 @@ const DailyGrossSales = () => {
         </div>
       </div>
 
-      {/* Upload Modal */}
       {showUploadModal && (
         <div className="modal-overlay" onClick={() => setShowUploadModal(false)}>
           <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
@@ -305,7 +348,6 @@ const DailyGrossSales = () => {
                 ✕
               </button>
             </div>
-            {/* Toolbar above the uploader */}
             <div className="template-toolbar">
               <button
                 type="button"
@@ -313,7 +355,6 @@ const DailyGrossSales = () => {
                 onClick={downloadTemplate}
                 aria-label="Download sales upload template"
               >
-                {/* Icon */}
                 <svg
                   width="18"
                   height="18"
@@ -345,8 +386,6 @@ const DailyGrossSales = () => {
         </div>
       )}
 
-
-      {/* Sales Details Modal */}
       {showSalesModal && selectedDaySales && (
         <div className="modal-overlay" onClick={() => setShowSalesModal(false)}>
           <div className="modal sales-details-modal" onClick={(e) => e.stopPropagation()}>
