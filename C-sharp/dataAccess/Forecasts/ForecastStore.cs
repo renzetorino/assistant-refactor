@@ -34,6 +34,8 @@ namespace dataAccess.Forecasts
         }
 
         public async Task<Guid> SaveAsync(
+            Guid userId,
+            int? businessId,
             string domain,
             string target,
             int horizonDays,
@@ -42,16 +44,21 @@ namespace dataAccess.Forecasts
             string status = "queued",
             CancellationToken ct = default)
         {
+            Console.WriteLine(
+                $"[MULTI-TENANCY] 💾 ForecastStore.SaveAsync | UserId: {userId}, BusinessId: {businessId?.ToString() ?? "NULL"}, Domain: {domain}, Target: {target}");
+
             await using var conn = await OpenAsync(ct);
 
             const string sql = @"
               insert into public.forecasts
-                (domain, target, horizon_days, params, status, result)
+                (user_id, business_id, domain, target, horizon_days, params, status, result)
               values
-                (@domain, @target, @horizon_days, @params, @status, @result)
+                (@user_id, @business_id, @domain, @target, @horizon_days, @params, @status, @result)
               returning id;";
 
             await using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("user_id", userId);
+            cmd.Parameters.AddWithValue("business_id", (object?)businessId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("domain", domain);
             cmd.Parameters.AddWithValue("target", target);
             cmd.Parameters.AddWithValue("horizon_days", horizonDays); // NOT NULL
@@ -65,7 +72,28 @@ namespace dataAccess.Forecasts
                 result is null ? (object?)DBNull.Value : JsonSerializer.Serialize(result);
 
             var idObj = await cmd.ExecuteScalarAsync(ct);
-            return (Guid)idObj!;
+            var forecastId = (Guid)idObj!;
+
+            Console.WriteLine(
+                $"[MULTI-TENANCY] ✅ Forecast saved to database | ForecastId: {forecastId}, UserId: {userId}, BusinessId: {businessId?.ToString() ?? "NULL"}");
+
+            return forecastId;
+        }
+
+        /// <summary>
+        /// Legacy SaveAsync without multi-tenancy (for backward compatibility)
+        /// </summary>
+        public async Task<Guid> SaveAsync(
+            string domain,
+            string target,
+            int horizonDays,
+            JsonObject @params,
+            JsonObject result,
+            string status = "queued",
+            CancellationToken ct = default)
+        {
+            // Call multi-tenancy version with empty Guid and null businessId
+            return await SaveAsync(Guid.Empty, null, domain, target, horizonDays, @params, result, status, ct);
         }
 
         public async Task<ForecastRow?> GetAsync(Guid id, CancellationToken ct = default)
@@ -97,7 +125,7 @@ namespace dataAccess.Forecasts
             );
         }
 
-        public async Task<ForecastRow[]> RecentAsync(string domain, int limit = 10, CancellationToken ct = default)
+        public async Task<ForecastRow[]> RecentAsync(Guid userId, int? businessId, string domain, int limit = 10, CancellationToken ct = default)
         {
             if (limit <= 0) limit = 10;
             await using var conn = await OpenAsync(ct);
@@ -106,11 +134,15 @@ namespace dataAccess.Forecasts
               select id, domain, target, horizon_days, status, params, result, created_at, updated_at
               from public.forecasts
               where domain = @domain
+                and user_id = @user_id
+                and (@business_id::int IS NULL OR business_id = @business_id)
               order by created_at desc
               limit @limit;";
 
             await using var cmd = new NpgsqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("domain", domain);
+            cmd.Parameters.AddWithValue("user_id", userId);
+            cmd.Parameters.AddWithValue("business_id", (object?)businessId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("limit", limit);
 
             var list = new List<ForecastRow>();
@@ -130,6 +162,15 @@ namespace dataAccess.Forecasts
                 ));
             }
             return list.ToArray();
+        }
+
+        /// <summary>
+        /// Legacy RecentAsync without multi-tenancy (for backward compatibility)
+        /// </summary>
+        public async Task<ForecastRow[]> RecentAsync(string domain, int limit = 10, CancellationToken ct = default)
+        {
+            // Call multi-tenancy version with empty Guid and null businessId
+            return await RecentAsync(Guid.Empty, null, domain, limit, ct);
         }
 
         private static JsonObject ParseJsonObject(NpgsqlDataReader rdr, int ordinal)

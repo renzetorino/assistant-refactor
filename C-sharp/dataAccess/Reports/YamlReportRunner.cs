@@ -53,11 +53,24 @@ namespace dataAccess.Reports
         /// </summary>
         /// <param name="intent">The intent string (e.g., "reports.sales", "reports.inventory", "reports.expenses")</param>
         /// <param name="plannerResult">The validated planner result with slots</param>
+        /// <param name="userId">User ID for multi-tenancy scoping</param>
+        /// <param name="businessId">Business ID for multi-tenancy scoping (optional)</param>
         /// <param name="ct">Cancellation token</param>
-        public async Task<OrchestrationStepResult> RunReportAsync(string intent, PlannerResult plannerResult, CancellationToken ct = default)
+        public async Task<OrchestrationStepResult> RunReportAsync(
+            string intent,
+            PlannerResult plannerResult,
+            Guid userId,
+            int? businessId,
+            CancellationToken ct = default)
         {
             try
             {
+                _logger.LogInformation(
+                    "[MULTI-TENANCY] 📈 ReportRunner executing | UserId: {UserId}, BusinessId: {BusinessId}, Intent: {Intent}",
+                    userId,
+                    businessId,
+                    intent);
+
                 // 1) Extract report name from intent string (e.g., "reports.sales" → "sales")
                 var reportName = intent.Replace("reports.", "").Trim();
                 if (string.IsNullOrWhiteSpace(reportName))
@@ -233,7 +246,8 @@ namespace dataAccess.Reports
                     Meta: metaDoc
                 );
 
-                var reportId = await _reportStore.SaveAsync(record, ct);
+                // Save report with user/business context for multi-tenancy
+                var reportId = await _reportStore.SaveAsync(record, userId, businessId, ct);
 
                 // Return success with report data
                 return new OrchestrationStepResult
@@ -258,7 +272,7 @@ namespace dataAccess.Reports
             }
         }
 
-        public async Task<object> RunAsync(string domain, string userText, CancellationToken ct)
+        public async Task<object> RunAsync(string domain, string userText, Guid userId, int? businessId, CancellationToken ct)
         {
             // 1) Preprocess (time window + guardrails) - now uses LLM-based date parser
             var prep = await _pre.PrepareAsync(domain, userText, ct);
@@ -343,7 +357,8 @@ namespace dataAccess.Reports
                 Meta: metaDoc
             );
 
-            await _reportStore.SaveAsync(record, ct);
+            // Save report with user/business context for multi-tenancy
+            await _reportStore.SaveAsync(record, userId, businessId, ct);
 
             // 7) Return strict JSON UI
             return JsonSerializer.Deserialize<object>(doc.RootElement.GetRawText())!;

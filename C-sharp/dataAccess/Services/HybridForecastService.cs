@@ -7,6 +7,9 @@ using System.Threading.Tasks;
 
 namespace dataAccess.Services;
 
+public enum ForecastDomain { Sales, Expenses }
+public sealed record ForecastPoint(DateOnly Date, decimal Value, decimal Lower, decimal Upper);
+
 /// <summary>
 /// Hybrid forecasting service that combines EMA (short-term trends) 
 /// with CMA (long-term stability) for improved accuracy.

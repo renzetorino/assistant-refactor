@@ -134,10 +134,36 @@ public class ChatController : ControllerBase
                 ct: cancellationToken
             );
 
-            // Process query through orchestrator
+            // Extract business_id from middleware context for multi-tenancy scoping
+            int? businessId = HttpContext.Items.ContainsKey("BusinessId")
+                ? HttpContext.Items["BusinessId"] as int?
+                : null;
+
+            if (businessId.HasValue)
+            {
+                _logger.LogInformation(
+                    "[MULTI-TENANCY] ✅ Extracted BusinessId from context | UserId: {UserId}, BusinessId: {BusinessId}, Endpoint: /api/chat/query",
+                    callerUserId,
+                    businessId.Value);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "[MULTI-TENANCY] ⚠️ No BusinessId in context | UserId: {UserId}, Endpoint: /api/chat/query | Check JWT custom claims configuration",
+                    callerUserId);
+            }
+
+            // Process query through orchestrator with business context
+            _logger.LogDebug(
+                "[MULTI-TENANCY] Passing context to orchestrator | UserId: {UserId}, BusinessId: {BusinessId}, SessionId: {SessionId}",
+                callerUserId,
+                businessId,
+                sessionId);
+
             var result = await _orchestrator.HandleQueryAsync(
                 request.Query,
                 callerUserId,
+                businessId,
                 sessionId,
                 cancellationToken
             );

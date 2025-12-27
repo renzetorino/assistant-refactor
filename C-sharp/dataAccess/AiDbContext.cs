@@ -20,6 +20,10 @@ namespace dataAccess.Services
         // --- FAQ Search Logs ---
         public DbSet<FaqSearchLog> FaqSearchLogs { get; set; } = default!;
 
+        // --- Forecasts & Reports ---
+        public DbSet<Forecast> Forecasts { get; set; } = default!;
+        public DbSet<Report> Reports { get; set; } = default!;
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -126,6 +130,65 @@ namespace dataAccess.Services
                     .WithMany()
                     .HasForeignKey(x => x.MessageId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // =========================
+            // FORECASTS
+            // =========================
+            modelBuilder.Entity<Forecast>(e =>
+            {
+                e.ToTable("forecasts");
+                e.HasKey(x => x.Id);
+
+                e.Property(x => x.Id).HasColumnName("id");
+                e.Property(x => x.UserId).HasColumnName("user_id");
+                e.Property(x => x.BusinessId).HasColumnName("business_id");
+                e.Property(x => x.Domain).HasColumnName("domain");
+                e.Property(x => x.Target).HasColumnName("target");
+                e.Property(x => x.HorizonDays).HasColumnName("horizon_days");
+                e.Property(x => x.Params).HasColumnName("params").HasColumnType("jsonb");
+                e.Property(x => x.Status).HasColumnName("status");
+                e.Property(x => x.Result).HasColumnName("result").HasColumnType("jsonb");
+                e.Property(x => x.CreatedAt).HasColumnName("created_at");
+                e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+
+                e.HasIndex(x => x.UserId).HasDatabaseName("idx_forecasts_user_id");
+                e.HasIndex(x => x.BusinessId).HasDatabaseName("idx_forecasts_business_id");
+                e.HasIndex(x => x.CreatedAt).HasDatabaseName("idx_forecasts_created_at");
+                e.HasIndex(x => new { x.UserId, x.BusinessId }).HasDatabaseName("idx_forecasts_user_business");
+            });
+
+            // =========================
+            // REPORTS
+            // =========================
+            modelBuilder.Entity<Report>(e =>
+            {
+                e.ToTable("reports");
+                e.HasKey(x => x.Id);
+
+                e.Property(x => x.Id).HasColumnName("id");
+                e.Property(x => x.UserId).HasColumnName("user_id");
+                e.Property(x => x.BusinessId).HasColumnName("business_id");
+                e.Property(x => x.Domain).HasColumnName("domain");
+                e.Property(x => x.Scope).HasColumnName("scope");
+                e.Property(x => x.ReportType).HasColumnName("report_type");
+                e.Property(x => x.ProductId).HasColumnName("product_id");
+                e.Property(x => x.PeriodStart).HasColumnName("period_start");
+                e.Property(x => x.PeriodEnd).HasColumnName("period_end");
+                e.Property(x => x.PeriodLabel).HasColumnName("period_label");
+                e.Property(x => x.CompareToPrior).HasColumnName("compare_to_prior");
+                e.Property(x => x.TopK).HasColumnName("top_k");
+                e.Property(x => x.YamlName).HasColumnName("yaml_name");
+                e.Property(x => x.YamlVersion).HasColumnName("yaml_version");
+                e.Property(x => x.ModelName).HasColumnName("model_name");
+                e.Property(x => x.UiSpec).HasColumnName("ui_spec").HasColumnType("jsonb");
+                e.Property(x => x.Meta).HasColumnName("meta").HasColumnType("jsonb");
+                e.Property(x => x.CreatedAt).HasColumnName("created_at");
+
+                e.HasIndex(x => x.UserId).HasDatabaseName("idx_reports_user_id");
+                e.HasIndex(x => x.BusinessId).HasDatabaseName("idx_reports_business_id");
+                e.HasIndex(x => x.CreatedAt).HasDatabaseName("idx_reports_created_at");
+                e.HasIndex(x => new { x.UserId, x.BusinessId }).HasDatabaseName("idx_reports_user_business");
             });
         }
     }

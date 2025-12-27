@@ -65,26 +65,32 @@ namespace dataAccess.Reports
                     Meta: null
                 );
 
-                _ = await SaveAsync(record, ct); // discard Guid (back-compat)
+                // Legacy method: use empty Guid for backward compatibility
+                _ = await SaveAsync(record, Guid.Empty, null, ct); // discard Guid (back-compat)
             }
 
         // New rich overload -> unified table "public.reports"
-        public async Task<Guid> SaveAsync(ReportRecord r, CancellationToken ct = default)
+        public async Task<Guid> SaveAsync(ReportRecord r, Guid userId, int? businessId, CancellationToken ct = default)
         {
+            Console.WriteLine(
+                $"[MULTI-TENANCY] 💾 ReportRunStore.SaveAsync | UserId: {userId}, BusinessId: {businessId?.ToString() ?? "NULL"}, Domain: {r.Domain}, Period: {r.PeriodLabel}");
+
             await using var conn = new NpgsqlConnection(_vecConn);
             await conn.OpenAsync(ct);
 
             const string sql = @"
                 insert into public.reports
-                (domain, scope, report_type, product_id, period_start, period_end, period_label,
+                (user_id, business_id, domain, scope, report_type, product_id, period_start, period_end, period_label,
                  compare_to_prior, top_k, yaml_name, yaml_version, model_name, ui_spec, meta)
                 values
-                (@domain, @scope, @report_type, @product_id, @period_start::date, @period_end::date, @period_label,
+                (@user_id, @business_id, @domain, @scope, @report_type, @product_id, @period_start::date, @period_end::date, @period_label,
                  @compare_to_prior, @top_k, @yaml_name, @yaml_version, @model_name, @ui_spec::jsonb, @meta::jsonb)
                 returning id;";
 
             await using var cmd = new NpgsqlCommand(sql, conn);
 
+            cmd.Parameters.AddWithValue("user_id", userId);
+            cmd.Parameters.AddWithValue("business_id", (object?)businessId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("domain", r.Domain);
             cmd.Parameters.AddWithValue("scope", (object?)r.Scope ?? DBNull.Value);
             cmd.Parameters.AddWithValue("report_type", (object?)r.ReportType ?? DBNull.Value);
@@ -107,7 +113,12 @@ namespace dataAccess.Reports
 
             // Only ExecuteScalarAsync (because of RETURNING id)
             var idObj = await cmd.ExecuteScalarAsync(ct);
-            return (Guid)idObj!;
+            var reportId = (Guid)idObj!;
+
+            Console.WriteLine(
+                $"[MULTI-TENANCY] ✅ Report saved to database | ReportId: {reportId}, UserId: {userId}, BusinessId: {businessId?.ToString() ?? "NULL"}");
+
+            return reportId;
         }
     }
 }

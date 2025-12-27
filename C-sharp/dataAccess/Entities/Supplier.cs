@@ -14,5 +14,7 @@ namespace dataAccess.Entities
         public DateTime UpdatedAt { get; set; }
         public string? SupplierStatus { get; set; }
         public int? DefectReturned { get; set; }
+        public int? BusinessId { get; set; }
+        public Guid? UserId { get; set; }
     }
 }

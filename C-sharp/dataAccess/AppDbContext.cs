@@ -64,6 +64,8 @@ namespace dataAccess.Services
                 e.Property(x => x.UpdatedAt).HasColumnName("updatedat");
                 e.Property(x => x.SupplierStatus).HasColumnName("supplierstatus");
                 e.Property(x => x.DefectReturned).HasColumnName("defectreturned").IsRequired(false);
+                e.Property(x => x.BusinessId).HasColumnName("businessid").IsRequired(false);
+                e.Property(x => x.UserId).HasColumnName("userid").IsRequired(false);
             });
 
             // =========================
@@ -82,6 +84,8 @@ namespace dataAccess.Services
                 e.Property(p => p.UpdatedAt).HasColumnName("updatedat");
                 e.Property(p => p.ImageUrl).HasColumnName("image_url");
                 e.Property(p => p.UpdatedByUserId).HasColumnName("updatedbyuserid");
+                e.Property(p => p.CreatedByUserId).HasColumnName("createdbyuserid").IsRequired(false);
+                e.Property(p => p.BusinessId).HasColumnName("businessid").IsRequired(false);
 
                 e.HasMany(p => p.OrderItems)
                     .WithOne(oi => oi.Product)
@@ -129,6 +133,9 @@ namespace dataAccess.Services
                 b.Property(x => x.UpdatedAt).HasColumnName("updatedat").HasColumnType("timestamp without time zone");
                 b.Property(x => x.AmountPaid).HasColumnName("amount_paid");
                 b.Property(x => x.Change).HasColumnName("change");
+                b.Property(x => x.UserId).HasColumnName("userid").IsRequired(false);
+                b.Property(x => x.BusinessId).HasColumnName("businessid").IsRequired(false);
+                b.Property(x => x.OrderCode).HasColumnName("ordercode").IsRequired(false);
 
                 b.HasMany(o => o.OrderItems)
                     .WithOne(oi => oi.Order)
@@ -170,6 +177,7 @@ namespace dataAccess.Services
                 b.Property(x => x.CreatedAt).HasColumnName("createdat").HasColumnType("timestamp without time zone");
                 b.Property(x => x.UpdatedAt).HasColumnName("updatedat").HasColumnType("timestamp without time zone");
                 b.Property(x => x.ReportedByUserId).HasColumnName("reportedbyuserid");
+                b.Property(x => x.BusinessId).HasColumnName("businessid").IsRequired(false);
 
                 b.HasOne(x => x.Product)
                     .WithMany(p => p.DefectiveItems)
@@ -212,6 +220,7 @@ namespace dataAccess.Services
                 e.Property(x => x.Note).HasColumnName("note");
                 e.Property(x => x.CreatedAt).HasColumnName("created_at");
                 e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+                e.Property(x => x.BusinessId).HasColumnName("business_id").IsRequired(false);
             });
 
             // Label
@@ -225,6 +234,7 @@ namespace dataAccess.Services
                 e.Property(x => x.Name).HasColumnName("name").IsRequired();
                 e.Property(x => x.Color).HasColumnName("color");
                 e.Property(x => x.CreatedAt).HasColumnName("created_at");
+                e.Property(x => x.BusinessId).HasColumnName("business_id").IsRequired(false);
             });
 
             // Expense (add planned_payment_id, tax_json)
@@ -244,7 +254,8 @@ namespace dataAccess.Services
                 e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
                 e.Property(x => x.CreatedAt).HasColumnName("created_at");
                 e.Property(x => x.PlannedPaymentId).HasColumnName("planned_payment_id");
-                e.Property(x => x.TaxJson).HasColumnName("tax_json"); // jsonb
+                e.Property(x => x.TaxJson).HasColumnName("tax_json");
+                e.Property(x => x.BusinessId).HasColumnName("business_id").IsRequired(false);
 
                 e.HasOne(x => x.CategoryRef)
                     .WithMany()
@@ -287,7 +298,8 @@ namespace dataAccess.Services
                 e.Property(x => x.MonthYear).HasColumnName("month_year"); // date
                 e.Property(x => x.MonthlyBudgetAmount).HasColumnName("monthly_budget_amount").HasPrecision(18, 2);
                 e.Property(x => x.CreatedAt).HasColumnName("created_at");
-
+                e.Property(x => x.BusinessId).HasColumnName("business_id").IsRequired(false);
+                
                 e.HasIndex(x => x.MonthYear).IsUnique(false);
             });
 
@@ -327,6 +339,7 @@ namespace dataAccess.Services
                 e.Property(x => x.SizeBytes).HasColumnName("size_bytes");
                 e.Property(x => x.UploadedAt).HasColumnName("uploaded_at");
                 e.Property(x => x.CreatedAt).HasColumnName("created_at");
+                e.Property(x => x.BusinessId).HasColumnName("business_id").IsRequired(false);
             });
 
             // =========================

@@ -13,5 +13,13 @@ public interface IForecastRunnerService
     /// Performs slot validation against YAML rules before execution.
     /// Returns OrchestrationStepResult with clarification request if slots are missing.
     /// </summary>
-    Task<OrchestrationStepResult> RunForecastAsync(PlannerResult plannerResult, CancellationToken ct = default);
+    /// <param name="plannerResult">Planner result containing domain and validated slots</param>
+    /// <param name="userId">User ID for multi-tenancy scoping</param>
+    /// <param name="businessId">Business ID for multi-tenancy scoping (optional)</param>
+    /// <param name="ct">Cancellation token</param>
+    Task<OrchestrationStepResult> RunForecastAsync(
+        PlannerResult plannerResult,
+        Guid userId,
+        int? businessId,
+        CancellationToken ct = default);
 }

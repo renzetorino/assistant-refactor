@@ -23,13 +23,15 @@ public interface IChatOrchestratorService
     /// Handles a user query through the full pipeline.
     /// </summary>
     /// <param name="userQuery">The user's natural language query</param>
-    /// <param name="userId">The user ID for telemetry</param>
+    /// <param name="userId">The user ID for telemetry and multi-tenancy</param>
+    /// <param name="businessId">The business ID for multi-tenancy scoping (optional)</param>
     /// <param name="sessionId">Optional session ID for context</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Natural language response</returns>
     Task<ChatOrchestrationResult> HandleQueryAsync(
         string userQuery, 
-        Guid userId, 
+        Guid userId,
+        int? businessId = null,
         Guid? sessionId = null, 
         CancellationToken cancellationToken = default);
 
@@ -144,6 +146,7 @@ public class ChatOrchestratorService : IChatOrchestratorService
     public async Task<ChatOrchestrationResult> HandleQueryAsync(
         string userQuery,
         Guid userId,
+        int? businessId = null,
         Guid? sessionId = null,
         CancellationToken cancellationToken = default)
     {
@@ -158,6 +161,10 @@ public class ChatOrchestratorService : IChatOrchestratorService
         try
         {
             _logger.LogInformation("[Phase 4] Processing query for user {UserId}: {Query}", userId, userQuery);
+            _logger.LogDebug(
+                "[MULTI-TENANCY] Orchestrator received context | UserId: {UserId}, BusinessId: {BusinessId}",
+                userId,
+                businessId);
 
             // ═══════════════════════════════════════════════════════════════
             // A. CHECK FOR PENDING STATE (Slot-Filling Resume)
@@ -512,7 +519,7 @@ public class ChatOrchestratorService : IChatOrchestratorService
                     _logger.LogWarning("   Spec File: {SpecFile}", specFileName);
                     _logger.LogWarning("   Slots: {Slots}", JsonSerializer.Serialize(finalPlan.Slots));
                     
-                    stepResult = await _reportRunner.RunReportAsync(normalizedDomainIntent, finalPlan, cancellationToken);
+                    stepResult = await _reportRunner.RunReportAsync(normalizedDomainIntent, finalPlan, userId, businessId, cancellationToken);
                     
                     _logger.LogWarning("🔍 DEBUG: REPORT RUNNER COMPLETED - Success: {Success}", stepResult.IsSuccess);
                 }
@@ -524,7 +531,7 @@ public class ChatOrchestratorService : IChatOrchestratorService
                     _logger.LogWarning("   Spec File: {SpecFile}", specFileName);
                     _logger.LogWarning("   Slots: {Slots}", JsonSerializer.Serialize(finalPlan.Slots));
                     
-                    stepResult = await _forecastRunner.RunForecastAsync(finalPlan, cancellationToken);
+                    stepResult = await _forecastRunner.RunForecastAsync(finalPlan, userId, businessId, cancellationToken);
                     
                     _logger.LogWarning("🔍 DEBUG: FORECAST RUNNER COMPLETED - Success: {Success}", stepResult.IsSuccess);
                 }

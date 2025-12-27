@@ -9,15 +9,10 @@ namespace dataAccess.Api.Controllers;
 public sealed class ForecastController : ControllerBase
 {
     private readonly HybridForecastService _hybridSvc;
-    
-#pragma warning disable CS0618 // Type or member is obsolete
-    private readonly SimpleForecastService _legacySvc;
 
-    public ForecastController(HybridForecastService hybridSvc, SimpleForecastService legacySvc)
-#pragma warning restore CS0618
+    public ForecastController(HybridForecastService hybridSvc)
     {
         _hybridSvc = hybridSvc;
-        _legacySvc = legacySvc;
     }
 
     /// <summary>
@@ -28,7 +23,6 @@ public sealed class ForecastController : ControllerBase
     /// <param name="beta">EMA vs CMA blend weight (0-1, default: 0.7)</param>
     /// <param name="from">Historical data start date</param>
     /// <param name="to">Historical data end date</param>
-    /// <param name="legacy">Use legacy CMA-only method (deprecated)</param>
     [HttpGet("sales")]
     public async Task<IActionResult> Sales(
         [FromQuery] int days = 30,
@@ -36,16 +30,8 @@ public sealed class ForecastController : ControllerBase
         [FromQuery] double beta = 0.7,
         [FromQuery] DateOnly? from = null,
         [FromQuery] DateOnly? to = null,
-        [FromQuery] bool legacy = false,
         CancellationToken ct = default)
     {
-        if (legacy)
-        {
-#pragma warning disable CS0618 // Type or member is obsolete
-            return Ok(await _legacySvc.ForecastAsync(ForecastDomain.Sales, Clamp(days), from, to, ct));
-#pragma warning restore CS0618
-        }
-
         return Ok(await _hybridSvc.ForecastAsync(
             ForecastDomain.Sales,
             Clamp(days),
@@ -66,16 +52,8 @@ public sealed class ForecastController : ControllerBase
         [FromQuery] double beta = 0.7,
         [FromQuery] DateOnly? from = null,
         [FromQuery] DateOnly? to = null,
-        [FromQuery] bool legacy = false,
         CancellationToken ct = default)
     {
-        if (legacy)
-        {
-#pragma warning disable CS0618 // Type or member is obsolete
-            return Ok(await _legacySvc.ForecastAsync(ForecastDomain.Expenses, Clamp(days), from, to, ct));
-#pragma warning restore CS0618
-        }
-
         return Ok(await _hybridSvc.ForecastAsync(
             ForecastDomain.Expenses,
             Clamp(days),

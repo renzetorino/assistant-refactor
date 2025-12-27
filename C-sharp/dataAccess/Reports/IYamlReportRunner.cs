@@ -15,6 +15,13 @@ public interface IYamlReportRunner
     /// </summary>
     /// <param name="intent">The intent string (e.g., "reports.sales", "reports.inventory", "reports.expenses")</param>
     /// <param name="plannerResult">The validated planner result with slots</param>
+    /// <param name="userId">User ID for multi-tenancy scoping</param>
+    /// <param name="businessId">Business ID for multi-tenancy scoping (optional)</param>
     /// <param name="ct">Cancellation token</param>
-    Task<OrchestrationStepResult> RunReportAsync(string intent, PlannerResult plannerResult, CancellationToken ct = default);
+    Task<OrchestrationStepResult> RunReportAsync(
+        string intent,
+        PlannerResult plannerResult,
+        Guid userId,
+        int? businessId,
+        CancellationToken ct = default);
 }

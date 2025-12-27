@@ -12,10 +12,9 @@
         public Guid? ContactId { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public DateTime CreatedAt { get; set; }
-
-        // NEW
         public Guid? PlannedPaymentId { get; set; }
         public string? TaxJson { get; set; }
+        public int? BusinessId { get; set; }
 
         public Category? CategoryRef { get; set; }
         public Contact? ContactRef { get; set; }

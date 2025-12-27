@@ -1,5 +1,6 @@
 using dataAccess.Api;
 // ❌ REMOVED: using dataAccess.Api.Endpoints; (AssistantEndpoint deleted)
+using dataAccess.Api.Middleware;
 using dataAccess.Api.Services;
 using dataAccess.Services;
 using dataAccess.Planning;
@@ -107,9 +108,8 @@ Console.WriteLine("[Boot] REL = " + Mask(rel));
 try { Console.WriteLine("[Boot] VEC = " + Mask(ResolveVecConn(builder.Configuration))); }
 catch { Console.WriteLine("[Boot] VEC = <missing>"); }
 
-// Forecasting services (Hybrid EMA/CMA is primary; SimpleForecast kept for backward compatibility)
+// Forecasting services (Hybrid EMA/CMA approach)
 builder.Services.AddScoped<HybridForecastService>();
-builder.Services.AddScoped<SimpleForecastService>();
 builder.Services.AddScoped<ISqlCatalog, SqlCatalog>();
 builder.Services.AddScoped<dataAccess.Forecasts.IForecastStore, dataAccess.Forecasts.ForecastStore>();
 
@@ -682,55 +682,10 @@ static double? SafePct(double prev, double cur)
 
 static string NewRunId() => $"r_sales_{Guid.NewGuid():N}".ToLowerInvariant();
 
-// ⚠️ DEPRECATION LAYER - Task 2.1 (Block 1, Hour 2-3)
-// Middleware to mark legacy endpoints with deprecation headers
-app.Use(async (context, next) =>
-{
-    var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
-    
-    // List of deprecated endpoints that bypass ChatOrchestratorService
-    var legacyEndpoints = new Dictionary<string, string>
-    {
-        { "/api/nlq", "Natural Language Query (bypasses orchestrator)" },
-        { "/api/sql/products", "Product list (direct SQL access)" },
-        { "/api/sql/suppliers", "Supplier list (direct SQL access)" },
-        { "/api/sql/productcategory", "Category list (direct SQL access)" },
-        { "/api/sql/route", "SQL routing (direct SQL execution - CRITICAL RISK)" },
-        { "/api/hybrid/route", "Hybrid query (SQL+Vector without orchestrator)" },
-        { "/api/vector/route", "Vector search (bypasses orchestrator)" },
-        { "/api/assistant", "Legacy assistant (replaced by /api/chat/query)" }
-    };
-    
-    var matchedEndpoint = legacyEndpoints.Keys.FirstOrDefault(endpoint => path.StartsWith(endpoint));
-    
-    if (matchedEndpoint != null)
-    {
-        // Log deprecation warning
-        var logger = context.RequestServices.GetRequiredService<ILoggerFactory>()
-            .CreateLogger("DeprecationMiddleware");
-        logger.LogWarning(
-            "⚠️ DEPRECATED ENDPOINT ACCESSED: {Path} - {Description}. Use /api/chat/query instead.",
-            matchedEndpoint,
-            legacyEndpoints[matchedEndpoint]
-        );
-        
-        // Add deprecation headers (will be added after endpoint processes)
-        context.Response.OnStarting(() =>
-        {
-            context.Response.Headers["X-Deprecated"] = "true";
-            context.Response.Headers["X-Replacement"] = "/api/chat/query";
-            context.Response.Headers["X-Sunset-Date"] = "2025-12-31";
-            context.Response.Headers["X-Deprecation-Info"] = legacyEndpoints[matchedEndpoint];
-            return Task.CompletedTask;
-        });
-    }
-    
-    await next(context);
-});
-
 app.UseCors("default");
 app.UseRateLimiter(); // Apply rate limiting before authentication
 app.UseAuthentication();
+app.UseBusinessScoping(); // ✅ Extract user_id and business_id from JWT for multi-tenancy
 app.UseAuthorization();
 app.MapControllers();
 
@@ -754,7 +709,12 @@ app.MapPost("/api/debug/sk-orchestrate", async (
             );
         }
 
-        var result = await orchestrator.HandleQueryAsync(req.Query, userId, null, ct);
+        // Extract business_id from middleware context for multi-tenancy scoping
+        int? businessId = httpContext.Items.ContainsKey("BusinessId")
+            ? httpContext.Items["BusinessId"] as int?
+            : null;
+
+        var result = await orchestrator.HandleQueryAsync(req.Query, userId, businessId, null, ct);
         return Results.Ok(result);
     }
     catch (Exception ex)
@@ -1826,7 +1786,9 @@ app.MapPost("/api/assistant", async (
         
         // Phase 3: Use YAML-driven slot-filling (no hardcoded fallbacks)
         // The yamlRunner will handle slot validation and return clarification prompts if needed
-        var ui = await yamlRunner.RunAsync(chosenDomain, userText, ct);
+        // TODO: DEPRECATED ENDPOINT - Extract userId/businessId from JWT and pass to yamlRunner.RunAsync()
+        // This endpoint is marked for removal. Use /api/chat/query instead.
+        var ui = await yamlRunner.RunAsync(chosenDomain, userText, Guid.Empty, null, ct);
 
         return Results.Json(new
         {
@@ -2085,40 +2047,6 @@ app.MapPost("/api/assistant", async (
         }, statusCode: 500);
     }
 }).RequireAuthorization("ApiUser"); // Enforce JWT authentication with ApiUser policy
-
-// ⚠️ STARTUP WARNING - Task 2.2 (Block 1, Hour 2-3)
-// Display deprecated endpoints warning on every application start
-Console.WriteLine();
-Console.WriteLine("╔════════════════════════════════════════════════════════════════════════════╗");
-Console.WriteLine("║                    ⚠️  DEPRECATED ENDPOINTS WARNING  ⚠️                    ║");
-Console.WriteLine("╚════════════════════════════════════════════════════════════════════════════╝");
-Console.WriteLine();
-Console.WriteLine("The following 8 endpoints bypass ChatOrchestratorService and are DEPRECATED:");
-Console.WriteLine();
-Console.WriteLine("  🔴 CRITICAL RISK:");
-Console.WriteLine("     • POST /api/sql/route          - Direct SQL execution (security risk)");
-Console.WriteLine("     • POST /api/hybrid/route       - SQL+Vector without validation");
-Console.WriteLine();
-Console.WriteLine("  🟠 HIGH RISK:");
-Console.WriteLine("     • POST /api/nlq                - Natural language query (no validation)");
-Console.WriteLine("     • GET  /api/sql/products       - Direct database access");
-Console.WriteLine("     • GET  /api/sql/suppliers      - Direct database access");
-Console.WriteLine("     • GET  /api/sql/productcategory - Direct database access");
-Console.WriteLine();
-Console.WriteLine("  🟡 MEDIUM RISK:");
-Console.WriteLine("     • POST /api/vector/route       - Vector search bypass");
-Console.WriteLine("     • POST /api/assistant          - Legacy YAML routing");
-Console.WriteLine();
-Console.WriteLine("  📅 SUNSET DATE: December 31, 2025");
-Console.WriteLine("  ✅ REPLACEMENT: POST /api/chat/query (unified orchestrator)");
-Console.WriteLine();
-Console.WriteLine("  📊 All requests to deprecated endpoints will:");
-Console.WriteLine("     - Return X-Deprecated: true header");
-Console.WriteLine("     - Log warning messages");
-Console.WriteLine("     - Continue functioning (soft deprecation)");
-Console.WriteLine();
-Console.WriteLine("╚════════════════════════════════════════════════════════════════════════════╝");
-Console.WriteLine();
 
 app.Run();
 

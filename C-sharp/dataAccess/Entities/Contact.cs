@@ -7,9 +7,10 @@
         public string Name { get; set; } = "";
         public string? Phone { get; set; }
         public string? Email { get; set; }
-        public string? Address { get; set; }   // NEW
-        public string? Note { get; set; }      // NEW
+        public string? Address { get; set; }
+        public string? Note { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public int? BusinessId { get; set; }
     }
 }

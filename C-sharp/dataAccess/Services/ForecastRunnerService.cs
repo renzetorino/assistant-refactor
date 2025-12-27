@@ -35,10 +35,21 @@ public sealed class ForecastRunnerService : IForecastRunnerService
     /// Phase 3: Run forecast with YAML-driven slot validation.
     /// NO hardcoded fallbacks - validates required slots from YAML before execution.
     /// </summary>
-    public async Task<OrchestrationStepResult> RunForecastAsync(PlannerResult plannerResult, CancellationToken ct = default)
+    /// <param name="plannerResult">Planner result containing domain and validated slots</param>
+    /// <param name="userId">User ID for multi-tenancy scoping</param>
+    /// <param name="businessId">Business ID for multi-tenancy scoping (optional)</param>
+    /// <param name="ct">Cancellation token</param>
+    public async Task<OrchestrationStepResult> RunForecastAsync(
+        PlannerResult plannerResult,
+        Guid userId,
+        int? businessId,
+        CancellationToken ct = default)
     {
         try
         {
+            Console.WriteLine(
+                $"[MULTI-TENANCY] 📊 ForecastRunner executing | UserId: {userId}, BusinessId: {businessId?.ToString() ?? "NULL"}, Domain: {plannerResult.Domain}");
+
             // 1) Determine spec file based on domain
             var domain = (plannerResult.Domain ?? "sales").Trim().ToLowerInvariant();
             var specFile = domain switch
@@ -151,7 +162,10 @@ public sealed class ForecastRunnerService : IForecastRunnerService
             var resultNode = System.Text.Json.Nodes.JsonNode.Parse(resultJson)?.AsObject() 
                 ?? new System.Text.Json.Nodes.JsonObject();
 
+            // Save forecast with user/business context for multi-tenancy
             var forecastId = await _forecastStore.SaveAsync(
+                userId: userId,
+                businessId: businessId,
                 domain: domain,
                 target: "overall", // Could be enhanced to support product-level forecasts
                 horizonDays: forecastDays,
