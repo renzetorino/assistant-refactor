@@ -4,7 +4,8 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "../stylecss/ProductAvailability.css";
 
-const ProductAvailability = ({ lowStockProducts }) => {
+
+const ProductAvailability = ({ lowStockProducts, user }) => {
   const [loadingIds, setLoadingIds] = useState([]);
   const [showHelp, setShowHelp] = useState(false);
 
@@ -13,13 +14,18 @@ const ProductAvailability = ({ lowStockProducts }) => {
     setLoadingIds((prev) => [...prev, id]);
 
     try {
+      if (!user || !user.userid) {
+        toast.error("User not found. Cannot reorder.");
+        return;
+      }
+
       const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/reorder`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productid: category.productid,
           productcategoryid: category.productcategoryid,
-          supplierid: category.product?.supplierid,
+          userid: user.userid, // ✅ pass logged-in user's ID
         }),
       });
 
@@ -130,7 +136,7 @@ const ProductAvailability = ({ lowStockProducts }) => {
                     </div>
 
                     <div className="extra-info">
-                      <span className="deficit">Deficit: {deficit > 0 ? deficit : 0}</span>
+                      <span className="deficit">Deficit: {deficit}</span>
                       <span className="time">Updated {lastUpdated}</span>
                     </div>
 

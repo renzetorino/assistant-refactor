@@ -1,6 +1,11 @@
 import { supabase } from "../supabase";
 
-export const fetchActiveBatches = async () => {
+/* ===============================
+   ACTIVE (NOT YET INHERITED)
+================================ */
+export const fetchActiveBatches = async (businessId) => {
+  if (!businessId) throw new Error("businessId is required");
+
   const { data, error } = await supabase
     .from("restockstorage")
     .select(`
@@ -11,10 +16,22 @@ export const fetchActiveBatches = async () => {
       new_price,
       datereceived,
       dateInherited,
-      products (productid, productname),
-      productcategory (productcategoryid, color, agesize, currentstock, reorderpoint),
-      suppliers (suppliername)
+      products (
+        productid,
+        productname
+      ),
+      productcategory (
+        productcategoryid,
+        color,
+        agesize,
+        currentstock,
+        reorderpoint
+      ),
+      suppliers (
+        suppliername
+      )
     `)
+    .eq("businessid", businessId)   // ✅ FIXED
     .is("dateInherited", null)
     .order("created_at", { ascending: false });
 
@@ -22,7 +39,13 @@ export const fetchActiveBatches = async () => {
   return data;
 };
 
-export const fetchInheritedBatches = async () => {
+
+/* ===============================
+   INHERITED BATCHES
+================================ */
+export const fetchInheritedBatches = async (businessId) => {
+  if (!businessId) throw new Error("businessId is required");
+
   const { data, error } = await supabase
     .from("restockstorage")
     .select(`
@@ -33,10 +56,20 @@ export const fetchInheritedBatches = async () => {
       new_price,
       datereceived,
       dateInherited,
-      products (productid, productname),
-      productcategory (productcategoryid, color, agesize),
-      suppliers (suppliername)
+      products (
+        productid,
+        productname
+      ),
+      productcategory (
+        productcategoryid,
+        color,
+        agesize
+      ),
+      suppliers (
+        suppliername
+      )
     `)
+    .eq("businessid", businessId)   // ✅ CONSISTENT
     .not("dateInherited", "is", null)
     .order("dateInherited", { ascending: false });
 

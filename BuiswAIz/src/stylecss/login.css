@@ -320,3 +320,21 @@ body, html {
     font-size: 14px;
   }
 }
+
+.signup-button {
+  width: 100%;
+  margin-top: 16px;
+  padding: 16px;
+  background: transparent;
+  border: 2px solid #6366f1;
+  color: #6366f1;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.signup-button:hover {
+  background: #6366f1;
+  color: #ffffff;
+}

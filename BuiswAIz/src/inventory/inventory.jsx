@@ -12,8 +12,7 @@ import { fetchLowStockProducts } from "../inventory/fetchLowStockProduct";
 import { fetchDefectiveItems } from "../inventory/fetchdefectitem";
 import DefectivePanel from "../inventory/DefectivePanel";
 import InheritedBatches from "../inventory/inheritedBatches";
-import ProductAvailability from "../inventory/ProductAvailability";   
-
+import ProductAvailability from "../inventory/ProductAvailability";
 
 const Inventory = () => {
   const [products, setProducts] = useState([]);
@@ -30,29 +29,37 @@ const Inventory = () => {
   const [showExchangeModal, setShowExchangeModal] = useState(false);
   const [showHelpInventory, setShowHelpInventory] = useState(false);
 
+  // -----------------------------
+  // Load products filtered by business
+  // -----------------------------
   const loadProducts = async () => {
+    if (!user) return;
     try {
-      const data = await fetchProducts();
+      const data = await fetchProducts(user.business_id); // pass business_id
       setProducts(data);
     } catch (err) {
       console.error("Error loading products", err);
     }
-    
   };
+
   const loadLowStock = async () => {
-    const data = await fetchLowStockProducts();
+    if (!user) return;
+    const data = await fetchLowStockProducts(user.business_id);
     setLowStockProducts(data);
   };
 
   const loadDefectiveItems = async () => {
-    const data = await fetchDefectiveItems();
+    if (!user) return;
+    const data = await fetchDefectiveItems(user.business_id);
     setDefectiveItems(data);
   };
 
   const loadActivityLogs = async () => {
+    if (!user) return;
     const { data, error } = await supabase
       .from("activitylog")
       .select("*, systemuser(username)")
+      .eq("businessid", user.business_id) // filter by business
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -60,12 +67,11 @@ const Inventory = () => {
       return;
     }
 
-    setActivityLogs(data.slice(0, 50)); 
+    setActivityLogs(data.slice(0, 50));
 
-    
     if (data.length > 50) {
-      const logsToDelete = data.slice(50); 
-      const idsToDelete = logsToDelete.map(log => log.activity_id); 
+      const logsToDelete = data.slice(50);
+      const idsToDelete = logsToDelete.map((log) => log.activity_id);
 
       const { error: deleteError } = await supabase
         .from("activitylog")
@@ -80,41 +86,54 @@ const Inventory = () => {
     }
   };
 
-
+  // -----------------------------
+  // Load current user and initialize
+  // -----------------------------
   useEffect(() => {
     const getUser = async () => {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) {
-      window.location.href = '/';
-      return;
-    }
 
-    const { data: profile, error: profileError } = await supabase
-      .from('systemuser')
-      .select('*')
-      .eq('userid', user.id)
-      .single();
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+        window.location.href = '/'; // redirect to login
+        return;
+      }
 
-    if (profileError) {
-      console.error("Error fetching user profile:", profileError);
-      return;
-    }
+      const { data: profile, error: profileError } = await supabase
+        .from("systemuser")
+        .select("*")
+        .eq("userid", user.id)
+        .single();
 
-    setUser(profile);
-  };
+      if (profileError) {
+        console.error("Error fetching user profile:", profileError);
+        return;
+      }
+
+      setUser(profile);
+    };
+
     getUser();
+  }, []);
+
+  // -----------------------------
+  // Load data once user is set
+  // -----------------------------
+  useEffect(() => {
+    if (!user) return;
+
     loadProducts();
     loadLowStock();
     loadDefectiveItems();
     loadActivityLogs();
+
     const interval = setInterval(() => {
       loadLowStock();
       loadActivityLogs();
       loadDefectiveItems();
     }, 5000);
 
-    return () => clearInterval(interval); 
-  }, []);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const filteredProducts = products.filter((product) =>
     product.productname.toLowerCase().includes(searchTerm.toLowerCase())
@@ -177,11 +196,18 @@ const Inventory = () => {
                 </div>
               </div>
               <div className="panel-actions">
-                <input id="inventorySearch" className="inventory-search" type="text" placeholder="Search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                <input
+                  id="inventorySearch"
+                  className="inventory-search"
+                  type="text"
+                  placeholder="Search"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
                 <button className="restock-storage-button" onClick={() => setrestockStorage(true)}> Restock Storage</button>
                 <button className="exchange-product-button" onClick={() => setShowExchangeModal(true)}>
                   ↔ Product Exchange
-                  </button>
+                </button>
                 <button className="add-product-button" onClick={() => setShowModal(true)}>
                   + Add Product
                 </button>
@@ -226,49 +252,49 @@ const Inventory = () => {
                 </tbody>
               </table>
             </div>
-
             <InheritedBatches user={user}/>
           </div>
-                            
+
+
+          {/* Right Panel */}
           <div className="I-right-panel">
             <div className="I-user-info-card">
               <div className="I-user-left">
                 <div className="I-user-avatar" />
-                <div className="I-user-username">
-                  {user ? user.username : "Loading..."}
-                </div>
+                <div className="I-user-username">{user ? user.username : "Loading..."}</div>
               </div>
-                <button
-                  className="logout-button"
-                  onClick={async () => {
-                    await supabase.auth.signOut();
-                    localStorage.removeItem("userProfile");
-                    localStorage.removeItem('lastActive');
-                    window.location.href = "/login";
-                  }}
-                >
-                  ⏻
+
+                
+
+              <button
+                className="logout-button"
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  localStorage.removeItem("userProfile");
+                  localStorage.removeItem("lastActive");
+                  window.location.href = "/login";
+                }}
+              >
+                ⏻
+
               </button>
             </div>
 
-            <ProductAvailability lowStockProducts={lowStockProducts}/>
+            <ProductAvailability lowStockProducts={lowStockProducts} user={user}/>
 
-            <DefectivePanel 
-              defectiveItems={defectiveItems} 
-              user={user} 
+            <DefectivePanel
+              defectiveItems={defectiveItems}
+              user={user}
               loadDefectiveItems={loadDefectiveItems}
               onAddDefect={() => setShowDefectModal(true)}
             />
-
           </div>
         </div>
       </div>
 
       {restockStorage && (
         <div className="restock-container">
-          <RestockStorage onClose={() => setrestockStorage(false)} 
-            user={user}
-          />
+          <RestockStorage onClose={() => setrestockStorage(false)} user={user} />
         </div>
       )}
 
@@ -279,7 +305,7 @@ const Inventory = () => {
             loadProducts();
             loadActivityLogs();
           }}
-           user={user}
+          user={user}
         />
       )}
 

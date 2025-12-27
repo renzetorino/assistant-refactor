@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchSupplier, fetchSupplierWithProducts } from "../supplier/fetchsuppliertable";
 import { supabase } from "../supabase";
 import "../stylecss/supplier.css";
 import AddSupplier from "../supplier/AddSupplier";
@@ -19,66 +18,83 @@ const Supplier = () => {
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showExchangeTable, setShowExchangeTable] = useState(false);
-  const [formError, setFormError] = useState("");
   const [newCost, setNewCost] = useState(0);
-  const [confirmedExchangeCount, setConfirmedExchangeCount] = useState(0);
-
-  // Help tooltip states
+  const [confirmedExchangeCount, setConfirmedExchangeCount] = useState(0)
   const [showHelpSupplierTable, setShowHelpSupplierTable] = useState(false);
   const [showHelpOrders, setShowHelpOrders] = useState(false);
   const [showHelpReturned, setShowHelpReturned] = useState(false);
   const [showHelpStats, setShowHelpStats] = useState(false);
 
-  // Load suppliers
-  const loadSupplier = async () => {
+  // Load suppliers based on business_id
+  const loadSupplier = async (businessid) => {
     try {
-      const data = await fetchSupplier();
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("*")
+        .eq("businessid", businessid)
+        .order("supplierid", { ascending: true });
+
+      if (error) throw error;
       setSuppliers(data);
     } catch (err) {
       console.error("Error loading suppliers:", err);
     }
   };
 
-  // Load supplier stats
-  const loadSupplierStats = async () => {
+  // Load supplier stats based on business_id
+  const loadSupplierStats = async (businessid) => {
     try {
-      const data = await fetchSupplierWithProducts();
+      const { data, error } = await supabase
+        .from("supplier_with_products")
+        .select("*")
+        .eq("businessid", businessid)
+        .order("totalproducts", { ascending: false });
+
+      if (error) throw error;
       setSupplierStats(data);
     } catch (err) {
       console.error("Error loading supplier stats:", err);
     }
   };
 
-  // Load orders
-  const loadOrders = async () => {
-    const { data, error } = await supabase
-      .from("purchase_orders")
-      .select(`
-        purchaseorderid,
-        productid,
-        productcategoryid,
-        supplierid,
-        unit_cost,
-        total_cost,
-        order_qty,
-        status,
-        received_at,
-        products ( productname ),
-        productcategory ( color, agesize )
-      `)
-      .order("created_at", { ascending: false });
+  // Load orders filtered by business_id
+  const loadOrders = async (businessid) => {
+    if (!businessid) return;
 
-    if (error) throw error;
-    setOrders(data);
+    try {
+      const { data, error } = await supabase
+        .from("purchase_orders")
+        .select(`
+          purchaseorderid,
+          productid,
+          productcategoryid,
+          supplierid,
+          unit_cost,
+          total_cost,
+          order_qty,
+          status,
+          received_at,
+          products ( productname ),
+          productcategory ( color, agesize )
+        `)
+        .eq("businessid", businessid) // ✅ filter by business
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setOrders(data);
+    } catch (err) {
+      console.error("Error loading orders:", err);
+    }
   };
 
   // Load confirmed product exchanges
-  const loadConfirmedExchanges = async () => {
+  const loadConfirmedExchanges = async (businessid) => {
     try {
       const { count, error } = await supabase
         .from("productExchange")
         .select("*", { count: "exact", head: true })
-        .eq("status", "Confirmed");
+        .eq("status", "Confirmed")
+        .eq("businessid", businessid);
 
       if (error) throw error;
       setConfirmedExchangeCount(count || 0);
@@ -97,7 +113,6 @@ const Supplier = () => {
     try {
       const receivedAt = new Date();
 
-      // Insert into restockstorage first
       const { error: restockError } = await supabase.from("restockstorage").insert({
         productid: selectedOrder.productid,
         productcategoryid: selectedOrder.productcategoryid,
@@ -112,7 +127,6 @@ const Supplier = () => {
 
       if (restockError) throw restockError;
 
-      // Insert into expenses
       const actualPayment = newCost * selectedOrder.order_qty;
       const { error: expenseError } = await supabase.from("expenses").insert({
         user_id: user?.userid || null,
@@ -125,7 +139,6 @@ const Supplier = () => {
 
       if (expenseError) throw expenseError;
 
-      // Delete the order from purchase_orders
       const { error: deleteError } = await supabase
         .from("purchase_orders")
         .delete()
@@ -133,42 +146,46 @@ const Supplier = () => {
 
       if (deleteError) throw deleteError;
 
-      // Cleanup
       setShowReceiveModal(false);
       setSelectedOrder(null);
-      loadOrders();
+      loadOrders(user.business_id);
     } catch (err) {
       console.error("Error processing received order:", err);
     }
   };
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) {
-        window.location.href = "/";
-        return;
+    const getUserAndData = async () => {
+      try {
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+        if (authError || !authUser) {
+          window.location.href = "/";
+          return;
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from("systemuser")
+          .select("*")
+          .eq("userid", authUser.id)
+          .single();
+
+        if (profileError) throw profileError;
+        setUser(profile);
+
+        // Load all data for this business
+        const businessid = profile.business_id;
+        await loadSupplier(businessid);
+        await loadSupplierStats(businessid);
+        await loadConfirmedExchanges(businessid);
+        await loadOrders(businessid);
+      } catch (err) {
+        console.error("Error fetching user/profile:", err);
       }
-
-      const { data: profile, error: profileError } = await supabase
-        .from("systemuser")
-        .select("*")
-        .eq("userid", user.id)
-        .single();
-
-      if (profileError) {
-        console.error("Error fetching user profile:", profileError);
-        return;
-      }
-
-      setUser(profile);
     };
 
-    getUser();
-    loadSupplier();
-    loadSupplierStats();
-    loadOrders();
-    loadConfirmedExchanges();
+
+    getUserAndData();
+
   }, []);
 
   const filteredSuppliers = suppliers.filter((s) =>
@@ -182,6 +199,7 @@ const Supplier = () => {
 
   return (
     <div className="supplier-page">
+      {/* Header */}
       <header className="header-bar">
         <h1 className="header-title">BuiswAIz</h1>
       </header>
@@ -249,7 +267,6 @@ const Supplier = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
-                {/* Exchange Button with Notification Badge */}
                 <button
                   className="exchange-btn"
                   onClick={() => setShowExchangeTable(true)}
@@ -575,8 +592,8 @@ const Supplier = () => {
         <AddSupplier
           onClose={() => {
             setShowModal(false);
-            loadSupplier();
-            loadSupplierStats();
+            if(user) loadSupplier(user.business_id);
+            if(user) loadSupplierStats(user.business_id);
           }}
           user={user}
         />
@@ -586,7 +603,9 @@ const Supplier = () => {
         <ExchangeTable
           onClose={() => {
             setShowExchangeTable(false);
-            loadConfirmedExchanges();
+
+            if(user) loadConfirmedExchanges(user.business_id);
+
           }}
           user={user}
         />
@@ -597,8 +616,8 @@ const Supplier = () => {
           supplier={selectedSupplier}
           onClose={() => {
             setSelectedSupplier(null);
-            loadSupplier();
-            loadSupplierStats();
+            if(user) loadSupplier(user.business_id);
+            if(user) loadSupplierStats(user.business_id);
           }}
           user={user}
         />
