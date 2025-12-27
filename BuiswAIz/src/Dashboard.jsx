@@ -392,11 +392,6 @@ const Dashboard = () => {
     <div className="dashboard-page">
       <header className="header-bar">
         <h1 className="header-title">BuiswAIz</h1>
-        {businessInfo && (
-          <div className="business-info-header">
-            <span className="business-name">{businessInfo.businessname}</span>
-          </div>
-        )}
       </header>
 
       <div className="main-section">
