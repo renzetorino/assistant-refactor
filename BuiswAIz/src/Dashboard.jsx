@@ -24,6 +24,31 @@ const Dashboard = () => {
   const [expenseChartData, setExpenseChartData] = useState([]);
   const [activityLogs, setActivityLogs] = useState([]);
 
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+        navigate('/login');
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('systemuser')
+        .select('*')
+        .eq('userid', user.id)
+        .maybeSingle();
+
+      if (profileError || !profile?.username || !profile?.business_id) {
+        navigate('/setup-business');
+        return;
+      }
+
+      setUser(profile);
+    };
+
+    fetchUser();
+  }, [navigate]);
+
 
   function downloadTemplate() {
     const headers = [

@@ -8,14 +8,14 @@ const AddProduct = ({ onClose, user }) => {
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Product-level state
+  // Product fields
   const [formData, setFormData] = useState({
     productname: "",
     description: "",
     suppliername: "",
   });
 
-  // Dynamic category state
+  // Category rows
   const [categories, setCategories] = useState([
     {
       color: "",
@@ -27,19 +27,30 @@ const AddProduct = ({ onClose, user }) => {
     },
   ]);
 
+  // -----------------------------
+  // FETCH SUPPLIERS BY BUSINESS
+  // -----------------------------
   useEffect(() => {
+    if (!user?.business_id) return;
+
     const fetchSuppliers = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/get-suppliers`);
-        const data = await response.json();
-        setSuppliers(data);
+        const res = await fetch(
+          `${import.meta.env.VITE_BACKEND_URL}/api/get-suppliers?businessId=${user.business_id}`
+        );
+        const data = await res.json();
+        setSuppliers(data || []);
       } catch (err) {
-        console.error(err);
+        console.error("Failed to fetch suppliers:", err);
       }
     };
-    fetchSuppliers();
-  }, []);
 
+    fetchSuppliers();
+  }, [user]);
+
+  // -----------------------------
+  // HANDLERS
+  // -----------------------------
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -69,16 +80,22 @@ const AddProduct = ({ onClose, user }) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const options = { maxSizeMB: 0.1, maxWidthOrHeight: 500, useWebWorker: true };
     try {
-      const compressedFile = await imageCompression(file, options);
-      compressedFile.name = file.name;
-      setImageFile(compressedFile);
+      const compressed = await imageCompression(file, {
+        maxSizeMB: 0.1,
+        maxWidthOrHeight: 500,
+        useWebWorker: true,
+      });
+      compressed.name = file.name;
+      setImageFile(compressed);
     } catch (err) {
       console.error("Image compression failed:", err);
     }
   };
 
+  // -----------------------------
+  // SUBMIT
+  // -----------------------------
   const handleSubmit = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
@@ -90,23 +107,21 @@ const AddProduct = ({ onClose, user }) => {
       return;
     }
 
-   // Validate category fields
-  const hasValidCategory = categories.some(
-    (cat) =>
-      cat.color.trim() !== "" ||
-      cat.agesize.trim() !== "" ||
-      cat.cost !== "" ||
-      cat.price !== "" ||
-      cat.currentstock !== "" ||
-      cat.reorderpoint !== ""
-  );
+    const hasValidCategory = categories.some(
+      (c) =>
+        c.color ||
+        c.agesize ||
+        c.cost ||
+        c.price ||
+        c.currentstock ||
+        c.reorderpoint
+    );
 
-  if (!hasValidCategory) {
-    setFormError("Please fill in at least one complete category.");
-    setIsSubmitting(false);
-    return;
-  }
-
+    if (!hasValidCategory) {
+      setFormError("Please add at least one category.");
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       const form = new FormData();
@@ -114,20 +129,17 @@ const AddProduct = ({ onClose, user }) => {
       form.append("description", formData.description);
       form.append("suppliername", formData.suppliername);
       form.append("userid", user.userid);
-
-      // categories as JSON string
       form.append("categories", JSON.stringify(categories));
-
-      // Append image if selected
       if (imageFile) form.append("image", imageFile);
 
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/add-product`, {
-        method: "POST",
-        body: form,
-      });
+      const res = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/add-product`,
+        { method: "POST", body: form }
+      );
 
-      const data = await response.json();
-      if (!response.ok) {
+      const data = await res.json();
+
+      if (!res.ok) {
         setFormError(data.error || "Failed to add product");
       } else {
         onClose();
@@ -140,39 +152,57 @@ const AddProduct = ({ onClose, user }) => {
     }
   };
 
-
+  // -----------------------------
+  // UI
+  // -----------------------------
   return (
     <div className="Addmodal-overlay">
       <div className="Addmodal-content slide-up">
         <div className="modal-header">
-          <button className="back-btn" onClick={onClose}>
-            ←
-          </button>
+          <button className="back-btn" onClick={onClose}>←</button>
           <h2>New Product</h2>
-          <div className="modal-actions">
-            <button className="create-btn" onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Item"}
-            </button>
-          </div>
+          <button className="create-btn" onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? "Creating..." : "Create Item"}
+          </button>
         </div>
 
         <div className="modal-body">
           <div className="image-upload">
             <label className="upload-box">
               {imageFile ? (
-                <img src={URL.createObjectURL(imageFile)} alt="Preview" className="preview-image" />
+                <img
+                  src={URL.createObjectURL(imageFile)}
+                  alt="Preview"
+                  className="preview-image"
+                />
               ) : (
                 "Click to upload image"
               )}
-              <input type="file" accept="image/*" onChange={handleImageSelect} style={{ display: "none" }} />
+              <input type="file" accept="image/*" onChange={handleImageSelect} hidden />
             </label>
           </div>
 
           <div className="product-fields">
-            <label>Product title</label>
-            <input name="productname" placeholder="Product Name" value={formData.productname} onChange={handleChange} />
-            <textarea name="description" placeholder="Description" value={formData.description} onChange={handleChange} />
-            <select name="suppliername" value={formData.suppliername} onChange={handleChange}>
+            <label>Product Title</label>
+            <input
+              name="productname"
+              placeholder="Product Name"
+              value={formData.productname}
+              onChange={handleChange}
+            />
+
+            <textarea
+              name="description"
+              placeholder="Description"
+              value={formData.description}
+              onChange={handleChange}
+            />
+
+            <select
+              name="suppliername"
+              value={formData.suppliername}
+              onChange={handleChange}
+            >
               <option value="">Select Supplier</option>
               {suppliers.map((s) => (
                 <option key={s.supplierid} value={s.suppliername}>
@@ -183,13 +213,25 @@ const AddProduct = ({ onClose, user }) => {
           </div>
         </div>
 
+        {/* Categories Section */}
         <div className="categories-section">
           <h3 className="section-title">Categories</h3>
+
           {categories.map((cat, index) => (
             <div key={index} className="category-card">
               <div className="category-fields">
-                <input name="color" placeholder="Color" value={cat.color} onChange={(e) => handleCategoryChange(index, e)} />
-                <select name="agesize" value={cat.agesize} onChange={(e) => handleCategoryChange(index, e)}>
+                <input
+                  name="color"
+                  placeholder="Color"
+                  value={cat.color}
+                  onChange={(e) => handleCategoryChange(index, e)}
+                />
+
+                <select
+                  name="agesize"
+                  value={cat.agesize}
+                  onChange={(e) => handleCategoryChange(index, e)}
+                >
                   <option value="">-- Select Age/Size --</option>
                   <option value="Newborn">Newborn</option>
                   <option value="0-3 Months">0-3 Months</option>
@@ -198,24 +240,63 @@ const AddProduct = ({ onClose, user }) => {
                   <option value="9-12 Months">9-12 Months</option>
                   <option value="1-2 Years Old">1-2 Years Old</option>
                   <option value="3-4 Years Old">3-4 Years Old</option>
-                  <option value="5 Years Old">5 years Old</option>
+                  <option value="5 Years Old">5 Years Old</option>
                 </select>
-                <input type="number" name="cost" placeholder="Cost" value={cat.cost} onChange={(e) => handleCategoryChange(index, e)} />
-                <input type="number" name="price" placeholder="Price" value={cat.price} onChange={(e) => handleCategoryChange(index, e)} />
-                <input type="number" name="currentstock" placeholder="Stock" value={cat.currentstock} onChange={(e) => handleCategoryChange(index, e)} />
-                <input type="number" name="reorderpoint" placeholder="Reorder Point" value={cat.reorderpoint} onChange={(e) => handleCategoryChange(index, e)} />
+
+                <input
+                  type="number"
+                  name="cost"
+                  placeholder="Cost"
+                  value={cat.cost}
+                  onChange={(e) => handleCategoryChange(index, e)}
+                />
+
+                <input
+                  type="number"
+                  name="price"
+                  placeholder="Price"
+                  value={cat.price}
+                  onChange={(e) => handleCategoryChange(index, e)}
+                />
+
+                <input
+                  type="number"
+                  name="currentstock"
+                  placeholder="Stock"
+                  value={cat.currentstock}
+                  onChange={(e) => handleCategoryChange(index, e)}
+                />
+
+                <input
+                  type="number"
+                  name="reorderpoint"
+                  placeholder="Reorder Point"
+                  value={cat.reorderpoint}
+                  onChange={(e) => handleCategoryChange(index, e)}
+                />
               </div>
+
               {categories.length > 1 && (
-                <button className="remove-category-btn" type="button" onClick={() => removeCategoryRow(index)}>
+                <button
+                  type="button"
+                  className="remove-category-btn"
+                  onClick={() => removeCategoryRow(index)}
+                >
                   ✕ Remove
                 </button>
               )}
             </div>
           ))}
-          <button type="button" className="add-category-btn" onClick={addCategoryRow}>
+
+          <button
+            type="button"
+            className="add-category-btn"
+            onClick={addCategoryRow}
+          >
             + Add Category
           </button>
         </div>
+
 
         {formError && <div className="productForm-warning">{formError}</div>}
       </div>

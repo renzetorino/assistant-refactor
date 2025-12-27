@@ -23,25 +23,35 @@ const RestockProduct = ({ onClose, onSuccess, user }) => {
     datereceived: "",
   });
 
-  // fetch products + suppliers
+  // -------------------------
+  // FETCH PRODUCTS + SUPPLIERS
+  // -------------------------
   useEffect(() => {
+    if (!user) return;
+
     const fetchSuppliers = async () => {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/get-suppliers`);
+      const res = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/get-suppliers?businessId=${user.business_id}`
+      );
       const data = await res.json();
       setSuppliers(data || []);
     };
 
     const fetchProducts = async () => {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/products`);
+      const res = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/products?userid=${user.userid}`
+      );
       const data = await res.json();
       setProducts(data || []);
     };
 
     fetchSuppliers();
     fetchProducts();
-  }, []);
+  }, [user]);
 
-  // when product is chosen → fetch its categories
+  // -------------------------
+  // FETCH CATEGORIES WHEN PRODUCT SELECTED
+  // -------------------------
   useEffect(() => {
     if (!formData.productid) {
       setCategories([]);
@@ -60,11 +70,17 @@ const RestockProduct = ({ onClose, onSuccess, user }) => {
     fetchCategories();
   }, [formData.productid]);
 
+  // -------------------------
+  // HANDLE INPUT CHANGES
+  // -------------------------
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // -------------------------
+  // FORM VALIDATION
+  // -------------------------
   const formValidate = () => {
     const requiredFields = [
       "productid",
@@ -95,19 +111,46 @@ const RestockProduct = ({ onClose, onSuccess, user }) => {
     return true;
   };
 
+  // -------------------------
+  // HANDLE RESTOCK SUBMIT
+  // -------------------------
   const handleAddRestock = async () => {
     if (!formValidate()) return;
 
     try {
       setIsSubmitting(true);
 
-      const payload = { ...formData, user };
+      const selectedProduct = products.find(
+        (p) => p.productid === Number(formData.productid)
+      );
 
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/restock`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const payload = {
+        productid: Number(formData.productid),
+        productcategoryid: Number(formData.productcategoryid),
+        supplierid: Number(formData.supplierid),
+        new_stock: Number(formData.new_stock),
+        new_cost: Number(formData.new_cost),
+        new_price: Number(formData.new_price),
+        batchCode: formData.batchCode,
+        datereceived: formData.datereceived,
+
+        // REQUIRED BY BACKEND
+        productname: selectedProduct?.productname,
+
+        user: {
+          userid: user.userid,
+          business_id: user.business_id,
+        },
+      };
+
+      const res = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/restock`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
 
       const result = await res.json();
 
@@ -125,6 +168,9 @@ const RestockProduct = ({ onClose, onSuccess, user }) => {
     }
   };
 
+  // -------------------------
+  // RENDER
+  // -------------------------
   return (
     <div className="restock-form-container">
       <h3>Add Restock Item</h3>
@@ -152,7 +198,9 @@ const RestockProduct = ({ onClose, onSuccess, user }) => {
               return (
                 <div
                   key={c.productcategoryid}
-                  className={`category-card ${isLow ? "low-stock" : ""} ${isSelected ? "selected" : ""}`}
+                  className={`category-card ${isLow ? "low-stock" : ""} ${
+                    isSelected ? "selected" : ""
+                  }`}
                   onClick={() => {
                     setSelectedCategory(c.productcategoryid);
                     setFormData((prev) => ({
@@ -244,6 +292,7 @@ const RestockProduct = ({ onClose, onSuccess, user }) => {
           </button>
         </div>
 
+        {/* Confirmation Modal */}
         <ConfirmStockModal
           isOpen={showConfirm}
           onConfirm={async () => {
@@ -253,7 +302,7 @@ const RestockProduct = ({ onClose, onSuccess, user }) => {
           onCancel={() => setShowConfirm(false)}
           productName={
             products.find(
-              (p) => p.productid === parseInt(formData.productid)
+              (p) => p.productid === Number(formData.productid)
             )?.productname
           }
         />

@@ -4,22 +4,26 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "../stylecss/ProductAvailability.css";
 
-const ProductAvailability = ({ lowStockProducts }) => {
-  // ✅ Track loading per product category
+const ProductAvailability = ({ lowStockProducts, user }) => {
   const [loadingIds, setLoadingIds] = useState([]);
 
   const handleReorder = async (category) => {
     const id = category.productcategoryid;
-    setLoadingIds((prev) => [...prev, id]); // mark as loading
+    setLoadingIds((prev) => [...prev, id]);
 
     try {
+      if (!user || !user.userid) {
+        toast.error("User not found. Cannot reorder.");
+        return;
+      }
+
       const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/reorder`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productid: category.productid,
           productcategoryid: category.productcategoryid,
-          supplierid: category.product?.supplierid,
+          userid: user.userid, // ✅ pass logged-in user's ID
         }),
       });
 
@@ -31,7 +35,7 @@ const ProductAvailability = ({ lowStockProducts }) => {
       console.error(err);
       toast.error("Failed to reorder");
     } finally {
-      setLoadingIds((prev) => prev.filter((i) => i !== id)); // remove from loading
+      setLoadingIds((prev) => prev.filter((i) => i !== id));
     }
   };
 
@@ -63,7 +67,6 @@ const ProductAvailability = ({ lowStockProducts }) => {
                 ? formatDistanceToNow(parseISO(category.updatedstock), { addSuffix: true })
                 : "No recent updates";
 
-              // ✅ Determine if this category is currently loading
               const isLoading = loadingIds.includes(category.productcategoryid);
 
               return (
@@ -105,16 +108,16 @@ const ProductAvailability = ({ lowStockProducts }) => {
                     </div>
 
                     <div className="extra-info">
-                      <span className="deficit">Deficit: {deficit > 0 ? deficit : 0}</span>
+                      <span className="deficit">Deficit: {deficit}</span>
                       <span className="time">Updated {lastUpdated}</span>
                     </div>
 
                     <button
                       className="reorder-btn"
                       onClick={() => handleReorder(category)}
-                      disabled={isLoading} // disable button while loading
+                      disabled={isLoading}
                     >
-                      {isLoading ? "Reordering..." : "Reorder"} {/* show loading */}
+                      {isLoading ? "Reordering..." : "Reorder"}
                     </button>
                   </div>
                 </div>
