@@ -1,7 +1,9 @@
 // inventory/fetchDefectiveItems.js
 import { supabase } from "../supabase";
 
-export const fetchDefectiveItems = async () => {
+export const fetchDefectiveItems = async (businessid) => {
+  if (!businessid) return [];
+
   const { data, error } = await supabase
     .from("defectiveitems")
     .select(`
@@ -12,19 +14,19 @@ export const fetchDefectiveItems = async () => {
       status,
       reporteddate,
       quantity,
-      products (
+      products!inner (
         productname,
-        image_url
+        image_url,
+        businessid
       ),
       productcategory (
-        price,
-        cost,
         color,
         agesize,
         currentstock,
         reorderpoint
       )
     `)
+    .eq("products.businessid", businessid)
     .order("updatedat", { ascending: false });
 
   if (error) {
@@ -34,4 +36,3 @@ export const fetchDefectiveItems = async () => {
 
   return data;
 };
-

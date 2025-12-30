@@ -9,7 +9,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  z-index: 9999;
   animation: fadeIn 0.3s ease;
   backdrop-filter: blur(4px);
   width: 100%;
@@ -22,6 +22,7 @@
   padding: 0;
   min-width: 550px;
   width: 100%;
+  max-width: 600px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
   animation: slideInUp 0.3s ease;
   overflow: hidden;
@@ -64,9 +65,16 @@
 .success-modal-header h3 {
   font-size: 24px;
   font-weight: 700;
-  margin: 0;
+  margin: 0 0 8px 0;
   color: white;
   letter-spacing: 0.5px;
+}
+
+.success-subtitle {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  font-weight: 400;
 }
 
 /* Modal Body */
@@ -114,28 +122,32 @@
   color: #1a1a1a;
 }
 
-/* Highlight specific values */
-.detail-row:nth-child(3) .detail-value,
-.detail-row:nth-child(4) .detail-value,
-.detail-row:nth-child(5) .detail-value {
+/* Change amount styling */
+.detail-value.change-amount {
   color: #10b981;
   font-size: 17px;
 }
 
-.detail-row:last-child .detail-value {
-  padding: 4px 12px;
+/* Status Badge Styles */
+.status-badge {
+  padding: 6px 14px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-/* Status Badge Styles */
-.detail-row:last-child .detail-value {
+.status-badge.complete {
   background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
   color: #14532d;
   border: 1px solid #86efac;
+}
+
+.status-badge.incomplete {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #78350f;
+  border: 1px solid #fbbf24;
 }
 
 /* Status Message */
@@ -164,26 +176,55 @@
 .success-modal-footer {
   padding: 20px 30px 30px;
   display: flex;
+  gap: 12px;
   justify-content: center;
 }
 
-.success-ok-btn {
+.success-view-receipt-btn {
+  flex: 1;
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
   border: none;
-  padding: 14px 50px;
+  padding: 14px 30px;
   border-radius: 12px;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.success-ok-btn:hover {
+.success-view-receipt-btn:hover {
   background: linear-gradient(135deg, #059669 0%, #047857 100%);
   box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+  transform: translateY(-2px);
+}
+
+.success-close-btn {
+  flex: 1;
+  background: white;
+  color: #666;
+  border: 2px solid #e1e4ea;
+  padding: 14px 30px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.3s;
+}
+
+.success-close-btn:hover {
+  background: #f9fafb;
+  border-color: #10b981;
+  color: #10b981;
+  transform: translateY(-2px);
 }
 
 /* Animations */
@@ -224,6 +265,7 @@
 /* Responsive Design */
 @media (max-width: 600px) {
   .success-modal {
+    min-width: unset;
     max-width: 95%;
     margin: 0 10px;
   }
@@ -242,6 +284,10 @@
     font-size: 20px;
   }
 
+  .success-subtitle {
+    font-size: 13px;
+  }
+
   .success-modal-body {
     padding: 20px;
   }
@@ -258,8 +304,14 @@
     font-size: 14px;
   }
 
-  .success-ok-btn {
-    padding: 12px 40px;
-    font-size: 14px;
+  .success-modal-footer {
+    flex-direction: column;
+  }
+
+  .success-view-receipt-btn,
+  .success-close-btn {
+    width: 100%;
+    padding: 12px 24px;
+    font-size: 13px;
   }
 }

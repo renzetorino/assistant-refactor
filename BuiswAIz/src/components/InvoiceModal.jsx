@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import jsPDF from 'jspdf';
+import { supabase } from '../supabase';
 
 const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
   const [showUpdateForm, setShowUpdateForm] = useState(false);
@@ -10,8 +11,36 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
   const [errors, setErrors] = useState({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [businessInfo, setBusinessInfo] = useState(null);
 
-  // Memoize calculations to prevent unnecessary recalculations
+  // Fetch business information
+  useEffect(() => {
+    const fetchBusinessInfo = async () => {
+      if (invoice.orders?.businessid) {
+        try {
+          const { data, error } = await supabase
+            .from('business_role')
+            .select('businessname, businessAddress')
+            .eq('businessid', invoice.orders.businessid)
+            .single();
+          
+          if (!error && data) {
+            setBusinessInfo(data);
+          }
+        } catch (err) {
+          console.error('Error fetching business info:', err);
+        }
+      }
+    };
+
+    fetchBusinessInfo();
+  }, [invoice.orders]);
+
+  // Get order code or fallback to order ID
+  const orderCode = useMemo(() => {
+    return invoice.ordercode || invoice.orders?.ordercode || `ORDER-${invoice.orderid || invoice.orders?.orderid || 'N/A'}`;
+  }, [invoice.ordercode, invoice.orders, invoice.orderid]);
+
   const calculatedTotal = useMemo(() => {
     if (invoice.orderItems && invoice.orderItems.length > 0) {
       return invoice.totalOrderAmount || invoice.orderItems.reduce((sum, item) => sum + item.subtotal, 0);
@@ -19,7 +48,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     return invoice.subtotal;
   }, [invoice.orderItems, invoice.totalOrderAmount, invoice.subtotal]);
 
-  // Memoize amount paid calculation
   const amountPaid = useMemo(() => {
     if (invoice.orders?.amount_paid !== undefined && invoice.orders?.amount_paid !== null) {
       return invoice.orders.amount_paid;
@@ -33,7 +61,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     return null;
   }, [invoice.orders, invoice.amount_paid, invoice.orderItems]);
 
-  // Memoize change calculation
   const change = useMemo(() => {
     if (amountPaid === null || amountPaid === undefined) {
       return 0;
@@ -52,7 +79,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     return amountPaid - calculatedTotal;
   }, [amountPaid, invoice.orders, invoice.change, invoice.orderItems, calculatedTotal]);
 
-  // Memoize order status calculation
   const orderStatus = useMemo(() => {
     let status = '';
     
@@ -72,21 +98,16 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     return 'INCOMPLETE';
   }, [invoice.orders, invoice.orderstatus, invoice.orderItems]);
 
-  // Memoize incomplete order check
   const isIncompleteOrder = useMemo(() => {
     return orderStatus === 'INCOMPLETE';
   }, [orderStatus]);
 
-  // Fixed helper function to get product variant display
   const getVariantDisplay = useCallback((item) => {
     const variants = [];
     
     let color = null;
     let agesize = null;
     
-    // Check multiple possible locations for variant data
-    
-    // Option 1: From productcategory nested object (most likely location for invoice items)
     if (item.productcategory?.color && item.productcategory.color.trim() !== '') {
       color = item.productcategory.color;
     }
@@ -94,7 +115,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
       agesize = item.productcategory.agesize;
     }
     
-    // Option 2: Direct properties on item (for direct invoice data)
     if (!color && item.color && typeof item.color === 'string' && item.color.trim() !== '') {
       color = item.color;
     }
@@ -102,7 +122,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
       agesize = item.agesize;
     }
     
-    // Build variants array with better formatting
     if (color) {
       variants.push(`${color}`);
     }
@@ -110,10 +129,9 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
       variants.push(`${agesize}`);
     }
     
-    return variants.length > 0 ? ` (${variants.join(', ')})` : '';
+    return variants.length > 0 ? `${variants.join(' - ')}` : '';
   }, []);
 
-  // Initialize update form with current payment data
   useEffect(() => {
     if (showUpdateForm && invoice) {
       const currentAmountPaid = amountPaid || 0;
@@ -124,7 +142,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     }
   }, [showUpdateForm, invoice, amountPaid]);
 
-  // Auto-calculate change when amount paid changes with debouncing
   useEffect(() => {
     if (!showUpdateForm || !updateData.amountPaid) return;
 
@@ -137,69 +154,119 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
         ...prev,
         change: calculatedChange >= 0 ? calculatedChange.toFixed(2) : '0.00'
       }));
-    }, 100); // 100ms debounce
+    }, 100);
 
     return () => clearTimeout(timeoutId);
   }, [updateData.amountPaid, showUpdateForm, calculatedTotal]);
 
-  // Optimize date formatting
-  const formatDate = useCallback((timestamp) => {
-    return new Date(timestamp).toLocaleDateString(undefined, {
+  const formatDateTime = useCallback((timestamp) => {
+    return new Date(timestamp).toLocaleString('en-US', {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  }, []);
+
+  const formatDate = useCallback((timestamp) => {
+    return new Date(timestamp).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
       day: 'numeric',
     });
   }, []);
 
-  // Optimize currency formatting
+  const formatTime = useCallback((timestamp) => {
+    return new Date(timestamp).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  }, []);
+
   const formatCurrency = useCallback((amount) => {
     return amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }, []);
 
-  // Enhanced PDF download with proper variant display
   const handleDownloadPDF = useCallback(() => {
     const generatePDF = () => {
       try {
         const doc = new jsPDF();
-        const date = formatDate(invoice.createdat || invoice.orderItems?.[0]?.orders?.orderdate || new Date());
+        const timestamp = invoice.createdat || invoice.orderItems?.[0]?.orders?.orderdate || new Date();
+        const date = formatDate(timestamp);
+        const time = formatTime(timestamp);
 
-        doc.setFontSize(20);
-        doc.text('INVOICE', 20, 20);
-        
-        doc.setFontSize(14);
-        doc.text(`Order Code: ${invoice.orderid}`, 20, 35);
-        doc.text(`Date: ${date}`, 20, 45);
-        doc.text(`Status: ${orderStatus}`, 20, 55);
-        
-        doc.line(20, 65, 190, 65);
-        
+        // Header: BUISWAIZ on left, Receipt Number on right
         doc.setFontSize(12);
-        doc.text('Product', 20, 80);
-        doc.text('Qty', 80, 80);
-        doc.text('Unit Price', 110, 80);
-        doc.text('Amount', 150, 80);
-        doc.line(20, 85, 190, 85);
+        doc.setFont(undefined, 'normal');
+        doc.text('BuiswAIz', 20, 20);
+        doc.text(`Receipt #: ${orderCode}`, 190, 20, { align: 'right' });
         
-        let yPosition = 95;
+        doc.line(20, 25, 190, 25);
+        
+        // INVOICE title
+        doc.setFontSize(24);
+        doc.setFont(undefined, 'bold');
+        doc.text('INVOICE', 20, 40);
+        
+        // Store Name
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text(`Store Name:`, 20, 52);
+        doc.setFont(undefined, 'normal');
+        const storeName = businessInfo?.businessname || 'N/A';
+        doc.text(storeName, 48, 52);
+        
+        // Time and Date
+        doc.setFont(undefined, 'bold');
+        doc.text(`Time and Date:`, 20, 60);
+        doc.setFont(undefined, 'normal');
+        doc.text(`${date} ${time}`, 55, 60);
+        
+        // Status
+        doc.setFont(undefined, 'bold');
+        doc.text('Status:', 20, 68);
+        doc.setFont(undefined, 'normal');
+        doc.text(orderStatus, 38, 68);
+
+        doc.setFont(undefined, 'bold');
+        doc.text('Store Location:', 20, 76);
+        doc.setFont(undefined, 'normal');
+        const storeLocation = businessInfo?.businessAddress || '98 E. Santos St. Concepcion Uno Marikina City';
+        doc.text(storeLocation, 50, 76);
+        
+        // Items table header
+        let yPosition = 91;
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bold');
+        doc.setFillColor(240, 240, 240);
+        doc.rect(20, yPosition - 5, 170, 8, 'F');
+        
+        doc.text('PRODUCT NAME', 22, yPosition);
+        doc.text('CATEGORIES', 70, yPosition);
+        doc.text('QUANTITY', 110, yPosition);
+        doc.text('UNIT PRICE', 135, yPosition);
+        doc.text('SUBTOTAL', 165, yPosition);
+        
+        // Items list
+        yPosition += 10;
+        doc.setFont(undefined, 'normal');
         let totalAmount = 0;
         
         if (invoice.orderItems && invoice.orderItems.length > 0) {
-          invoice.orderItems.forEach((item) => {
+          invoice.orderItems.forEach((item, index) => {
             const productName = item.products?.productname || 'N/A';
             const variantInfo = getVariantDisplay(item);
-            const fullProductName = productName + variantInfo;
             
-            // Handle long product names by wrapping text
-            const maxWidth = 55;
-            const lines = doc.splitTextToSize(fullProductName, maxWidth);
+            doc.text(productName, 22, yPosition);
+            doc.text(variantInfo || '-', 70, yPosition);
+            doc.text(item.quantity.toString(), 110, yPosition);
+            doc.text(item.unitprice.toString(), 135, yPosition);
+            doc.text(item.subtotal.toString(), 165, yPosition);
             
-            doc.text(lines, 20, yPosition);
-            doc.text(item.quantity.toString(), 80, yPosition);
-            doc.text(`P${formatCurrency(item.unitprice)}`, 110, yPosition);
-            doc.text(`P${formatCurrency(item.subtotal)}`, 150, yPosition);
-            
-            // Adjust yPosition based on number of lines
-            yPosition += Math.max(10, lines.length * 5);
+            yPosition += 8;
             totalAmount += item.subtotal;
           });
           
@@ -207,55 +274,46 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
         } else {
           const productName = invoice.products?.productname || 'N/A';
           const variantInfo = getVariantDisplay(invoice);
-          const fullProductName = productName + variantInfo;
           
-          const lines = doc.splitTextToSize(fullProductName, 55);
-          doc.text(lines, 20, yPosition);
-          doc.text(invoice.quantity.toString(), 80, yPosition);
-          doc.text(`P${formatCurrency(invoice.unitprice)}`, 110, yPosition);
-          doc.text(`P${formatCurrency(invoice.subtotal)}`, 150, yPosition);
-          yPosition += Math.max(10, lines.length * 5);
+          doc.text(productName, 22, yPosition);
+          doc.text(variantInfo || '-', 70, yPosition);
+          doc.text(invoice.quantity.toString(), 110, yPosition);
+          doc.text(invoice.unitprice.toString(), 135, yPosition);
+          doc.text(invoice.subtotal.toString(), 165, yPosition);
+          yPosition += 8;
           totalAmount = invoice.subtotal;
         }
         
-        doc.line(20, yPosition + 5, 190, yPosition + 5);
-        doc.setFontSize(14);
-        doc.text('TOTAL:', 110, yPosition + 20);
-        doc.text(`P${formatCurrency(totalAmount)}`, 150, yPosition + 20);
+        // Totals section
+        yPosition += 10;
+        doc.setFont(undefined, 'bold');
+        doc.text('Total Amount', 135, yPosition, { align: 'right' });
+        doc.text(totalAmount.toString(), 165, yPosition);
 
-        // Add payment information if available
-        if (amountPaid !== null && amountPaid !== undefined) {
-          doc.text('AMOUNT PAID:', 110, yPosition + 35);
-          doc.text(`P${formatCurrency(amountPaid)}`, 150, yPosition + 35);
-          
-          doc.text('CHANGE:', 110, yPosition + 50);
-          doc.text(`P${formatCurrency(change)}`, 150, yPosition + 50);
-        }
-
-        // Add footer
+        // Footer
+        yPosition += 25;
         doc.setFontSize(10);
-        doc.text('Thank you for your business!', 20, yPosition + 80);
+        doc.setFont(undefined, 'normal');
+        doc.text('Thank you for your business!', 20, yPosition);
+        doc.text('Signature:', 135, yPosition);
 
-        doc.save(`Invoice_${invoice.orderid}.pdf`);
+        doc.save(`Invoice_${orderCode}.pdf`);
       } catch (error) {
         console.error('Error generating PDF:', error);
         alert('Error generating PDF. Please try again.');
       }
     };
 
-    // Use requestIdleCallback for better performance, fallback to setTimeout
     if ('requestIdleCallback' in window) {
       requestIdleCallback(generatePDF, { timeout: 1000 });
     } else {
       setTimeout(generatePDF, 0);
     }
-  }, [invoice, formatDate, formatCurrency, amountPaid, change, orderStatus, getVariantDisplay]);
+  }, [invoice, formatDate, formatTime, orderStatus, getVariantDisplay, orderCode, businessInfo]);
 
-  // Optimize form handlers with useCallback and debouncing
   const handleUpdateDataChange = useCallback((e) => {
     const { name, value } = e.target;
     
-    // Use requestAnimationFrame for smoother updates
     requestAnimationFrame(() => {
       setUpdateData(prev => ({
         ...prev,
@@ -314,7 +372,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     }
   }, [validateUpdateForm, invoice.orderid, updateData, onUpdateOrder]);
 
-  // Optimize event handlers with passive event listeners where possible
   const handleCancelUpdate = useCallback(() => {
     requestAnimationFrame(() => {
       setShowUpdateForm(false);
@@ -339,7 +396,6 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     });
   }, []);
 
-  // Optimize modal close with event delegation
   const handleModalOverlayClick = useCallback((e) => {
     if (e.target === e.currentTarget) {
       requestAnimationFrame(() => {
@@ -356,140 +412,100 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
     <div className="modal-overlay" onClick={handleModalOverlayClick}>
       <div className="invoice-modal-content" onClick={handleModalContentClick}>
         <div className="invoice-modal-inner">
-          <div className="modal-header">
-            <h3>Invoice Details - Order {invoice.orderid}</h3>
-            {isIncompleteOrder && !showUpdateForm && (
-              <button 
-                className="complete-order-btn"
-                onClick={handleShowUpdateForm}
-                title="Update incomplete order"
-              >
-                Complete Order
-              </button>
-            )}
-          </div>
           
           {!showUpdateForm ? (
-            <div className="invoice-details">
-              <br />
-              
-              {/* Order Information */}
-              <div className="invoice-info-grid">
-                <div className="invoice-info-row">
-                  <div className="invoice-info-item">
-                    <strong>Order Code:</strong>
-                    <span>{invoice.orderid}</span>
-                  </div>
-                  <div className="invoice-info-item">
-                    <strong>Date:</strong>
-                    <span>{formatDate(invoice.orderdate || invoice.orderItems?.[0]?.orders?.orderdate || new Date())}</span>
-                  </div>
-                </div>
-                <div className="invoice-info-row">
-                  <div className="invoice-info-item">
-                    <strong>Status:</strong>
-                    <span className={`status-indicator ${orderStatus.toLowerCase()}`}>
-                      {orderStatus}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Items List */}
-              <div className="invoice-items-section">
-                <h4>Order Items:</h4>
-                <div className="invoice-items-list">
-                  {invoice.orderItems && invoice.orderItems.length > 0 ? (
-                    invoice.orderItems.map((item, index) => {
-                      const variantDisplay = getVariantDisplay(item);
-                      
-                      return (
-                        <div key={index} className="invoice-item">
-                          <div className="invoice-info-row">
-                            <div className="invoice-info-item">
-                              <strong>Product:</strong>
-                              <span>
-                                {item.products?.productname || 'N/A'}
-                                {variantDisplay && (
-                                  <span className="variant-info">{variantDisplay}</span>
-                                )}
-                              </span>
-                            </div>
-                            <div className="invoice-info-item">
-                              <strong>Quantity:</strong>
-                              <span>{item.quantity}</span>
-                            </div>
-                          </div>
-                          <div className="invoice-info-row">
-                            <div className="invoice-info-item">
-                              <strong>Unit Price:</strong>
-                              <span>₱{item.unitprice.toLocaleString()}</span>
-                            </div>
-                            <div className="invoice-info-item">
-                              <strong>Subtotal:</strong>
-                              <span>₱{item.subtotal.toLocaleString()}</span>
-                            </div>
-                          </div>
-                          {index < invoice.orderItems.length - 1 && (
-                            <hr className="item-separator" />
-                          )}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="invoice-item">
-                      <div className="invoice-info-row">
-                        <div className="invoice-info-item">
-                          <strong>Product:</strong>
-                          <span>
-                            {invoice.products?.productname || 'N/A'}
-                            {getVariantDisplay(invoice) && (
-                              <span className="variant-info">{getVariantDisplay(invoice)}</span>
-                            )}
-                          </span>
-                        </div>
-                        <div className="invoice-info-item">
-                          <strong>Quantity:</strong>
-                          <span>{invoice.quantity}</span>
-                        </div>
-                      </div>
-                      <div className="invoice-info-row">
-                        <div className="invoice-info-item">
-                          <strong>Unit Price:</strong>
-                          <span>₱{invoice.unitprice.toLocaleString()}</span>
-                        </div>
-                        <div className="invoice-info-item">
-                          <strong>Subtotal:</strong>
-                          <span>₱{invoice.subtotal.toLocaleString()}</span>
-                        </div>
-                      </div>
-                    </div>
+            <div className="invoice-details-new">
+              {/* Header */}
+              <div className="invoice-header-new">
+                <div className="invoice-brand">BuiswAIz</div>
+                <div className="invoice-order-no">
+                  <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 'bold' }}>
+                    Receipt #: {orderCode}
+                  </span>
+                  {isIncompleteOrder && (
+                    <button 
+                      className="complete-order-btn-inline"
+                      onClick={handleShowUpdateForm}
+                      title="Update incomplete order"
+                    >
+                      Complete Order
+                    </button>
                   )}
                 </div>
               </div>
 
-              {/* Payment Summary */}
-              <div className="invoice-payment-section">
-                <div className="invoice-payment-summary">
-                  <div className="payment-summary-row total-row">
-                    <strong>Order Total: </strong>
-                    <span className="total-amount">₱{calculatedTotal.toLocaleString()}</span>
-                  </div>
-                  
-                  {amountPaid !== null && amountPaid !== undefined && (
-                    <>
-                      <div className="payment-summary-row paid-row">
-                        <strong>Amount Paid:</strong>
-                        <span className="paid-amount">₱{amountPaid.toLocaleString()}</span>
-                      </div>
-                      
-                      <div className="payment-summary-row change-row">
-                        <strong>Change:</strong>
-                        <span className="change-amount">₱{change.toLocaleString()}</span>
-                      </div>
-                    </>
-                  )}
+              <div className="invoice-divider"></div>
+
+              {/* Invoice Title */}
+              <h1 className="invoice-title-new">INVOICE</h1>
+
+              {/* Store Name, Time, Date, and Status */}
+              <div className="invoice-meta-new">
+                <div className="meta-item">
+                  <strong>Store Name:</strong> {businessInfo?.businessname || 'Loading...'}
                 </div>
+                <div className="meta-item">
+                  <strong>Time and Date:</strong> {formatDateTime(invoice.orderdate || invoice.orderItems?.[0]?.orders?.orderdate || new Date())}
+                </div>
+                <div className="meta-item">
+                  <strong>Status:</strong> <span className={`status-badge-new ${orderStatus.toLowerCase()}`}>{orderStatus}</span>
+                </div>
+                <div className="meta-item">
+                  <strong>Store Location:</strong> {businessInfo?.businessAddress || '98 E. Santos St. Concepcion Uno Marikina City'}
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div className="invoice-table-new">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>PRODUCT NAME</th>
+                      <th>CATEGORIES</th>
+                      <th>QUANTITY</th>
+                      <th>UNIT PRICE</th>
+                      <th>SUBTOTAL</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoice.orderItems && invoice.orderItems.length > 0 ? (
+                      invoice.orderItems.map((item, index) => {
+                        const variantDisplay = getVariantDisplay(item);
+                        
+                        return (
+                          <tr key={index}>
+                            <td>{item.products?.productname || 'N/A'}</td>
+                            <td>{variantDisplay || '-'}</td>
+                            <td>{item.quantity}</td>
+                            <td>₱{item.unitprice}</td>
+                            <td>₱{item.subtotal}</td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td>{invoice.products?.productname || 'N/A'}</td>
+                        <td>{getVariantDisplay(invoice) || '-'}</td>
+                        <td>{invoice.quantity}</td>
+                        <td>₱{invoice.unitprice}</td>
+                        <td>₱{invoice.subtotal}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="invoice-total-section">
+                <div className="total-amount-row-new">
+                  <span className="total-label">Total Amount</span>
+                  <span className="total-value">₱{calculatedTotal}</span>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="invoice-footer-new">
+                <div className="footer-text">Thank you for your business!</div>
+                <div className="footer-signature">Signature:</div>
               </div>
 
               <div className="modal-footer">
@@ -581,7 +597,7 @@ const InvoiceModal = ({ invoice, onClose, onUpdateOrder }) => {
                 <h3>Order Completed</h3>
               </div>
               <div className="success-body">
-                <p>Order <strong>{invoice.orderid}</strong> has been successfully completed!</p>
+                <p>Order <strong style={{ fontFamily: 'monospace' }}>{orderCode}</strong> has been successfully completed!</p>
                 <div className="success-details">
                   <div className="success-detail-row">
                     <span>Amount Paid:</span>

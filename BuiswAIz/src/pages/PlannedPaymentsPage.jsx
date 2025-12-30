@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Imports
 // ──────────────────────────────────────────────
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   format,
@@ -21,6 +21,7 @@ import {
 import { supabase } from "../supabase";
 import "../expenses/ExpenseDashboard.css";            // reuse your expense page layout utilities
 import "../stylecss/PlannedPayments.css";   // small component-specific styles
+import ConfirmActionModal from "../components/ConfirmActionModal";
 
 
 
@@ -737,7 +738,7 @@ function PaymentForm({
   );
 }
 
-function PlannedPaymentRow({ pp, onPaid, onEdit }) {
+function PlannedPaymentRow({ pp, onPaid, onEdit, confirmAction }) {
   const status = daysStatus(pp.due_date);
   const categoryName = pp.category_name || pp.category?.name || "—";
 
@@ -746,7 +747,13 @@ function PlannedPaymentRow({ pp, onPaid, onEdit }) {
     : null;
 
   const onPayNow = async () => {
-    const confirmPay = window.confirm(`Create expense for ${peso(pp.amount)} and mark as paid?`);
+    const confirmPay = await confirmAction({
+      title: "Pay now",
+      message: `Create expense for ${peso(pp.amount)} and mark as paid?`,
+      confirmLabel: "Create & mark paid",
+      cancelLabel: "Cancel",
+      tone: "default",
+    });
     if (!confirmPay) return;
 
     // create expense
@@ -816,7 +823,7 @@ function PlannedPaymentRow({ pp, onPaid, onEdit }) {
     );
   }
 
-function Section({ title, items, onPaid, onEdit }) {
+function Section({ title, items, onPaid, onEdit, confirmAction }) {
   return (
     <section className="pp-section">
       <h3 className="pp-section-title">{title}</h3>
@@ -825,7 +832,7 @@ function Section({ title, items, onPaid, onEdit }) {
           <div className="pp-card pp-empty">No items</div>
         ) : (
           items.map((pp) => (
-            <PlannedPaymentRow key={pp.id} pp={pp} onPaid={onPaid} onEdit={onEdit} />
+            <PlannedPaymentRow key={pp.id} pp={pp} onPaid={onPaid} onEdit={onEdit} confirmAction={confirmAction} />
           ))
         )}
       </div>
@@ -838,6 +845,12 @@ function Section({ title, items, onPaid, onEdit }) {
 // ──────────────────────────────────────────────
 export default function PlannedPaymentsPage() {
   const navigate = useNavigate();
+
+
+  const [showHelpNewPayment, setShowHelpNewPayment] = useState(false);
+  const [showHelpOverview, setShowHelpOverview] = useState(false);
+  const [showHelpCompleted, setShowHelpCompleted] = useState(false);
+  const [showHelpCalendar, setShowHelpCalendar] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
@@ -861,6 +874,20 @@ export default function PlannedPaymentsPage() {
   const [showCompleted, setShowCompleted] = useState(true); // collapsible
 
   const [reminders, setReminders] = useState([]);     // items to show today
+
+    // Page-level confirm modal
+  const [actionOpen, setActionOpen] = useState(false);
+  const actionRef = useRef({});
+  function confirmActionAsync({ title, message, confirmLabel = "Confirm", cancelLabel = "Cancel", tone = "warning" }) {
+    return new Promise((resolve) => {
+      actionRef.current = {
+        title, message, confirmLabel, cancelLabel, tone,
+        onConfirm: () => resolve(true),
+        onCancel:  () => resolve(false),
+      };
+      setActionOpen(true);
+    });
+  }
 
 
 
@@ -1200,9 +1227,14 @@ async function markSeenToday(id) {
   }
 
     async function handleDelete(pp) {
-    if (!window.confirm(`Are you sure you want to permanently delete the planned payment: ${pp.name}? This cannot be undone.`)) {
-      return;
-    }
+    const ok = await confirmActionAsync({
+      title: "Delete planned payment",
+      message: `Are you sure you want to permanently delete: ${pp.name}?\nThis cannot be undone.`,
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      tone: "danger",
+    });
+    if (!ok) return;
 
     try {
       // 1. Delete associated recurrence (if exists)
@@ -1222,9 +1254,14 @@ async function markSeenToday(id) {
   }
 
   async function handleMarkFinished(pp) {
-    if (!window.confirm(`Mark ${pp.name} as permanently finished? This will stop future payments.`)) {
-      return;
-    }
+    const ok = await confirmActionAsync({
+      title: "Mark as finished",
+      message: `Mark ${pp.name} as permanently finished?\nThis will stop future payments.`,
+      confirmLabel: "Mark finished",
+      cancelLabel: "Cancel",
+      tone: "warning",
+    });
+    if (!ok) return;
 
     try {
       // 1. Delete associated recurrence (stops future recurrence logic)
@@ -1250,7 +1287,13 @@ async function markSeenToday(id) {
   }
 
   async function handlePayNowFromReminder(pp) {
-  const confirmPay = window.confirm(`Create expense for ${peso(pp.amount)} and mark ${pp.name} as paid?`);
+  const confirmPay = await confirmActionAsync({
+    title: "Pay now",
+    message: `Create expense for ${peso(pp.amount)} and mark ${pp.name} as paid?`,
+    confirmLabel: "Create & mark paid",
+    cancelLabel: "Cancel",
+    tone: "default",
+  });
   if (!confirmPay) return;
   
   // This logic is copied directly from PlannedPaymentRow's onPayNow
@@ -1331,6 +1374,35 @@ async function markSeenToday(id) {
 
         {/* Main content */}
         <main className="main">
+          <div className="panel-header-with-help">
+            <div className="header-left-dash">
+              <h3>Planned Payments</h3>
+              <div className="help-wrapper-dash">
+                <button 
+                  className="help-button-dash"
+                  onClick={() => setShowHelpNewPayment(!showHelpNewPayment)}
+                  aria-label="Help"
+                >
+                  ?
+                </button>
+                {showHelpNewPayment && (
+                  <div className="help-box-dash">
+                    <div className="help-arrow-dash"></div>
+                    
+                    <div className="help-content-dash">
+                      <p>GEN TIPS</p>
+                    </div>
+                    
+                    <div className="help-separator-dash"></div>
+                    
+                    <div className="help-content-dash">
+                      <p>AI TIPS</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            </div>
           <div className="planned-header">
             <div className="toolbar-left">
               <button className="btn primary" onClick={() => setOpenCreate(true)}>+ New Planned Payment</button>
@@ -1349,9 +1421,9 @@ async function markSeenToday(id) {
                 <div className="pp-card pp-error">{error}</div>
               ) : (
                 <>
-                  <Section title="Due This Week"  items={groups.dueThisWeek}  onPaid={refresh} onEdit={handleOpenEdit} />
-                  <Section title="Due Next Month" items={groups.dueNextMonth} onPaid={refresh} onEdit={handleOpenEdit} />
-                  <Section title="Upcoming"       items={groups.upcoming}     onPaid={refresh} onEdit={handleOpenEdit} />
+                <Section title="Due This Week"  items={groups.dueThisWeek}  onPaid={refresh} onEdit={handleOpenEdit} confirmAction={confirmActionAsync} />
+                <Section title="Due Next Month" items={groups.dueNextMonth} onPaid={refresh} onEdit={handleOpenEdit} confirmAction={confirmActionAsync} />
+                <Section title="Upcoming"       items={groups.upcoming}     onPaid={refresh} onEdit={handleOpenEdit} confirmAction={confirmActionAsync} />
                 </>
               )}
 
@@ -1367,8 +1439,35 @@ async function markSeenToday(id) {
             <aside className="planned-right">
               {/* Overview */}
                <div className="pp-right-card">
-                <div className="pp-right-title">Overview</div>
-
+                  <div className="panel-header-with-help">
+                    <div className="header-left-dash">
+                      <h3>Overview</h3>
+                      <div className="help-wrapper-dash">
+                        <button 
+                          className="help-button-dash"
+                          onClick={() => setShowHelpOverview(!showHelpOverview)}
+                          aria-label="Help"
+                        >
+                          ?
+                        </button>
+                        {showHelpOverview && (
+                          <div className="help-box-dash">
+                            <div className="help-arrow-dash"></div>
+                            
+                            <div className="help-content-dash">
+                              <p>GEN TIPS</p>
+                            </div>
+                            
+                            <div className="help-separator-dash"></div>
+                            
+                            <div className="help-content-dash">
+                              <p>AI TIPS</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 <div className="pp-kpis">
                   <div className="pp-kpi">
                     <div className="pp-kpi-icon">₱</div>
@@ -1421,6 +1520,35 @@ async function markSeenToday(id) {
 
                             {/* Calendar Reminders */}
               <div className="pp-right-card" data-test="calendar-card">
+                <div className="panel-header-with-help">
+                  <div className="header-left-dash">
+                    <h3>Payment Calendar</h3>
+                    <div className="help-wrapper-dash">
+                      <button 
+                        className="help-button-dash"
+                        onClick={() => setShowHelpCalendar(!showHelpCalendar)}
+                        aria-label="Help"
+                      >
+                        ?
+                      </button>
+                      {showHelpCalendar && (
+                        <div className="help-box-dash">
+                          <div className="help-arrow-dash"></div>
+                          
+                          <div className="help-content-dash">
+                            <p><strong>Visual Timeline:</strong> See all payment due dates at a glance | <strong>Click Days:</strong> View or edit payments scheduled for specific dates | <strong>Badge Numbers:</strong> Show how many payments are due each day</p>
+                          </div>
+                          
+                          <div className="help-separator-dash"></div>
+                          
+                          <div className="help-content-dash">
+                            <p>AI TIPS</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
                 <div className="pp-right-title">Payment Calendar</div>
                       <PlannedCalendarInline
                       payments={(items || [])}
@@ -1504,6 +1632,19 @@ async function markSeenToday(id) {
           />
         )}
       </Modal>
+       {/* Shared action confirm */}
+      <ConfirmActionModal
+        isOpen={actionOpen}
+        title={actionRef.current.title}
+        message={actionRef.current.message}
+        confirmLabel={actionRef.current.confirmLabel}
+        cancelLabel={actionRef.current.cancelLabel}
+        tone={actionRef.current.tone}
+        onCancel={() => { setActionOpen(false); actionRef.current.onCancel?.(); }}
+        onConfirm={() => { setActionOpen(false); actionRef.current.onConfirm?.(); }}
+      />
+
+
     </div>
   );
 }

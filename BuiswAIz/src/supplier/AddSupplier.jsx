@@ -19,64 +19,66 @@ const AddSupplier = ({ onClose, user }) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const validateForm = () => {
+    const requiredFields = [
+      "suppliername",
+      "contactperson",
+      "phonenumber",
+      "supplieremail",
+      "address",
+      "supplierstatus",
+    ];
+
+    const cleanPhone = formData.phonenumber.replace(/-/g, "");
+
+    // Check for empty fields
+    const isEmpty = requiredFields.some((field) => {
+      const value = formData[field];
+      if (value === undefined || value === null) return true;
+      if (typeof value === "string" && value.trim() === "") return true;
+      return false;
+    });
+    if (isEmpty) {
+      setFormError("Please fill in all required fields.");
+      return false;
+    }
+
+    // Validate email
+    if (!/\S+@\S+\.\S+/.test(formData.supplieremail)) {
+      setFormError("Invalid email format.");
+      return false;
+    }
+
+    // Validate phone
+    if (!/^\d{7,}$/.test(cleanPhone)) {
+      setFormError("Phone number must contain at least 7 digits.");
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSubmit = async () => {
     setFormError("");
 
-    const validateForm = () => {
-      const requiredFields = [
-        "suppliername",
-        "contactperson",
-        "phonenumber",
-        "supplieremail",
-        "address",
-        "supplierstatus",
-      ];
-
-      // ✅ Clean phone number before validation
-      const cleanPhone = formData.phonenumber.replace(/-/g, "");
-
-      // Check if any field is empty or invalid
-      const isEmpty = requiredFields.some((field) => {
-        const value = formData[field];
-        if (value === undefined || value === null) return true;
-        if (typeof value === "string" && value.trim() === "") return true;
-        return false;
-      });
-
-      if (isEmpty) {
-        setFormError("Please fill in all required fields.");
-        return false;
-      }
-
-      if (!/\S+@\S+\.\S+/.test(formData.supplieremail)) {
-        setFormError("Invalid email format.");
-        return false;
-      }
-
-      if (!/^\d{7,}$/.test(cleanPhone)) {
-        setFormError("Phone number must only contain numbers with at least 7 digits.");
-        return false;
-      }
-
-      return true;
-    };
-
     if (!validateForm()) return;
     if (isSubmitting) return;
-
     setIsSubmitting(true);
 
-    // ✅ Insert cleaned phone number (no dashes) to Supabase
-    const { error } = await supabase.from("suppliers").insert({
-      ...formData,
-      phonenumber: formData.phonenumber.replace(/-/g, ""),
-    });
+    try {
+      // Insert supplier with businessid and userid
+      const { error } = await supabase.from("suppliers").insert({
+        ...formData,
+        phonenumber: formData.phonenumber.replace(/-/g, ""),
+        businessid: user.business_id, // tie to user's business
+        userid: user.userid,          // track who added
+      });
 
-    if (error) {
-      console.error("Insert failed:", error);
-      alert("Failed to add supplier.");
-    } else {
-      if (user) {
+      if (error) {
+        console.error("Insert failed:", error);
+        setFormError("Failed to add supplier.");
+      } else {
+        // Log activity
         await supabase.from("activitylog").insert([
           {
             action_type: "add_supplier",
@@ -84,11 +86,16 @@ const AddSupplier = ({ onClose, user }) => {
             done_user: user.userid,
           },
         ]);
+
+        onClose(); // close modal
       }
-      onClose();
+    } catch (err) {
+      console.error(err);
+      setFormError("Server error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
-
 
   return (
     <div className="modal-overlay">
@@ -96,9 +103,15 @@ const AddSupplier = ({ onClose, user }) => {
         {/* Header */}
         <div className="modal-header">
           <button className="back-btn" onClick={onClose}>←</button>
-          <h2>Supplier</h2>
+          <h2>New Supplier</h2>
           <div className="modal-actions">
-            <button className="create-btn" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? "Creating..." : "Create Supplier"}</button>
+            <button
+              className="create-btn"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Creating..." : "Create Supplier"}
+            </button>
           </div>
         </div>
 
@@ -108,7 +121,6 @@ const AddSupplier = ({ onClose, user }) => {
             <label>Supplier Name</label>
             <input
               name="suppliername"
-              className="product-name-input"
               placeholder="Supplier Name"
               value={formData.suppliername}
               onChange={handleChange}
@@ -127,15 +139,12 @@ const AddSupplier = ({ onClose, user }) => {
                 placeholder="Phone Number"
                 value={formData.phonenumber}
                 onChange={(e) => {
-                  let value = e.target.value.replace(/\D/g, ""); // keep only digits
-
-                  // ✅ Format for PH mobile numbers (11 digits): 0927-538-7129
+                  let value = e.target.value.replace(/\D/g, "");
                   if (value.length > 4 && value.length <= 7) {
                     value = `${value.slice(0, 4)}-${value.slice(4)}`;
                   } else if (value.length > 7) {
                     value = `${value.slice(0, 4)}-${value.slice(4, 7)}-${value.slice(7, 11)}`;
                   }
-
                   handleChange({ target: { name: "phonenumber", value } });
                 }}
               />
@@ -166,12 +175,9 @@ const AddSupplier = ({ onClose, user }) => {
                 <option value="Inactive">Inactive</option>
               </select>
             </div>
+
+            {formError && <div className="supplyForm-warning">{formError}</div>}
           </div>
-          {formError && (
-            <div className="supplyForm-warning">
-                {formError}
-            </div>
-          )}
         </div>
       </div>
     </div>

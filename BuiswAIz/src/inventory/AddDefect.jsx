@@ -15,21 +15,39 @@ const AddDefect = ({ onClose, user }) => {
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch products on mount
+  /* ================================
+     FETCH PRODUCTS (BUSINESS SAFE)
+     ================================ */
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/products`);
+        if (!user?.userid) return;
+
+        const res = await fetch(
+          `${import.meta.env.VITE_BACKEND_URL}/api/products?userid=${user.userid}`
+        );
+
         const data = await res.json();
+
+        if (!res.ok || !Array.isArray(data)) {
+          console.error("Products fetch failed:", data);
+          setProducts([]);
+          return;
+        }
+
         setProducts(data);
       } catch (err) {
         console.error("Error fetching products:", err);
+        setProducts([]);
       }
     };
-    fetchProducts();
-  }, []);
 
-  // Fetch categories whenever a product is selected
+    fetchProducts();
+  }, [user]);
+
+  /* ======================================
+     FETCH CATEGORIES WHEN PRODUCT CHANGES
+     ====================================== */
   useEffect(() => {
     if (!form.productid) {
       setCategories([]);
@@ -39,17 +57,31 @@ const AddDefect = ({ onClose, user }) => {
 
     const fetchCategories = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/categories/${form.productid}`);
+        const res = await fetch(
+          `${import.meta.env.VITE_BACKEND_URL}/api/categories/${form.productid}`
+        );
         const data = await res.json();
+
+        if (!res.ok || !Array.isArray(data)) {
+          console.error("Categories fetch failed:", data);
+          setCategories([]);
+          return;
+        }
+
         setCategories(data);
-        setSelectedCategoryId(""); // Reset selected category
+        setSelectedCategoryId("");
       } catch (err) {
         console.error("Error fetching categories:", err);
+        setCategories([]);
       }
     };
+
     fetchCategories();
   }, [form.productid]);
 
+  /* ======================
+     FORM HANDLERS
+     ====================== */
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -60,6 +92,7 @@ const AddDefect = ({ onClose, user }) => {
     if (isSubmitting) return;
 
     const { productid, quantity, status, reporteddate, defectdescription } = form;
+
     if (!productid || !selectedCategoryId || !quantity || !status || !reporteddate) {
       setFormError("Please fill all required fields and select a category.");
       return;
@@ -68,41 +101,45 @@ const AddDefect = ({ onClose, user }) => {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/add-defective-item`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productid,
-          productcategoryid: selectedCategoryId, // updated field name
-          quantity: parseInt(quantity),
-          status,
-          defectdescription,
-          reporteddate,
-          userid: user.userid,
-        }),
-      });
+      const res = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/add-defective-item`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productid,
+            productcategoryid: selectedCategoryId,
+            quantity: parseInt(quantity),
+            status,
+            defectdescription,
+            reporteddate,
+            userid: user.userid, // 🔥 REQUIRED
+          }),
+        }
+      );
 
       const data = await res.json();
 
       if (!res.ok) {
-        // If data.error is an object, use message or stringify it
-        const errorMessage = typeof data.error === "string"
-          ? data.error
-          : data.error?.message
-            ? data.error.message
-            : JSON.stringify(data.error);
-        setFormError(errorMessage || "Failed to add defective item.");
+        const msg =
+          typeof data.error === "string"
+            ? data.error
+            : data.error?.message || "Failed to add defective item.";
+        setFormError(msg);
       } else {
-        onClose(); // Close modal on success
+        onClose();
       }
     } catch (err) {
       console.error("Server error:", err);
-      setFormError("Server error. Please try again later.");
+      setFormError("Server error. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  /* ======================
+     RENDER
+     ====================== */
   return (
     <div className="AddDefmodal-overlay">
       <div className="AddDefmodal-content slide-up">
@@ -117,18 +154,20 @@ const AddDefect = ({ onClose, user }) => {
         </div>
 
         <div className="modal-body">
-          {/* Product selection */}
+          {/* Product */}
           <div className="form-group">
             <label>Product</label>
             <select name="productid" value={form.productid} onChange={handleChange}>
               <option value="">Select Product</option>
               {products.map((p) => (
-                <option key={p.productid} value={p.productid}>{p.productname}</option>
+                <option key={p.productid} value={p.productid}>
+                  {p.productname}
+                </option>
               ))}
             </select>
           </div>
 
-          {/* Category selection as cards */}
+          {/* Categories */}
           {categories.length > 0 && (
             <div className="category-cards-container">
               <label>Select Category</label>
@@ -136,7 +175,9 @@ const AddDefect = ({ onClose, user }) => {
                 {categories.map((cat) => (
                   <div
                     key={cat.productcategoryid}
-                    className={`category-card ${selectedCategoryId === cat.productcategoryid ? "selected" : ""}`}
+                    className={`category-card ${
+                      selectedCategoryId === cat.productcategoryid ? "selected" : ""
+                    }`}
                     onClick={() => setSelectedCategoryId(cat.productcategoryid)}
                   >
                     <p><strong>Color:</strong> {cat.color}</p>
@@ -148,10 +189,9 @@ const AddDefect = ({ onClose, user }) => {
             </div>
           )}
 
-          {/* Quantity, Status, Date, Remarks */}
           <div className="form-group">
             <label>Quantity</label>
-            <input type="number" name="quantity" value={form.quantity} onChange={handleChange} min="1" />
+            <input type="number" name="quantity" min="1" value={form.quantity} onChange={handleChange} />
           </div>
 
           <div className="form-group">
@@ -169,7 +209,12 @@ const AddDefect = ({ onClose, user }) => {
 
           <div className="form-group">
             <label>Remarks</label>
-            <textarea name="defectdescription" value={form.defectdescription} onChange={handleChange} rows="3" />
+            <textarea
+              name="defectdescription"
+              rows="3"
+              value={form.defectdescription}
+              onChange={handleChange}
+            />
           </div>
 
           {formError && <div className="productForm-warning">{formError}</div>}

@@ -1,10 +1,10 @@
-// inventory/DefectivePanel.jsx
-import React from "react";
+import React, { useState } from "react";
 import "../stylecss/DefectPanel.css";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const DefectivePanel = ({ defectiveItems, user, loadDefectiveItems, onAddDefect }) => {
+  const [showHelp, setShowHelp] = useState(false);
 
   const handleStatusChange = async (defectiveItemId, newStatus) => {
     if (!user) {
@@ -42,7 +42,33 @@ const DefectivePanel = ({ defectiveItems, user, loadDefectiveItems, onAddDefect 
   return (
     <div className="defective-panel">
       <div className="panel-title-row">
-        <h3>Defective Items</h3>
+        <div className="header-left-dash">
+          <h3>Defective Items</h3>
+          <div className="help-wrapper-dash">
+            <button 
+              className="help-button-dash"
+              onClick={() => setShowHelp(!showHelp)}
+              aria-label="Help"
+            >
+              ?
+            </button>
+            {showHelp && (
+              <div className="help-box-dash">
+                <div className="help-arrow-dash"></div>
+                
+                <div className="help-content-dash">
+                  <p>Gen TIPS</p>
+                </div>
+                
+                <div className="help-separator-dash"></div>
+                
+                <div className="help-content-dash">
+                  <p>AI</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
         <button className="panel-action-button" onClick={onAddDefect}>+ Add Defect</button>
       </div>
 
@@ -50,53 +76,57 @@ const DefectivePanel = ({ defectiveItems, user, loadDefectiveItems, onAddDefect 
         {defectiveItems.length === 0 ? (
           <p className="no-low-stock">No defective items reported.</p>
         ) : (
-          defectiveItems.map((item) => (
-            <div key={item.defectiveitemid} className="defective-item">
+          defectiveItems.map((item) => {
+            if (!item.products) return null; // safety for missing product
 
-              {/* Product Image */}
-              {item.products?.image_url ? (
-                <img
-                  src={item.products.image_url}
-                  alt={item.products.productname || "Product"}
-                  className="defectimg-placeholder"
-                />
-              ) : (
-                <div className="defectimg-placeholder" />
-              )}
+            return (
+              <div key={item.defectiveitemid} className="defective-item">
 
-              {/* Product Info */}
-              <div className="defective-details">
-                <div className="defect-main">
-                  <span className="defect-name">{item.products?.productname || "Unnamed"}</span>
+                {/* Product Image */}
+                {item.products.image_url ? (
+                  <img
+                    src={item.products.image_url}
+                    alt={item.products.productname || "Product"}
+                    className="defectimg-placeholder"
+                  />
+                ) : (
+                  <div className="defectimg-placeholder" />
+                )}
 
-                  {item.productcategory && (
-                    <div className="variant-info">
-                      <span>Color: {item.productcategory.color || "N/A"}</span>
-                      <span>Size/Age: {item.productcategory.agesize || "N/A"}</span>
-                    </div>
-                  )}
+                {/* Product Info */}
+                <div className="defective-details">
+                  <div className="defect-main">
+                    <span className="defect-name">{item.products.productname || "Unnamed"}</span>
 
-                  <span className="Quantity">Quantity: {item.quantity} pcs</span>
-                  <span className="ReportedDate">
-                    Reported: {item.reporteddate ? new Date(item.reporteddate).toLocaleDateString() : "N/A"}
-                  </span>
-                  <span className="Description">{item.defectdescription}</span>
-                </div>
+                    {item.productcategory && (
+                      <div className="variant-info">
+                        <span>Color: {item.productcategory.color || "N/A"}</span>
+                        <span>Size/Age: {item.productcategory.agesize || "N/A"}</span>
+                      </div>
+                    )}
 
-                {/* Status Dropdown */}
-                <div className="defect-status">
-                  <select
-                    className="status-dropdown"
-                    value={item.status}
-                    onChange={(e) => handleStatusChange(item.defectiveitemid, e.target.value)}
-                  >
-                    <option value="In-Process">In-Process</option>
-                    <option value="Returned">Returned</option>
-                  </select>
+                    <span className="Quantity">Quantity: {item.quantity} pcs</span>
+                    <span className="ReportedDate">
+                      Reported: {item.reporteddate ? new Date(item.reporteddate).toLocaleDateString() : "N/A"}
+                    </span>
+                    <span className="Description">{item.defectdescription}</span>
+                  </div>
+
+                  {/* Status Dropdown */}
+                  <div className="defect-status">
+                    <select
+                      className="status-dropdown"
+                      value={item.status}
+                      onChange={(e) => handleStatusChange(item.defectiveitemid, e.target.value)}
+                    >
+                      <option value="In-Process">In-Process</option>
+                      <option value="Returned">Returned</option>
+                    </select>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

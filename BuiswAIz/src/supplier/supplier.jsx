@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchSupplier, fetchSupplierWithProducts } from "../supplier/fetchsuppliertable";
 import { supabase } from "../supabase";
 import "../stylecss/supplier.css";
 import AddSupplier from "../supplier/AddSupplier";
 import ViewSupplier from "../supplier/ViewSupplier";
+import ExchangeTable from "../supplier/ExchangeTable";
 
 const Supplier = () => {
   const navigate = useNavigate();
@@ -17,31 +17,51 @@ const Supplier = () => {
   const [orders, setOrders] = useState([]);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [formError, setFormError] = useState("");
+  const [showExchangeTable, setShowExchangeTable] = useState(false);
   const [newCost, setNewCost] = useState(0);
+  const [confirmedExchangeCount, setConfirmedExchangeCount] = useState(0)
+  const [showHelpSupplierTable, setShowHelpSupplierTable] = useState(false);
+  const [showHelpOrders, setShowHelpOrders] = useState(false);
+  const [showHelpReturned, setShowHelpReturned] = useState(false);
+  const [showHelpStats, setShowHelpStats] = useState(false);
 
-  // Load suppliers
-  const loadSupplier = async () => {
+  // Load suppliers based on business_id
+  const loadSupplier = async (businessid) => {
     try {
-      const data = await fetchSupplier();
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("*")
+        .eq("businessid", businessid)
+        .order("supplierid", { ascending: true });
+
+      if (error) throw error;
       setSuppliers(data);
     } catch (err) {
       console.error("Error loading suppliers:", err);
     }
   };
 
-  // Load supplier stats
-  const loadSupplierStats = async () => {
+  // Load supplier stats based on business_id
+  const loadSupplierStats = async (businessid) => {
     try {
-      const data = await fetchSupplierWithProducts();
+      const { data, error } = await supabase
+        .from("supplier_with_products")
+        .select("*")
+        .eq("businessid", businessid)
+        .order("totalproducts", { ascending: false });
+
+      if (error) throw error;
       setSupplierStats(data);
     } catch (err) {
       console.error("Error loading supplier stats:", err);
     }
   };
 
-  // Load orders
-  const loadOrders = async () => {
+  // Load orders filtered by business_id
+  const loadOrders = async (businessid) => {
+    if (!businessid) return;
+
+    try {
       const { data, error } = await supabase
         .from("purchase_orders")
         .select(`
@@ -57,11 +77,30 @@ const Supplier = () => {
           products ( productname ),
           productcategory ( color, agesize )
         `)
-        .order('created_at', { ascending: false });
+        .eq("businessid", businessid) // ✅ filter by business
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
-
       setOrders(data);
+    } catch (err) {
+      console.error("Error loading orders:", err);
+    }
+  };
+
+  // Load confirmed product exchanges
+  const loadConfirmedExchanges = async (businessid) => {
+    try {
+      const { count, error } = await supabase
+        .from("productExchange")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "Confirmed")
+        .eq("businessid", businessid);
+
+      if (error) throw error;
+      setConfirmedExchangeCount(count || 0);
+    } catch (err) {
+      console.error("Error loading confirmed exchanges:", err);
+    }
   };
 
   // Handle marking order as received
@@ -74,39 +113,32 @@ const Supplier = () => {
     try {
       const receivedAt = new Date();
 
-      // Insert into restockstorage first
-      const { error: restockError } = await supabase
-        .from("restockstorage")
-        .insert({
-          productid: selectedOrder.productid,
-          productcategoryid: selectedOrder.productcategoryid,
-          supplierid: selectedOrder.supplierid,
-          new_stock: selectedOrder.order_qty,
-          new_cost: newCost,
-          new_price: newPrice,
-          batchCode,
-          datereceived: receivedAt,
-          created_at: receivedAt
-        });
+      const { error: restockError } = await supabase.from("restockstorage").insert({
+        productid: selectedOrder.productid,
+        productcategoryid: selectedOrder.productcategoryid,
+        supplierid: selectedOrder.supplierid,
+        new_stock: selectedOrder.order_qty,
+        new_cost: newCost,
+        new_price: newPrice,
+        batchCode,
+        datereceived: receivedAt,
+        created_at: receivedAt,
+      });
 
       if (restockError) throw restockError;
 
-      //Insert into expenses
       const actualPayment = newCost * selectedOrder.order_qty;
-      const { error: expenseError } = await supabase
-        .from("expenses")
-        .insert({
-          user_id: user?.userid || null,
-          occurred_on: receivedAt,
-          category_id: "5e4b2625-86ba-4066-adaa-4657700c118c",
-          amount: actualPayment,
-          notes: `Payment to supplier ${selectedOrder.supplierid} for product ${selectedOrder.products?.productname}`,
-          status: "cleared",
-        });
+      const { error: expenseError } = await supabase.from("expenses").insert({
+        user_id: user?.userid || null,
+        occurred_on: receivedAt,
+        category_id: "5e4b2625-86ba-4066-adaa-4657700c118c",
+        amount: actualPayment,
+        notes: `Payment to supplier ${selectedOrder.supplierid} for product ${selectedOrder.products?.productname}`,
+        status: "cleared",
+      });
 
       if (expenseError) throw expenseError;
 
-      // Delete the order from purchase_orders
       const { error: deleteError } = await supabase
         .from("purchase_orders")
         .delete()
@@ -114,57 +146,64 @@ const Supplier = () => {
 
       if (deleteError) throw deleteError;
 
-      // Cleanup
       setShowReceiveModal(false);
       setSelectedOrder(null);
-      loadOrders();
-
+      loadOrders(user.business_id);
     } catch (err) {
       console.error("Error processing received order:", err);
     }
   };
 
-
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) {
-        window.location.href = "/";
-        return;
+    const getUserAndData = async () => {
+      try {
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+        if (authError || !authUser) {
+          window.location.href = "/";
+          return;
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from("systemuser")
+          .select("*")
+          .eq("userid", authUser.id)
+          .single();
+
+        if (profileError) throw profileError;
+        setUser(profile);
+
+        // Load all data for this business
+        const businessid = profile.business_id;
+        await loadSupplier(businessid);
+        await loadSupplierStats(businessid);
+        await loadConfirmedExchanges(businessid);
+        await loadOrders(businessid);
+      } catch (err) {
+        console.error("Error fetching user/profile:", err);
       }
-
-      const { data: profile, error: profileError } = await supabase
-        .from("systemuser")
-        .select("*")
-        .eq("userid", user.id)
-        .single();
-
-      if (profileError) {
-        console.error("Error fetching user profile:", profileError);
-        return;
-      }
-
-      setUser(profile);
     };
 
-    getUser();
-    loadSupplier();
-    loadSupplierStats();
-    loadOrders();
+
+    getUserAndData();
+
   }, []);
 
-  const filteredSuppliers = suppliers.filter(s =>
+  const filteredSuppliers = suppliers.filter((s) =>
     s.suppliername.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const maxDefects = suppliers.length > 0
-    ? Math.max(...suppliers.map(s => s.defectreturned || 0))
-    : 1;
+  const maxDefects =
+    suppliers.length > 0
+      ? Math.max(...suppliers.map((s) => s.defectreturned || 0))
+      : 1;
+
   return (
     <div className="supplier-page">
+      {/* Header */}
       <header className="header-bar">
         <h1 className="header-title">BuiswAIz</h1>
       </header>
+
       <div className="main-section">
         {/* Sidebar */}
         <aside className="sidebar">
@@ -181,17 +220,44 @@ const Supplier = () => {
             <ul>
               <li className="active">Supplier</li>
               <li onClick={() => navigate("/pos")}>Point of Sales</li>
-              <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li>
+              <li onClick={() => navigate("/PlannedPaymentsPage")}>
+                Planned Payment
+              </li>
             </ul>
           </div>
         </aside>
 
         {/* Main Content */}
         <div className="S-main-content">
-          {/* Supplier Table */}
           <div className="supplier-panel">
             <div className="panel-header">
-              <h2 className="panel-title">Supplier</h2>
+              <div className="header-left-dash">
+                <h2 className="panel-title">Supplier</h2>
+                <div className="help-wrapper-dash">
+                  <button 
+                    className="help-button-dash"
+                    onClick={() => setShowHelpSupplierTable(!showHelpSupplierTable)}
+                    aria-label="Help"
+                  >
+                    ?
+                  </button>
+                  {showHelpSupplierTable && (
+                    <div className="help-box-dash">
+                      <div className="help-arrow-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>Gen TIPS</p>
+                      </div>
+                      
+                      <div className="help-separator-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>AI</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="panel-actions">
                 <input
                   id="supplierSearch"
@@ -201,12 +267,27 @@ const Supplier = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
-                <button className="add-supplier-button" onClick={() => setShowModal(true)}>
+                <button
+                  className="exchange-btn"
+                  onClick={() => setShowExchangeTable(true)}
+                >
+                  ↔ Exchange-List
+                  {confirmedExchangeCount > 0 && (
+                    <span className="exchange-badge">
+                      {confirmedExchangeCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  className="add-supplier-button"
+                  onClick={() => setShowModal(true)}
+                >
                   + Add Supplier
                 </button>
               </div>
             </div>
 
+            {/* Supplier Table */}
             <div className="supplier-container">
               <table>
                 <thead>
@@ -233,7 +314,13 @@ const Supplier = () => {
                       <td>{supplier.phonenumber}</td>
                       <td>{supplier.supplieremail}</td>
                       <td>{supplier.address}</td>
-                      <td className={supplier.supplierstatus === "Active" ? "status-active" : "status-inactive"}>
+                      <td
+                        className={
+                          supplier.supplierstatus === "Active"
+                            ? "status-active"
+                            : "status-inactive"
+                        }
+                      >
                         {supplier.supplierstatus}
                       </td>
                     </tr>
@@ -242,13 +329,38 @@ const Supplier = () => {
               </table>
             </div>
 
+            {/* Orders Section */}
             <div className="supplier-orders-section">
-              <h3>Supplier Orders</h3>
-
+              <div className="header-left-dash">
+                <h3>Supplier Orders</h3>
+                <div className="help-wrapper-dash">
+                  <button 
+                    className="help-button-dash"
+                    onClick={() => setShowHelpOrders(!showHelpOrders)}
+                    aria-label="Help"
+                  >
+                    ?
+                  </button>
+                  {showHelpOrders && (
+                    <div className="help-box-dash">
+                      <div className="help-arrow-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>Gen TIPS</p>
+                      </div>
+                      
+                      <div className="help-separator-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>AI</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="orders-tables-wrapper">
                 <div className="orders-tables-grid">
-                  
-                  {/* Left Table: Pending Orders */}
+                  {/* Left Table: Pending/Confirmed */}
                   <div className="orders-table-wrapper">
                     <h4>Pending & Confirmed Orders</h4>
                     <div className="table-scroll">
@@ -265,19 +377,38 @@ const Supplier = () => {
                         </thead>
                         <tbody>
                           {orders
-                            .filter(order => order.status === "Pending" || order.status === "Confirmed") // Pending & Confirmed
-                            .map(order => {
-                              const supplierName = suppliers.find(s => s.supplierid === order.supplierid)?.suppliername || "Unknown";
+                            .filter(
+                              (order) =>
+                                order.status === "Pending" ||
+                                order.status === "Confirmed"
+                            )
+                            .map((order) => {
+                              const supplierName =
+                                suppliers.find(
+                                  (s) => s.supplierid === order.supplierid
+                                )?.suppliername || "Unknown";
                               return (
                                 <tr key={order.purchaseorderid}>
                                   <td>{supplierName}</td>
                                   <td>{order.products?.productname}</td>
-                                  <td>{order.productcategory?.color} {order.productcategory?.agesize}</td>
+                                  <td>
+                                    {order.productcategory?.color}{" "}
+                                    {order.productcategory?.agesize}
+                                  </td>
                                   <td>{order.order_qty}</td>
-                                  <td className={`status-${order.status.toLowerCase()}`}>{order.status}</td>
+                                  <td
+                                    className={`status-${order.status.toLowerCase()}`}
+                                  >
+                                    {order.status}
+                                  </td>
                                   <td>
                                     {order.status === "Confirmed" ? (
-                                      <button className="mark-received-btn" onClick={() => handleReceiveOrder(order)}>
+                                      <button
+                                        className="mark-received-btn"
+                                        onClick={() =>
+                                          handleReceiveOrder(order)
+                                        }
+                                      >
                                         Mark as Received
                                       </button>
                                     ) : (
@@ -292,8 +423,7 @@ const Supplier = () => {
                     </div>
                   </div>
 
-
-                  {/* Right Table: Rejected Orders */}
+                  {/* Right Table: Rejected */}
                   <div className="orders-table-wrapper">
                     <h4>Rejected Orders</h4>
                     <div className="table-scroll">
@@ -309,16 +439,26 @@ const Supplier = () => {
                         </thead>
                         <tbody>
                           {orders
-                            .filter(order => order.status === "Rejected")
-                            .map(order => {
-                              const supplierName = suppliers.find(s => s.supplierid === order.supplierid)?.suppliername || "Unknown";
+                            .filter((order) => order.status === "Rejected")
+                            .map((order) => {
+                              const supplierName =
+                                suppliers.find(
+                                  (s) => s.supplierid === order.supplierid
+                                )?.suppliername || "Unknown";
                               return (
                                 <tr key={order.purchaseorderid}>
                                   <td>{supplierName}</td>
                                   <td>{order.products?.productname}</td>
-                                  <td>{order.productcategory?.color} {order.productcategory?.agesize}</td>
+                                  <td>
+                                    {order.productcategory?.color}{" "}
+                                    {order.productcategory?.agesize}
+                                  </td>
                                   <td>{order.order_qty}</td>
-                                  <td className={`status-${order.status.toLowerCase()}`}>{order.status}</td>
+                                  <td
+                                    className={`status-${order.status.toLowerCase()}`}
+                                  >
+                                    {order.status}
+                                  </td>
                                 </tr>
                               );
                             })}
@@ -335,15 +475,17 @@ const Supplier = () => {
           <div className="S-right-panel">
             <div className="S-user-info-card">
               <div className="S-user-left">
-                <div className="S-user-avatar"/>
-                <div className="S-user-username">{user ? user.username : "Loading..."}</div>
+                <div className="S-user-avatar" />
+                <div className="S-user-username">
+                  {user ? user.username : "Loading..."}
+                </div>
               </div>
               <button
                 className="logout-button"
                 onClick={async () => {
                   await supabase.auth.signOut();
                   localStorage.removeItem("userProfile");
-                  localStorage.removeItem('lastActive');
+                  localStorage.removeItem("lastActive");
                   window.location.href = "/login";
                 }}
               >
@@ -352,26 +494,85 @@ const Supplier = () => {
             </div>
 
             <div className="supply-returned-panel">
-              <h3>Product Returned to Supplier</h3>
+              <div className="header-left-dash">
+                <h3>Product Returned to Supplier</h3>
+                <div className="help-wrapper-dash">
+                  <button 
+                    className="help-button-dash"
+                    onClick={() => setShowHelpReturned(!showHelpReturned)}
+                    aria-label="Help"
+                  >
+                    ?
+                  </button>
+                  {showHelpReturned && (
+                    <div className="help-box-dash">
+                      <div className="help-arrow-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>Gen TIPS</p>
+                      </div>
+                      
+                      <div className="help-separator-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>AI</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="returned-container">
                 {suppliers
-                .sort((a, b) => (b.defectreturned || 0) - (a.defectreturned || 0))
-                .map(s => (
-                  <div key={s.supplierid} className="returned-card">
-                    <div className="supplier-info">
-                      <span className="supplier-name">{s.suppliername}</span>
-                      <span className="returned-count">{s.defectreturned || 0}</span>
+                  .sort((a, b) => (b.defectreturned || 0) - (a.defectreturned || 0))
+                  .map((s) => (
+                    <div key={s.supplierid} className="returned-card">
+                      <div className="supplier-info">
+                        <span className="supplier-name">{s.suppliername}</span>
+                        <span className="returned-count">
+                          {s.defectreturned || 0}
+                        </span>
+                      </div>
+                      <div className="progress-bar">
+                        <div
+                          className="progress-fill"
+                          style={{
+                            width: `${((s.defectreturned || 0) / maxDefects) * 100}%`,
+                          }}
+                        ></div>
+                      </div>
                     </div>
-                    <div className="progress-bar">
-                      <div className="progress-fill" style={{ width: `${((s.defectreturned || 0) / maxDefects) * 100}%` }}></div>
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
 
             <div className="supplier-stats-panel">
-              <h3>Supplier Product Stats</h3>
+              <div className="header-left-dash">
+                <h3>Supplier Product Stats</h3>
+                <div className="help-wrapper-dash">
+                  <button 
+                    className="help-button-dash"
+                    onClick={() => setShowHelpStats(!showHelpStats)}
+                    aria-label="Help"
+                  >
+                    ?
+                  </button>
+                  {showHelpStats && (
+                    <div className="help-box-dash">
+                      <div className="help-arrow-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>Gen TIPS</p>
+                      </div>
+                      
+                      <div className="help-separator-dash"></div>
+                      
+                      <div className="help-content-dash">
+                        <p>AI</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="S-stats-container">
                 {supplierStats.map((s, i) => (
                   <div key={i} className="S-stats-row">
@@ -391,8 +592,20 @@ const Supplier = () => {
         <AddSupplier
           onClose={() => {
             setShowModal(false);
-            loadSupplier();
-            loadSupplierStats();
+            if(user) loadSupplier(user.business_id);
+            if(user) loadSupplierStats(user.business_id);
+          }}
+          user={user}
+        />
+      )}
+
+      {showExchangeTable && (
+        <ExchangeTable
+          onClose={() => {
+            setShowExchangeTable(false);
+
+            if(user) loadConfirmedExchanges(user.business_id);
+
           }}
           user={user}
         />
@@ -403,8 +616,8 @@ const Supplier = () => {
           supplier={selectedSupplier}
           onClose={() => {
             setSelectedSupplier(null);
-            loadSupplier();
-            loadSupplierStats();
+            if(user) loadSupplier(user.business_id);
+            if(user) loadSupplierStats(user.business_id);
           }}
           user={user}
         />
@@ -415,25 +628,55 @@ const Supplier = () => {
           <div className="modal-box">
             <h3>Receive Order</h3>
             <p>Product: {selectedOrder.products?.productname}</p>
-            <p>Category: {selectedOrder.productcategory?.color} {selectedOrder.productcategory?.agesize}</p>
+            <p>
+              Category: {selectedOrder.productcategory?.color}{" "}
+              {selectedOrder.productcategory?.agesize}
+            </p>
             <p>Qty: {selectedOrder.order_qty}</p>
             <p>Old Cost per Unit: {selectedOrder.unit_cost}</p>
-            <p>Inital Total Cost: {selectedOrder.total_cost}</p>
-            <label>Batch Code: <input type="text" id="batchCode" /></label>
-            <label>New Cost per Unit: 
-              <input type="number" 
-                value={newCost}
-                min="0" 
-                onChange={(e) => setNewCost(parseFloat(e.target.value))}/>
+            <p>Initial Total Cost: {selectedOrder.total_cost}</p>
+            <label>
+              Batch Code: <input type="text" id="batchCode" />
             </label>
-            <label>Actual Payment</label> <input type="number" value={(newCost * selectedOrder.order_qty).toFixed(2)} readOnly/>
-            <label>New Price: <input type="number" id="newPrice" min="0"/></label>
-            <button className ="received-btn"onClick={() => {
-              const batchCode = document.getElementById("batchCode").value;
-              const newPrice = parseFloat(document.getElementById("newPrice").value);
-              confirmReceiveOrder(batchCode, newCost, newPrice);
-            }}>Confirm Receive</button>
-            <button className="cancel-sup-btn"onClick={() => { setShowReceiveModal(false); setSelectedOrder(null); }}>Cancel</button>
+            <label>
+              New Cost per Unit:
+              <input
+                type="number"
+                value={newCost}
+                min="0"
+                onChange={(e) => setNewCost(parseFloat(e.target.value))}
+              />
+            </label>
+            <label>Actual Payment</label>
+            <input
+              type="number"
+              value={(newCost * selectedOrder.order_qty).toFixed(2)}
+              readOnly
+            />
+            <label>
+              New Price: <input type="number" id="newPrice" min="0" />
+            </label>
+            <button
+              className="received-btn"
+              onClick={() => {
+                const batchCode = document.getElementById("batchCode").value;
+                const newPrice = parseFloat(
+                  document.getElementById("newPrice").value
+                );
+                confirmReceiveOrder(batchCode, newCost, newPrice);
+              }}
+            >
+              Confirm Receive
+            </button>
+            <button
+              className="cancel-sup-btn"
+              onClick={() => {
+                setShowReceiveModal(false);
+                setSelectedOrder(null);
+              }}
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-// src/login.jsx
+// src/Login.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from './supabase';
@@ -12,32 +12,35 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
 
-  // ---- AUTO-REDIRECT AND 5-MINUTE AUTO-LOGOUT ----
+  // ---- CHECK IF USER IS ALREADY LOGGED IN ----
   useEffect(() => {
-    const checkSessionTimeout = async () => {
+    const checkLoggedIn = async () => {
       const { data } = await supabase.auth.getSession();
-      if (!data?.session) return; // not logged in
+      if (!data?.session) return;
 
-      const lastActive = localStorage.getItem('lastActive');
-      const fiveMinutes = 5 * 60 * 1000;
+      const userId = data.session.user.id;
 
-      if (lastActive && Date.now() - parseInt(lastActive) > fiveMinutes) {
-        // more than 5 minutes passed → logout
-        await supabase.auth.signOut();
-        localStorage.removeItem('userProfile');
-        localStorage.removeItem('lastActive');
-        navigate('/login');
+      const { data: userProfile } = await supabase
+        .from('systemuser')
+        .select('*')
+        .eq('userid', userId)
+        .maybeSingle();
+
+      if (!userProfile || userProfile.username == null || userProfile.business_id == null) {
+        navigate('/setup-business');
       } else {
-        // session is valid → update lastActive and redirect
         localStorage.setItem('lastActive', Date.now());
+        if (localStorage.getItem('rememberMe') === 'true') {
+          localStorage.setItem('userProfile', JSON.stringify(userProfile));
+        }
         navigate('/Dashboard');
       }
     };
 
-    checkSessionTimeout();
+    checkLoggedIn();
   }, [navigate]);
 
-  // ---- OPTIONAL: reset lastActive on user activity ----
+  // ---- RESET TIMER ON USER ACTIVITY ----
   useEffect(() => {
     const resetTimer = () => localStorage.setItem('lastActive', Date.now());
 
@@ -50,44 +53,75 @@ const Login = () => {
     };
   }, []);
 
+  // ---- AUTO-LOGOUT AFTER 5 MINUTES ----
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const lastActive = localStorage.getItem('lastActive');
+      const fiveMinutes = 5 * 60 * 1000;
+
+      if (lastActive && Date.now() - parseInt(lastActive) > fiveMinutes) {
+        await supabase.auth.signOut();
+        localStorage.removeItem('userProfile');
+        localStorage.removeItem('lastActive');
+        localStorage.removeItem('rememberMe');
+        navigate('/login');
+      }
+    }, 30 * 1000); // check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [navigate]);
+
+  // ---- LOGIN HANDLER ----
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
 
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (authError || !authData?.user) {
-      setError('Invalid email or password.');
-      return;
+      if (authError || !authData?.user) {
+        setError('Invalid email or password.');
+        return;
+      }
+
+      if (!authData.user.confirmed_at) {
+        setError('Please verify your email before logging in.');
+        return;
+      }
+
+      const userId = authData.user.id;
+
+      const { data: userProfile, error: profileError } = await supabase
+        .from('systemuser')
+        .select('*')
+        .eq('userid', userId)
+        .maybeSingle();
+
+      if (profileError) {
+        setError('An error occurred fetching your profile.');
+        return;
+      }
+
+      // redirect based on profile
+      if (!userProfile?.username || !userProfile?.business_id) {
+        navigate('/setup-business');
+      } else {
+        navigate('/Dashboard');
+      }
+
+    } catch (err) {
+      console.error(err);
+      setError('An unexpected error occurred.');
     }
-
-    const userId = authData.user.id;
-    const { data: userProfile, error: userError } = await supabase
-      .from('systemuser')
-      .select('*')
-      .eq('userid', userId)
-      .single();
-
-    if (userError || !userProfile) {
-      setError('User profile not found.');
-      return;
-    }
-
-    if (rememberMe) {
-      localStorage.setItem('userProfile', JSON.stringify(userProfile));
-    }
-
-    // ---- SAVE LOGIN TIMESTAMP ----
-    localStorage.setItem('lastActive', Date.now());
-
-    navigate('/Dashboard');
   };
+
 
   return (
     <div className="login-container page-enter-active">
+      {/* LEFT SIDE */}
       <div className="login-left">
         <form onSubmit={handleLogin} className="login-form">
           <h2 className="login-title">Sign In</h2>
@@ -130,17 +164,20 @@ const Login = () => {
 
           {error && <p className="error-message">{error}</p>}
 
-          <button type="submit" className="login-button">Sign In</button>
+          <button type="submit" className="login-button">
+            Sign In
+          </button>
+
+          <button type="button" className="signup-button" onClick={() => navigate('/signup')}>
+            Sign Up
+          </button>
         </form>
       </div>
 
+      {/* RIGHT SIDE */}
       <div className="login-right">
         <div className="login-logo-container">
-          <img 
-            src={rightImage} 
-            alt="BuisWaiz Logo" 
-            className="login-logo-image"
-          />
+          <img src={rightImage} alt="BuisWaiz Logo" className="login-logo-image" />
         </div>
       </div>
     </div>

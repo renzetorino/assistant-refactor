@@ -39,7 +39,7 @@
   cursor: pointer;
   transition: all 0.25s ease;
   box-shadow: 0 4px 12px rgba(4, 180, 252, 0.2);
-  margin: 0;
+  margin-bottom: 5px;
   white-space: nowrap;
 }
 
@@ -146,6 +146,7 @@
   min-width: 45px;
   height: 100%;
   position: relative;
+  margin-top: 1px;
 }
 
 .bar-container {

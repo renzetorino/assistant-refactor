@@ -17,7 +17,6 @@ const ViewProduct = ({ product, onClose, onProductUpdated, user }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showItems, setShowItems] = useState(false);
   const [itemsRefreshTrigger, setItemsRefreshTrigger] = useState(0);
-
   const [currentProduct, setCurrentProduct] = useState(product);
 
   useEffect(() => {
@@ -29,17 +28,22 @@ const ViewProduct = ({ product, onClose, onProductUpdated, user }) => {
   }, [product]);
 
   useEffect(() => {
-    const fetchSuppliers = async () => {
-      try {
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/get-suppliers`);
-        const data = await res.json();
-        setSuppliers(data);
-      } catch (err) {
-        console.error("Error fetching suppliers:", err);
-      }
-    };
-    fetchSuppliers();
-  }, []);
+      if (!user?.business_id) return;
+  
+      const fetchSuppliers = async () => {
+        try {
+          const res = await fetch(
+            `${import.meta.env.VITE_BACKEND_URL}/api/get-suppliers?businessId=${user.business_id}`
+          );
+          const data = await res.json();
+          setSuppliers(data || []);
+        } catch (err) {
+          console.error("Failed to fetch suppliers:", err);
+        }
+      };
+  
+      fetchSuppliers();
+    }, [user]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -90,12 +94,12 @@ const ViewProduct = ({ product, onClose, onProductUpdated, user }) => {
       formData.append("userid", user.userid);
 
       if (newImageFile) {
-        formData.append("image", newImageFile); // must match multer.single("image")
+        formData.append("image", newImageFile);
       }
 
       const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/update-product`, {
         method: "POST",
-        body: formData, // no JSON headers
+        body: formData,
       });
 
       const data = await res.json();
@@ -114,7 +118,7 @@ const ViewProduct = ({ product, onClose, onProductUpdated, user }) => {
     }
   };
 
-   const handleDeleteClick = async () => {
+  const handleDeleteClick = async () => {
     setDeleteError("");
     setIsLoading(true);
 
@@ -171,14 +175,12 @@ const ViewProduct = ({ product, onClose, onProductUpdated, user }) => {
   const handleViewItems = () => setShowItems(true);
 
   const getCurrentSupplierName = () => {
-    if (!isEditing && currentProduct.suppliers?.suppliername) {
-      return currentProduct.suppliers.suppliername;
-    }
-    if (form.supplierid) {
-      const supplier = suppliers.find(s => s.supplierid === form.supplierid);
-      if (supplier) return supplier.suppliername;
-    }
-    return "No supplier selected";
+    if (!Array.isArray(suppliers) || suppliers.length === 0) return "No supplier selected";
+
+    const supplier = suppliers.find(
+      (s) => String(s.supplierid) === String(form.supplierid)
+    );
+    return supplier?.suppliername || "No supplier selected";
   };
 
   return (
@@ -294,7 +296,7 @@ const ViewProduct = ({ product, onClose, onProductUpdated, user }) => {
                       >
                         <option value="">-- Select Supplier --</option>
                         {suppliers.map((s) => (
-                          <option key={s.supplierid} value={s.supplierid}>
+                          <option key={s.supplierid} value={String(s.supplierid)}>
                             {s.suppliername}
                           </option>
                         ))}
@@ -334,7 +336,7 @@ const ViewProduct = ({ product, onClose, onProductUpdated, user }) => {
         />
         {formError && <div className="productForm-warning">{formError}</div>}
         {deleteError && <div className="delete-warning">{deleteError}</div>}
-          
+
         {showAddCategory && (
           <AddCategory
             productId={currentProduct.productid}
