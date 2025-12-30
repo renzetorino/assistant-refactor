@@ -1,11 +1,9 @@
 using dataAccess.Api;
-// ❌ REMOVED: using dataAccess.Api.Endpoints; (AssistantEndpoint deleted)
 using dataAccess.Api.Middleware;
 using dataAccess.Api.Services;
 using dataAccess.Services;
 using dataAccess.Planning;
 using dataAccess.Planning.Nlq;
-// ❌ REMOVED: using dataAccess.Planning.Validation; (PlanValidator deleted)
 using dataAccess.Reports;
 using dataAccess.Forecasts;
 using dataAccess.LLM;
@@ -257,10 +255,7 @@ builder.Services.AddSingleton(provider =>
     return ConfigLoader.Load(loader, "config.yaml");   // loads identity, etc.
 });
 builder.Services.AddSingleton<PromptRegistry>();
-// ❌ ZOMBIE SERVICE - Deleted 2025-12-15
-// builder.Services.AddSingleton<PromptComposer>();
 
-// Embedder (typed HttpClient)
 builder.Services.AddHttpClient<IEmbeddingProvider, OllamaEmbeddingProvider>((sp, http) =>
 {
     var cfg = sp.GetRequiredService<IConfiguration>();
@@ -436,14 +431,7 @@ builder.Services.AddScoped<ChatHistoryService>(); // Keep for backward compatibi
 // Phase 3: YAML-driven Runners with Slot Validation
 builder.Services.AddScoped<IForecastRunnerService, ForecastRunnerService>();
 
-// ==============================================================================
-// EXISTING SERVICES
-// ==============================================================================
 
-// ❌ ZOMBIE SERVICES - Deleted 2025-12-15
-// builder.Services.AddScoped<PlannerService>();
-// builder.Services.AddScoped<PlanValidator>();
-// builder.Services.AddScoped<PlanExecutor>();
 builder.Services.AddHttpClient();
 
 // Groq client (typed HttpClient) — MUST set BaseAddress
@@ -453,11 +441,7 @@ builder.Services.AddHttpClient<GroqJsonClient>((sp, http) =>
     http.Timeout = TimeSpan.FromSeconds(60);
 });
 
-// Query services
-// ❌ ZOMBIE SERVICES - Deleted 2025-12-15
-// builder.Services.AddScoped<SqlQueryService>();
-// builder.Services.AddScoped<HybridQueryService>();
-builder.Services.AddScoped<VectorSearchService>(); // ✅ Keep - used by utilities
+builder.Services.AddScoped<VectorSearchService>();
 
 // LLM SQL Generation services
 builder.Services.AddSingleton<LlmSqlPromptLoader>();
@@ -587,6 +571,9 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
+// ? Multi-tenancy: HttpContext access for SqlCatalog business_id extraction
+builder.Services.AddHttpContextAccessor();
+
 builder.Services.AddControllers();
 var app = builder.Build();
 
@@ -673,14 +660,6 @@ app.UseExceptionHandler(errorApp =>
         await context.Response.WriteAsync(JsonSerializer.Serialize(payload));
     });
 });
-
-static double? SafePct(double prev, double cur)
-{
-    if (double.IsNaN(prev) || prev == 0) return null;
-    return (cur - prev) / prev * 100.0;
-}
-
-static string NewRunId() => $"r_sales_{Guid.NewGuid():N}".ToLowerInvariant();
 
 app.UseCors("default");
 app.UseRateLimiter(); // Apply rate limiting before authentication
@@ -883,13 +862,6 @@ app.MapGet("/api/debug/expense-spec-deep", async () =>
 
 app.MapGet("/health", () => Results.Ok(new { ok = true }));
 
-// -------------------------------
-// ❌ LEGACY SQL ENDPOINTS DELETED (Zombie Services)
-// Replacement: Use POST /api/chat/query
-// -------------------------------
-
-// ❌ DELETED: All legacy SQL/Hybrid/Vector route endpoints (see above comment)
-
 // Debug endpoint to test LLM SQL generation
 app.MapPost("/api/debug/llm-sql", async (
     HttpContext ctx,
@@ -946,15 +918,6 @@ app.MapPost("/api/debug/llm-sql", async (
     }
 });
 
-// ❌ DELETED: POST /api/reports/inventory/plan (orphaned - depends on deleted PlannerService)
-// Replacement: Use POST /api/chat/query with intent "reports.inventory"
-
-// ❌ DELETED: POST /api/reports/inventory/render (orphaned - depends on deleted PlanValidator)
-// Replacement: Use POST /api/chat/query with YamlReportRunner (165 lines removed)
-
-// ❌ DELETED: POST /api/reports/expense/generate (orphaned - depends on deleted PlannerService)
-// Replacement: Use POST /api/chat/query with intent "reports.expenses"
-
 app.MapGet("/api/reports/expense/by-id/{id:guid}", async (
     Guid id,
     HttpContext ctx,
@@ -966,14 +929,27 @@ app.MapGet("/api/reports/expense/by-id/{id:guid}", async (
     await using var conn = new NpgsqlConnection(connStr);
     await conn.OpenAsync(ct);
 
-    const string sql = @"
-        select ui_spec
-        from public.reports
-        where id = @id
-        limit 1;";
+    // MULTI-TENANCY: Extract business_id from HttpContext
+    int? businessId = ctx.Items.TryGetValue("BusinessId", out var bidObj) && bidObj is int bid ? bid : (int?)null;
+    Console.WriteLine($"[MULTI-TENANCY] /api/reports/expense/by-id/{id} | BusinessId: {businessId?.ToString() ?? "NULL"}");
+
+    // Build SQL with business_id filter for security
+    var hasBusinessFilter = businessId.HasValue;
+    
+    var sql = hasBusinessFilter
+        ? @"select ui_spec
+            from public.reports
+            where id = @id AND business_id = @business_id
+            limit 1;"
+        : @"select ui_spec
+            from public.reports
+            where id = @id
+            limit 1;";
 
     await using var cmd = new NpgsqlCommand(sql, conn);
     cmd.Parameters.AddWithValue("id", id);
+    if (hasBusinessFilter)
+        cmd.Parameters.AddWithValue("business_id", businessId!.Value);
 
     var uiSpecJson = (string?)await cmd.ExecuteScalarAsync(ct);
     if (uiSpecJson is null)
@@ -981,9 +957,6 @@ app.MapGet("/api/reports/expense/by-id/{id:guid}", async (
 
     return Results.Json(new { ui_spec = JsonDocument.Parse(uiSpecJson).RootElement, id });
 });
-
-// ❌ DELETED: POST /api/reports/sales/generate (orphaned - depends on deleted PlannerService)
-// Replacement: Use POST /api/chat/query with intent "reports.sales"
 
 app.MapGet("/api/reports/recent", async (
     HttpContext ctx,
@@ -1000,29 +973,48 @@ app.MapGet("/api/reports/recent", async (
     await using var conn = new NpgsqlConnection(connStr);
     await conn.OpenAsync(ct);
 
-    // ✅ If no domain or "all" → include every report
+    // MULTI-TENANCY: Extract business_id from HttpContext (use business_id instead of user_id)
+    int? businessId = ctx.Items.TryGetValue("BusinessId", out var bidObj) && bidObj is int bid ? bid : (int?)null;
+    Console.WriteLine($"[MULTI-TENANCY] /api/reports/recent | BusinessId: {businessId?.ToString() ?? "NULL"}");
+
+    // Check if business filtering should be applied
+    var hasBusinessFilter = businessId.HasValue;
+
+    // Build SQL with business_id filtering (not user_id)
     string sql;
     if (string.IsNullOrWhiteSpace(domain) || domain == "all")
     {
-        sql = @"
-            select id, domain, period_label, created_at, ui_spec
-            from public.reports
-            order by created_at desc
-            limit @limit;";
+        sql = hasBusinessFilter
+            ? @"select id, domain, period_label, created_at, ui_spec
+                from public.reports
+                where business_id = @business_id
+                order by created_at desc
+                limit @limit;"
+            : @"select id, domain, period_label, created_at, ui_spec
+                from public.reports
+                order by created_at desc
+                limit @limit;";
     }
     else
     {
-        sql = @"
-            select id, domain, period_label, created_at, ui_spec
-            from public.reports
-            where domain = @domain
-            order by created_at desc
-            limit @limit;";
+        sql = hasBusinessFilter
+            ? @"select id, domain, period_label, created_at, ui_spec
+                from public.reports
+                where domain = @domain AND business_id = @business_id
+                order by created_at desc
+                limit @limit;"
+            : @"select id, domain, period_label, created_at, ui_spec
+                from public.reports
+                where domain = @domain
+                order by created_at desc
+                limit @limit;";
     }
 
     await using var cmd = new NpgsqlCommand(sql, conn);
     if (!string.IsNullOrWhiteSpace(domain) && domain != "all")
         cmd.Parameters.AddWithValue("domain", domain);
+    if (hasBusinessFilter)
+        cmd.Parameters.AddWithValue("business_id", businessId!.Value);
     cmd.Parameters.AddWithValue("limit", limit);
 
     var list = new List<object>();
@@ -1060,14 +1052,27 @@ app.MapGet("/api/reports/sales/by-id/{id:guid}", async (
     await using var conn = new NpgsqlConnection(connStr);
     await conn.OpenAsync(ct);
 
-    const string sql = @"
-        select ui_spec
-        from public.reports
-        where id = @id
-        limit 1;";
+    // MULTI-TENANCY: Extract business_id from HttpContext
+    int? businessId = ctx.Items.TryGetValue("BusinessId", out var bidObj) && bidObj is int bid ? bid : (int?)null;
+    Console.WriteLine($"[MULTI-TENANCY] /api/reports/sales/by-id/{id} | BusinessId: {businessId?.ToString() ?? "NULL"}");
+
+    // Build SQL with business_id filter for security
+    var hasBusinessFilter = businessId.HasValue;
+    
+    var sql = hasBusinessFilter
+        ? @"select ui_spec
+            from public.reports
+            where id = @id AND business_id = @business_id
+            limit 1;"
+        : @"select ui_spec
+            from public.reports
+            where id = @id
+            limit 1;";
 
     await using var cmd = new NpgsqlCommand(sql, conn);
     cmd.Parameters.AddWithValue("id", id);
+    if (hasBusinessFilter)
+        cmd.Parameters.AddWithValue("business_id", businessId!.Value);
 
     var uiSpecJson = (string?)await cmd.ExecuteScalarAsync(ct);
     if (uiSpecJson is null)
@@ -1110,27 +1115,9 @@ app.MapGet("/api/debug/db-ping", async (IConfiguration cfg, CancellationToken ct
 // app.MapQueryPipelineEndpoint(); // Depends on deleted QueryPipeline
 // Replacement: Use POST /api/chat/query (ChatOrchestratorService)
 // Assuming you have: public sealed record AssistantRequest(string Text, string? Domain);
-// ---------- tiny helpers (can be placed above the map) ----------
-static string NormalizeReportDomain(string? domain)
-{
-    if (string.IsNullOrWhiteSpace(domain)) return "sales";
-    var d = domain.Trim().ToLowerInvariant();
-    return d switch
-    {
-        "expense" or "expenses" => "expenses",
-        "inventories" => "inventory",
-        "sale" => "sales",
-        _ => d
-    };
-}
+// ---------- DELETED: Unused helper functions (2025-12-27) ----------
 
-static ForecastDomain ToForecastDomain(string? domain)
-{
-    var d = (domain ?? "").Trim().ToLowerInvariant();
-    return (d == "expenses" || d == "expense")
-        ? ForecastDomain.Expenses
-        : ForecastDomain.Sales;
-}
+
 static string ResolveVecConn(IConfiguration cfg)
 {
     return cfg["APP__VEC__CONNECTIONSTRING"]
@@ -1139,259 +1126,6 @@ static string ResolveVecConn(IConfiguration cfg)
         ?? cfg.GetConnectionString("Vector")
         ?? cfg.GetConnectionString("APP__VEC__CONNECTIONSTRING")
         ?? throw new InvalidOperationException("Vector connection string not found (APP__VEC__CONNECTIONSTRING / ConnectionStrings:VEC/Vector).");
-}
-
-static string BuildPeriodLabel(DateOnly start, DateOnly end)
-{
-    var sameYear = start.Year == end.Year;
-    var left = start.ToDateTime(TimeOnly.MinValue);
-    var right = end.ToDateTime(TimeOnly.MinValue);
-    var L = left.ToString("MMM d", CultureInfo.InvariantCulture);
-    var R = sameYear
-        ? right.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)
-        : right.ToString("MMM d, yyyy", CultureInfo.InvariantCulture);
-    return $"{L}–{R}";
-}
-
-static (DateOnly start, DateOnly end, string label, int days) ResolvePeriod(JsonElement root)
-{
-    // Accepts either explicit start/end or horizon "days"
-    var period = root.TryGetProperty("period", out var p) && p.ValueKind == JsonValueKind.Object ? p : default;
-    var label = period.ValueKind == JsonValueKind.Object && period.TryGetProperty("label", out var l) && l.ValueKind == JsonValueKind.String
-        ? (l.GetString() ?? "")
-        : null;
-
-    DateOnly start, end;
-    if (period.ValueKind == JsonValueKind.Object &&
-        period.TryGetProperty("start", out var ps) && ps.ValueKind == JsonValueKind.String &&
-        period.TryGetProperty("end", out var pe) && pe.ValueKind == JsonValueKind.String &&
-        DateOnly.TryParse(ps.GetString(), out start) && DateOnly.TryParse(pe.GetString(), out end))
-    {
-        var computed = string.IsNullOrWhiteSpace(label) ? BuildPeriodLabel(start, end) : label!;
-        return (start, end, computed, (end.DayNumber - start.DayNumber) + 1);
-    }
-
-    // Fallback: horizon "days" from body or default 30
-    var days = root.TryGetProperty("days", out var dEl) && dEl.TryGetInt32(out var dVal) && dVal > 0 && dVal <= 60 ? dVal : 30;
-    var today = DateOnly.FromDateTime(DateTime.UtcNow); // or use PH time if preferred
-    start = today;
-    end = today.AddDays(days - 1);
-    return (start, end, BuildPeriodLabel(start, end), days);
-}
-
-static object SafeArray(JsonElement el)
-{
-    if (el.ValueKind == JsonValueKind.Array)
-    {
-        return System.Text.Json.Nodes.JsonNode.Parse(el.GetRawText())!; // independent JsonNode/JsonArray
-    }
-    return System.Text.Json.Nodes.JsonNode.Parse("[]")!;
-}
-
-static (decimal? sumForecast, decimal? last7, decimal? last28, JsonElement actual, JsonElement forecast)
-    LiftForecastFields(JsonElement payload)
-{
-    decimal? GetNum(string name)
-    {
-        // Try top-level first
-        if (payload.TryGetProperty(name, out var el))
-        {
-            if (el.ValueKind == JsonValueKind.Number && el.TryGetDecimal(out var d)) return d;
-            if (el.ValueKind == JsonValueKind.String && Decimal.TryParse(el.GetString(), out var s)) return s;
-        }
-        
-        // Try inside "kpis" object
-        if (payload.TryGetProperty("kpis", out var kpis) && kpis.ValueKind == JsonValueKind.Object)
-        {
-            if (kpis.TryGetProperty(name, out var kpiEl))
-            {
-                if (kpiEl.ValueKind == JsonValueKind.Number && kpiEl.TryGetDecimal(out var d2)) return d2;
-                if (kpiEl.ValueKind == JsonValueKind.String && Decimal.TryParse(kpiEl.GetString(), out var s2)) return s2;
-            }
-        }
-        
-        return null;
-    }
-
-    JsonElement FindSeries(string key1, string key2, out bool found)
-    {
-        // supports { series:{ history:[...], forecast:[...] } } 
-        // OR { series:{ actual:[...], forecast:[...] } } 
-        // OR top-level arrays
-        if (payload.TryGetProperty("series", out var sObj) && sObj.ValueKind == JsonValueKind.Object)
-        {
-            if (sObj.TryGetProperty(key1, out var s1) && s1.ValueKind == JsonValueKind.Array) 
-            { 
-                found = true; 
-                return s1; 
-            }
-            if (sObj.TryGetProperty(key2, out var s2) && s2.ValueKind == JsonValueKind.Array) 
-            { 
-                found = true; 
-                return s2; 
-            }
-        }
-        if (payload.TryGetProperty(key2, out var s3) && s3.ValueKind == JsonValueKind.Array) 
-        { 
-            found = true; 
-            return s3; 
-        }
-        found = false; 
-        return default;
-    }
-
-    var sumF = GetNum("sum_forecast");
-    var a7 = GetNum("last_7d_actual");
-    var a28 = GetNum("last_28d_actual");
-
-    var _ = false;
-    var actual = FindSeries("history", "actual", out _);  // Try "history" first, then "actual"
-    var forecast = FindSeries("forecast", "forecast", out _);
-
-    return (sumF, a7, a28, actual, forecast);
-}
-
-// --- Forecast narrative (analyst vibe, single paragraph, no bullets) ---
-static async Task<string[]> GenerateAnalystNarrativeAsync(
-    GroqJsonClient groq,
-    string domainTitle,
-    string periodLabel,
-    decimal? sumForecast,
-    decimal? last7,
-    decimal? last28,
-    JsonElement historicalData,
-    JsonElement forecastData,
-    CancellationToken ct)
-{
-    static string PickStyleHint(int seed)
-    {
-        string[] styles =
-        {
-            "analyst memo; 3–5 sentences; crisp, specific; no bullets; avoid clichés",
-            "neutral research note; short, declarative sentences; no list formatting",
-            "executive brief; 3–4 sentences; mention one concrete driver; no hype",
-            "data-first commentary; weave KPIs into prose; forbid boilerplate phrasing"
-        };
-        return styles[Math.Abs(seed) % styles.Length];
-    }
-
-    var styleHint = PickStyleHint((periodLabel ?? "").GetHashCode() + DateTime.UtcNow.DayOfYear);
-
-    var system = """
-    You are a business analyst. Write a short, SINGLE-PARAGRAPH explanation of the forecast.
-    Tone: professional analyst. No bullets, no headings, no emojis.
-    Use 3–5 sentences. Be concrete and period-specific. Reference the provided data.
-    Do NOT invent numbers, dates, or categories beyond the input.
-    
-    IMPORTANT: You will receive:
-    1. Historical Data: Past actual values (dates + amounts) from recent days
-    2. Forecast Data: Predicted future values (dates + amounts) for the forecast period
-    3. KPIs: Aggregated summaries
-    
-    Your task:
-    - Analyze the historical trend from the data points
-    - Compare the forecast predictions to recent historical performance
-    - Identify any patterns (increasing/decreasing/stable)
-    - Be specific with numbers and dates when relevant
-    
-    DO NOT say "lack of data" or "data is null" - you have both historical and forecast arrays.
-    
-    Return STRICT JSON: {"narrative":"<one paragraph>"} and nothing else.
-    """;
-
-    // Build historical summary from data points
-    string historicalSummary = "No historical data";
-    if (historicalData.ValueKind == JsonValueKind.Array && historicalData.GetArrayLength() > 0)
-    {
-        var count = historicalData.GetArrayLength();
-        var recentPoints = new List<string>();
-        for (int i = Math.Max(0, count - 5); i < count; i++)
-        {
-            var point = historicalData[i];
-            if (point.TryGetProperty("date", out var d) && point.TryGetProperty("value", out var v))
-            {
-                var dateStr = d.ValueKind == JsonValueKind.String ? d.GetString() : d.GetRawText();
-                var val = v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0m;
-                recentPoints.Add($"{dateStr}: ₱{val:N2}");
-            }
-        }
-        historicalSummary = recentPoints.Count > 0 
-            ? $"Last {recentPoints.Count} days: {string.Join(", ", recentPoints)}"
-            : "Historical data available but no recent points";
-    }
-
-    // Build forecast summary from data points
-    string forecastSummary = "No forecast data";
-    if (forecastData.ValueKind == JsonValueKind.Array && forecastData.GetArrayLength() > 0)
-    {
-        var count = forecastData.GetArrayLength();
-        var forecastPoints = new List<string>();
-        for (int i = 0; i < Math.Min(5, count); i++)
-        {
-            var point = forecastData[i];
-            if (point.TryGetProperty("date", out var d) && point.TryGetProperty("value", out var v))
-            {
-                var dateStr = d.ValueKind == JsonValueKind.String ? d.GetString() : d.GetRawText();
-                var val = v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0m;
-                forecastPoints.Add($"{dateStr}: ₱{val:N2}");
-            }
-        }
-        forecastSummary = forecastPoints.Count > 0 
-            ? $"Next {forecastPoints.Count} days: {string.Join(", ", forecastPoints)}"
-            : "Forecast data available but no points";
-    }
-
-    // Safe array length checks
-    int histCount = historicalData.ValueKind == JsonValueKind.Array ? historicalData.GetArrayLength() : 0;
-    int foreCount = forecastData.ValueKind == JsonValueKind.Array ? forecastData.GetArrayLength() : 0;
-
-    var user = $"""
-    Domain: {domainTitle}
-    Forecast Period: {periodLabel}
-
-    Historical Data ({histCount} days):
-    {historicalSummary}
-
-    Forecast Predictions ({foreCount} days):
-    {forecastSummary}
-
-    Aggregated KPIs:
-      - Forecasted Total: {(sumForecast is null || sumForecast == 0 ? "₱0.00" : "₱" + sumForecast.Value.ToString("N2"))}
-      - Recent 7d Actual: {(last7 is null || last7 == 0 ? "₱0.00" : "₱" + last7.Value.ToString("N2"))}
-      - Recent 28d Actual: {(last28 is null || last28 == 0 ? "₱0.00" : "₱" + last28.Value.ToString("N2"))}
-
-    Task: Write a brief forecast analysis based on the historical trend and predictions shown above.
-    Style hint: {styleHint}
-    Constraints:
-      - Single paragraph only.
-      - No bullet points or line breaks.
-      - Reference specific data points or patterns you observe.
-    """;
-
-    try
-    {
-        // Use your existing overload (no GroqJsonRequest type)
-    using var doc = await groq.CompleteJsonAsyncReport(system: system, user: user, data: null, temperature: 0.0, ct: ct);
-
-        if (doc.RootElement.TryGetProperty("narrative", out var n) && n.ValueKind == JsonValueKind.String)
-        {
-            var text = (n.GetString() ?? "").Trim();
-            if (!string.IsNullOrWhiteSpace(text))
-                return new[] { text }; // UI expects array
-        }
-    }
-    catch
-    {
-        // fall through to rotating fallback
-    }
-
-    string[] fallbacks =
-    {
-        $"For {periodLabel}, projected totals track close to the recent run-rate: momentum from the last 28 days sets the baseline, while the most recent week contributes only a modest pull on the average. Variability appears contained, so the outlook is steady unless an atypical spike arrives mid-cycle.",
-        $"The forecast for {periodLabel} reflects a continuation of recent behavior, with day-to-day swings narrowing versus prior weeks. Results from the last 7 and 28 days anchor the baseline, implying limited drift unless demand shifts meaningfully outside recent ranges.",
-        $"Across {periodLabel}, expected totals align with short- and medium-term signals. The 28-day profile defines the pace and the latest 7-day print offers a light near-term steer, suggesting a stable path absent unusual promotions or shocks."
-    };
-    return new[] { fallbacks[Math.Abs((periodLabel ?? "").GetHashCode() + DateTime.UtcNow.DayOfYear) % fallbacks.Length] };
 }
 
 // ----------------------------------------------------------------
@@ -1460,6 +1194,7 @@ app.MapGet("/api/forecasts/by-id/{id:guid}", async (
 
 // GET /api/forecasts/recent?domain=expenses&limit=5
 app.MapGet("/api/forecasts/recent", async (
+    HttpContext ctx,
     string? domain,
     int? limit,
     dataAccess.Forecasts.IForecastStore store,
@@ -1467,11 +1202,15 @@ app.MapGet("/api/forecasts/recent", async (
 {
     var dom = (domain ?? "expenses").ToLowerInvariant();
     if (dom != "sales" && dom != "expenses") dom = "expenses";
-
     var lim = limit.GetValueOrDefault(5);
 
-    // ✅ correct parameter order: (string domain, int limit, CancellationToken ct)
-    var rows = await store.RecentAsync(dom, lim, ct);
+    // MULTI-TENANCY: Extract businessId from HttpContext
+    int? businessId = ctx.Items.TryGetValue("BusinessId", out var bidObj) && bidObj is int bid ? bid : (int?)null;
+    Guid userId = ctx.Items.TryGetValue("UserId", out var uidObj) && uidObj is Guid uid ? uid : Guid.Empty;
+    Console.WriteLine("[MULTI-TENANCY] /api/forecasts/recent | BusinessId: " + (businessId?.ToString() ?? "NULL"));
+
+    // Call multi-tenancy version
+    var rows = await store.RecentAsync(userId, businessId, dom, lim, ct);
     return Results.Json(rows);
 });
 
@@ -1517,537 +1256,6 @@ app.MapGet("/api/debug/config/vec-all", (IConfiguration cfg) =>
     });
 });
 
-app.MapPost("/api/assistant", async (
-    HttpContext ctx,
-    dataAccess.Reports.YamlIntentRunner intentRunner,  // ← LLM-based routing using router.intent.yaml
-    dataAccess.Reports.YamlReportRunner yamlRunner,
-    HybridForecastService forecastSvc,
-    dataAccess.Forecasts.IForecastStore forecastStore,
-    GroqJsonClient groq,
-    CancellationToken ct) =>
-{
-    try
-    {
-        // 0) Parse request
-        var req = await ctx.Request.ReadFromJsonAsync<AssistantRequest>(cancellationToken: ct);
-        if (req is null || string.IsNullOrWhiteSpace(req.Text))
-            return Results.Json(new { error = "Text is required." }, statusCode: 400);
-
-    var userText = req.Text;
-    var userLower = userText.ToLowerInvariant();
-
-    // 1) INTENT/DOMAIN via LLM classifier (router.intent.yaml)
-    string intent; string? domain; double conf;
-
-    if (string.IsNullOrWhiteSpace(req.Domain))
-    {
-        try
-        {
-            // Use YamlIntentRunner for LLM-based routing (no history for minimal endpoint)
-            using var doc = await intentRunner.RunIntentAsync(userText, null, ct);
-            var root = doc.RootElement;
-
-            intent = root.TryGetProperty("intent", out var iEl) && iEl.ValueKind == JsonValueKind.String
-                ? iEl.GetString() ?? ""
-                : "";
-
-            domain = root.TryGetProperty("domain", out var dEl) && dEl.ValueKind == JsonValueKind.String
-                ? dEl.GetString()
-                : null;
-
-            conf = root.TryGetProperty("confidence", out var cEl) && cEl.TryGetDouble(out var cVal)
-                ? Math.Clamp(cVal, 0.0, 1.0)
-                : 0.5;
-
-            if (string.IsNullOrWhiteSpace(intent))
-                intent = "nlq";
-
-            Console.WriteLine($"[Router:LLM] Intent: {intent}, Domain: {domain ?? "null"}, Confidence: {conf:F2}, Query: '{userText}'");
-
-            // tiny domain inference only when needed for forecasting
-            if (intent.Equals("forecasting", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(domain))
-            {
-                domain =
-                    (userLower.Contains("gastos") || userLower.Contains("expense") || userLower.Contains("expenses") || userLower.Contains("spend"))
-                        ? "expenses"
-                        : ((userLower.Contains("sales") || userLower.Contains("revenue") || userLower.Contains("benta") || userLower.Contains("kita"))
-                            ? "sales"
-                            : "sales");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Router:LLM] Error: {ex.Message}");
-            intent = "nlq"; domain = null; conf = 0.5;
-        }
-    }
-    else
-    {
-        // Explicit domain in request → report
-        intent = "report";
-        domain = req.Domain!.ToLowerInvariant();
-        conf = 1.0;
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // 1.5) OUT_OF_SCOPE - Handle non-business questions
-    // ═══════════════════════════════════════════════════════════════
-    if (intent.Equals("out_of_scope", StringComparison.OrdinalIgnoreCase))
-    {
-        Console.WriteLine($"[OutOfScope] Rejecting non-business query: '{userText}'");
-        
-        return Results.Json(new
-        {
-            mode = "chitchat",
-            uiSpec = new
-            {
-                render = new 
-                { 
-                    kind = "markdown", 
-                    content = "Sorry, I can't help you with that. I'm focused on helping with business and BuiswAIz-related questions.\n\n" +
-                             "Try asking about:\n" +
-                             "• Sales forecasting and predictions\n" +
-                             "• Inventory management\n" +
-                             "• Financial reports and analytics\n" +
-                             "• Budget planning and tracking\n" +
-                             "• Expense analysis"
-                }
-            },
-            router = new { intent = "out_of_scope", domain, confidence = conf, rejected = true }
-        });
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // 2) FAQ - Handled by ChatOrchestrator (LocalDecoderService + Groq)
-    // ═══════════════════════════════════════════════════════════════
-    if (intent.Equals("faq", StringComparison.OrdinalIgnoreCase))
-    {
-        try
-        {
-            var localDecoder = ctx.RequestServices.GetRequiredService<ILocalDecoderService>();
-            var chatHistory = ctx.RequestServices.GetRequiredService<IChatHistoryService>();
-            
-            // Get recent chat history for conversational context
-            var history = await chatHistory.GetRecentMessagesAsync(Guid.NewGuid(), limit: 5);
-            
-            // Call LocalDecoderService with "faq" intent
-            var responseText = await localDecoder.GetResponseAsync(userText, history, "faq");
-            
-            return Results.Json(new
-            {
-                mode = "faq",
-                uiSpec = new
-                {
-                    render = new { kind = "markdown", content = responseText }
-                },
-                router = new { intent = "faq", domain, confidence = conf }
-            });
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[FAQ ERROR] {ex.Message}");
-            // Fallback response
-            return Results.Json(new
-            {
-                mode = "faq",
-                uiSpec = new
-                {
-                    render = new 
-                    { 
-                        kind = "markdown", 
-                        content = "I can help you with sales reports, expense tracking, inventory management, and forecasting. What would you like to know?"
-                    }
-                },
-                router = new { intent = "faq", domain, confidence = conf }
-            });
-        }
-    }
-
-    // 3) FORECASTING
-    if (intent.Equals("forecasting", StringComparison.OrdinalIgnoreCase))
-    {
-        try
-        {
-            // ✅ normalize for forecasting (expense/expenses both OK)
-            var domainEnum = ToForecastDomain(domain);
-
-            // horizon
-            int days = 30;
-            if (userLower.Contains("next week"))
-                days = 7;
-            else if (userLower.Contains("next month"))
-            {
-                var today = DateTime.Today;
-                var firstOfNext = new DateTime(today.Year, today.Month, 1).AddMonths(1);
-                days = DateTime.DaysInMonth(firstOfNext.Year, firstOfNext.Month);
-            }
-            else
-            {
-                var m = Regex.Match(userLower, @"\b(\d+)\s*days?\b");
-                if (m.Success && int.TryParse(m.Groups[1].Value, out var parsed))
-                    days = Math.Clamp(parsed, 1, 60);
-            }
-
-            // 1) Compute numbers using Hybrid EMA/CMA forecasting
-            var payload = await forecastSvc.ForecastAsync(
-                domainEnum, 
-                days, 
-                emaAlpha: 0.2,      // Default EMA smoothing factor
-                blendBeta: 0.7,     // Default blend weight (70% EMA, 30% CMA)
-                from: null, 
-                to: null, 
-                ct);
-
-        // 2) Turn payload into JsonElement so we can lift KPIs/period
-        using var tmp = JsonDocument.Parse(JsonSerializer.Serialize(payload));
-        var payloadEl = tmp.RootElement;
-
-        // Helper in Program.cs:
-        // static (decimal? sumForecast, decimal? last7, decimal? last28, JsonElement actual, JsonElement forecast)
-        //     LiftForecastFields(JsonElement payload)
-        var (sumF, last7, last28, _actual, _forecast) = LiftForecastFields(payloadEl);
-
-        // Period label + domain title for the prompt
-        var periodLabel = payloadEl.TryGetProperty("period", out var per) &&
-                          per.TryGetProperty("label", out var lbl) && lbl.ValueKind == JsonValueKind.String
-                            ? (lbl.GetString() ?? "")
-                            : "";
-        var domainTitle = domainEnum == dataAccess.Services.ForecastDomain.Expenses ? "Expenses" : "Sales";
-
-        // 3) Ask Groq for a concise analyst narrative (helper also in Program.cs)
-        // Task<string[]> GenerateAnalystNarrativeAsync(
-        //     GroqJsonClient groq, string domainTitle, string periodLabel,
-        //     decimal? sumForecast, decimal? last7, decimal? last28, 
-        //     JsonElement historicalData, JsonElement forecastData, CancellationToken ct)
-        var narrativeArr = await GenerateAnalystNarrativeAsync(
-            groq, domainTitle, periodLabel, sumF, last7, last28, _actual, _forecast, ct);
-        var narrative = (narrativeArr?.Length ?? 0) > 0 ? (narrativeArr![0] ?? "") : "";
-
-        // 4) Merge: keep current payload shape, just add notes.narrative
-        var uiNode = (JsonNode.Parse(payloadEl.GetRawText()) as JsonObject)
-                        ?? new JsonObject();
-        uiNode["notes"] = new JsonObject { ["narrative"] = narrative };
-
-        // 5) Save forecast to database
-        try
-        {
-            var paramsObj = new JsonObject();
-            if (payloadEl.TryGetProperty("period", out var periodProp))
-            {
-                if (periodProp.TryGetProperty("start", out var startProp) && startProp.ValueKind == JsonValueKind.String)
-                    paramsObj["start"] = startProp.GetString();
-                if (periodProp.TryGetProperty("end", out var endProp) && endProp.ValueKind == JsonValueKind.String)
-                    paramsObj["end"] = endProp.GetString();
-                if (periodProp.TryGetProperty("label", out var labelProp) && labelProp.ValueKind == JsonValueKind.String)
-                    paramsObj["label"] = labelProp.GetString();
-            }
-
-            // Store the full UI spec as the result
-            var resultObj = (JsonNode.Parse(uiNode.ToJsonString()) as JsonObject) ?? new JsonObject();
-
-            await forecastStore.SaveAsync(
-                domain: domainEnum.ToString().ToLowerInvariant(),
-                target: "overall",
-                horizonDays: days,
-                @params: paramsObj,
-                result: resultObj,
-                status: "done",
-                ct: ct
-            );
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[WARNING] Failed to save forecast to database: {ex.Message}");
-            // Continue without throwing - don't break the user experience
-        }
-
-        // 6) Return (mode=forecast) so the UI path remains unchanged
-        return Results.Json(new
-        {
-            mode = "forecast",
-            domain = domainEnum.ToString().ToLowerInvariant(),
-            uiSpec = uiNode,
-            router = new { intent, domain = (domain ?? "sales"), confidence = conf }
-        });
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[FORECAST ERROR] {ex.Message}");
-            // Fallback to FAQ or chitchat if forecasting fails
-            intent = "faq";
-        }
-    }
-
-    // 3) REPORT (YAML)
-    if (intent.Equals("report", StringComparison.OrdinalIgnoreCase))
-    {
-        // ✅ normalize for reports (expenses → expense to match filename)
-        var chosenDomain = NormalizeReportDomain(domain);
-        
-        // Phase 3: Use YAML-driven slot-filling (no hardcoded fallbacks)
-        // The yamlRunner will handle slot validation and return clarification prompts if needed
-        // TODO: DEPRECATED ENDPOINT - Extract userId/businessId from JWT and pass to yamlRunner.RunAsync()
-        // This endpoint is marked for removal. Use /api/chat/query instead.
-        var ui = await yamlRunner.RunAsync(chosenDomain, userText, Guid.Empty, null, ct);
-
-        return Results.Json(new
-        {
-            mode = "report",
-            domain = chosenDomain, // return normalized
-            uiSpec = ui,
-            router = new { intent, domain = chosenDomain, confidence = conf }
-        });
-    }
-
-    // 4) NLQ → Try LLM SQL (primary), fallback to classic NLQ if needed
-    if (intent.Equals("nlq", StringComparison.OrdinalIgnoreCase))
-    {
-        string markdown = "";
-        string summary = "";
-        bool llmSqlSuccess = false;
-        string? usedMethod = null;
-        try
-        {
-            var sqlGen = ctx.RequestServices.GetRequiredService<LlmSqlGenerator>();
-            var validator = ctx.RequestServices.GetRequiredService<SqlValidator>();
-            var executor = ctx.RequestServices.GetRequiredService<SafeSqlExecutor>();
-            var summarizer = ctx.RequestServices.GetRequiredService<LlmSummarizer>();
-
-            // Generate SQL using LLM
-            var generatedSql = await sqlGen.GenerateSqlAsync(userText, ct);
-
-            if (!string.IsNullOrWhiteSpace(generatedSql))
-            {
-                // Validate the SQL
-                var (isValid, errorMsg) = validator.ValidateSql(generatedSql);
-
-                if (isValid)
-                {
-                    // Ensure reasonable LIMIT
-                    generatedSql = validator.EnsureLimit(generatedSql, 100);
-
-                    // Execute the query
-                    var results = await executor.ExecuteQueryAsync(generatedSql, ct);
-
-                    // Remove columns with all null/empty values
-                    if (results is IEnumerable<IDictionary<string, object?>> rowsList)
-                    {
-                        var rowsArr = rowsList.Select(r => new Dictionary<string, object?>(r)).ToList();
-                        if (rowsArr.Count > 0)
-                        {
-                            var allKeys = rowsArr.SelectMany(r => r.Keys).Distinct().ToList();
-                            var keysToKeep = allKeys.Where(k => rowsArr.Any(r => r.TryGetValue(k, out var v) && v != null && !(v is string s && string.IsNullOrWhiteSpace(s)))).ToList();
-                            foreach (var row in rowsArr)
-                            {
-                                var keysToRemove = row.Keys.Except(keysToKeep).ToList();
-                                foreach (var k in keysToRemove)
-                                    row.Remove(k);
-                            }
-                            // Use filtered rows for markdown
-                            results = rowsArr;
-                        }
-                    }
-
-                    // Always serialize results to JSON then parse as JsonElement
-                    var resultsJson = JsonSerializer.Serialize(results);
-                    using var doc = JsonDocument.Parse(resultsJson);
-                    var resultsElement = doc.RootElement;
-                    int rowCount = (resultsElement.ValueKind == JsonValueKind.Array) ? resultsElement.GetArrayLength() : 0;
-                    summary = await summarizer.SummarizeAsync(userText, generatedSql, resultsElement, rowCount, ct);
-
-                    // Format as markdown
-                    markdown = executor.FormatAsMarkdown(results, null);
-                    llmSqlSuccess = true;
-                    usedMethod = "llm_sql";
-                }
-                else
-                {
-                    Console.WriteLine($"[LLM SQL] Validation failed: {errorMsg}");
-                }
-            }
-            else
-            {
-                Console.WriteLine("[LLM SQL] No SQL generated");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[LLM SQL] Failed: {ex.Message}");
-        }
-
-        // FALLBACK: If LLM SQL failed, try classic NLQ endpoint
-        if (!llmSqlSuccess)
-        {
-            try
-            {
-                var http = new HttpClient
-                {
-                    BaseAddress = new Uri($"{ctx.Request.Scheme}://{ctx.Request.Host}")
-                };
-
-                var resp = await http.PostAsJsonAsync("/api/nlq", new { text = userText }, ct);
-                
-                if (resp.IsSuccessStatusCode)
-                {
-                    markdown = await resp.Content.ReadAsStringAsync(ct);
-                    
-                    // Check if NLQ returned a meaningful result
-                    if (!string.IsNullOrWhiteSpace(markdown) && 
-                        !markdown.Contains("I don't understand") && 
-                        !markdown.Contains("I cannot") &&
-                        markdown.Length > 20)
-                    {
-                        usedMethod = "classic_nlq";
-                    }
-                    else
-                    {
-                        markdown = "I'm not sure how to answer that question. Could you rephrase it or ask about specific business data?";
-                        usedMethod = "none";
-                    }
-                }
-                else
-                {
-                    markdown = "I encountered an error trying to answer your question. Please try rephrasing it.";
-                    usedMethod = "none";
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[NLQ Fallback] Failed: {ex.Message}");
-                markdown = "I encountered an error trying to answer your question. Please try rephrasing it.";
-                usedMethod = "none";
-            }
-        }
-
-        // Compose the response: summary (if any) + markdown table
-        string combinedContent = string.IsNullOrWhiteSpace(summary)
-            ? markdown
-            : string.IsNullOrWhiteSpace(markdown)
-                ? summary
-                : $"{summary}\n\n{markdown}";
-
-        // Remove markdown tables (lines starting with | or containing --- for table headers)
-        string RemoveMarkdownTables(string input)
-        {
-            if (string.IsNullOrWhiteSpace(input)) return input;
-            var lines = input.Split('\n');
-            var filtered = new List<string>();
-            bool inTable = false;
-            foreach (var line in lines)
-            {
-                var trimmed = line.Trim();
-                // Start of table: line starts with | and next line contains ---
-                if (trimmed.StartsWith("|") && trimmed.Contains("|"))
-                {
-                    inTable = true;
-                    continue;
-                }
-                if (inTable && (trimmed.Contains("---") || trimmed.StartsWith("|")))
-                {
-                    continue;
-                }
-                // End table if line is not a table line
-                if (inTable && !trimmed.StartsWith("|"))
-                {
-                    inTable = false;
-                }
-                if (!inTable && !trimmed.StartsWith("|"))
-                {
-                    filtered.Add(line);
-                }
-            }
-            return string.Join("\n", filtered).Trim();
-        }
-
-        var filteredContent = RemoveMarkdownTables(combinedContent);
-
-        return Results.Json(new
-        {
-            mode = "nlq",
-            uiSpec = new
-            {
-                render = new { kind = "markdown", content = filteredContent },
-                // No suggested actions for NLQ - it's just data display
-            },
-            router = new { intent, domain, confidence = conf, method = usedMethod }
-        });
-    }
-
-
-    // 5) CHITCHAT (prompt file)
-    if (intent.Equals("chitchat", StringComparison.OrdinalIgnoreCase))
-
-    {
-        object? ui = null;
-        var full = Path.Combine(AppContext.BaseDirectory, "Planning", "Prompts", "chitchat.yaml");
-        try
-        {
-            var yaml = File.ReadAllText(full);
-            var des = new DeserializerBuilder().Build();
-            var yamlObj = des.Deserialize<dynamic>(yaml);
-            string systemPrompt = yamlObj["system"] ?? "You are a helpful assistant.";
-            double temperature = 0.3;
-            try
-            {
-                var tempObj = yamlObj["defaults"]?["model"]?["temperature"];
-                if (tempObj != null)
-                    temperature = Convert.ToDouble(tempObj);
-            }
-            catch { }
-
-            using var doc = await groq.CompleteJsonAsyncChat(systemPrompt, req.Text, null, temperature, ct);
-            ui = JsonSerializer.Deserialize<object>(doc.RootElement.GetRawText());
-        }
-        catch (Exception ex)
-        {
-            ui = new
-            {
-                render = new { kind = "markdown", content = "Hello! 👋 How can I help you today?" },
-                __debug = new { hint = "chitchat fallback", tried = full, error = ex.Message }
-            };
-        }
-
-        return Results.Json(new
-        {
-            mode = "chitchat",
-            uiSpec = ui,
-            router = new { intent, domain, confidence = conf }
-        });
-    }
-
-    // 6) Final fallback (should rarely hit)
-    return Results.Json(new
-    {
-        mode = "chat",
-        markdown = "Hi! How can I help?",
-        router = new { intent = "chitchat", domain, confidence = conf }
-    });
-    }
-    catch (Exception ex)
-    {
-        var errorId = Guid.NewGuid();
-        Console.WriteLine($"[/api/assistant] FATAL ERROR {errorId}: {ex}");
-        
-        return Results.Json(new
-        {
-            mode = "error",
-            error = $"⚠️ An internal server error occurred. Error ID: {errorId}",
-            errorId = errorId.ToString(),
-            details = ex.Message,
-            uiSpec = new
-            {
-                render = new
-                {
-                    kind = "markdown",
-                    content = $"⚠️ **An error occurred while processing your request.**\n\n" +
-                             $"Error ID: `{errorId}`\n\n" +
-                             $"Please try again or contact support with the Error ID if the problem persists."
-                }
-            }
-        }, statusCode: 500);
-    }
-}).RequireAuthorization("ApiUser"); // Enforce JWT authentication with ApiUser policy
-
 app.Run();
 
 public sealed class RouteReq { public string? Input { get; set; } }
@@ -2076,21 +1284,5 @@ public static class SyncHelper
             return true;
         }
     }
-
-    public static async Task RunEmbeddingSyncAllAsync(HttpClient http, CancellationToken ct)
-    {
-        try
-        {
-            _ = await http.PostAsync("/api/backfill/products", EmptyJson, ct);
-            _ = await http.PostAsync("/api/backfill/suppliers", EmptyJson, ct);
-            _ = await http.PostAsync("/api/backfill/categories", EmptyJson, ct);
-        }
-        catch (Exception ex)
-        {
-            // Minimal logging; replace with ILogger if preferred
-            Console.Error.WriteLine($"[embeddingSync] backfill failed: {ex.Message}");
-        }
-    }
 }
 
-// Put this in Program.cs bottom region OR separate file in dataAccess.Reports namespace

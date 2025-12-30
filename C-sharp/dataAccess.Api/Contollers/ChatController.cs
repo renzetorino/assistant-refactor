@@ -213,6 +213,7 @@ public class ChatController : ControllerBase
                 GeneratedSql = result.GeneratedSql,
                 ResultCount = result.ResultCount,
                 TotalLatencyMs = result.TotalLatencyMs,
+                UiSpec = result.UiSpec,  // Map structured UI spec for reports/forecasts
                 Latency = new LatencyBreakdown
                 {
                     IntentClassificationMs = result.IntentClassificationLatencyMs,

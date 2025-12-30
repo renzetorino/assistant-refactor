@@ -128,21 +128,25 @@ namespace dataAccess.Forecasts
         public async Task<ForecastRow[]> RecentAsync(Guid userId, int? businessId, string domain, int limit = 10, CancellationToken ct = default)
         {
             if (limit <= 0) limit = 10;
+            
+            // ✅ SECURITY: business_id is REQUIRED for tenant isolation
+            if (!businessId.HasValue)
+                throw new ArgumentException("business_id is required for tenant isolation", nameof(businessId));
+            
             await using var conn = await OpenAsync(ct);
 
+            // ✅ HARDENED: Mandatory business_id filter for multi-tenancy
             const string sql = @"
               select id, domain, target, horizon_days, status, params, result, created_at, updated_at
               from public.forecasts
               where domain = @domain
-                and user_id = @user_id
-                and (@business_id::int IS NULL OR business_id = @business_id)
+                and business_id = @business_id
               order by created_at desc
               limit @limit;";
 
             await using var cmd = new NpgsqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("domain", domain);
-            cmd.Parameters.AddWithValue("user_id", userId);
-            cmd.Parameters.AddWithValue("business_id", (object?)businessId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("business_id", businessId.Value);
             cmd.Parameters.AddWithValue("limit", limit);
 
             var list = new List<ForecastRow>();

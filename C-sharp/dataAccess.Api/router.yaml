@@ -31,10 +31,13 @@ intent_classification:
     - nlq  # Alias for nlq.query (LLM sometimes shortens it)
     - reports.inventory
     - reports.expense
+    - reports.expenses  # ✅ ADDED: Plural form (LLM sometimes uses this)
     - reports.sales
+    - report  # ✅ ADDED: Generic form (LLM sometimes shortens it)
     - forecast.sales
     - forecast.inventory
     - forecast.expense
+    - forecast.expenses  # ✅ ADDED: Plural form
     - out_of_scope
 
 # Legacy threshold configuration (kept for backward compatibility)

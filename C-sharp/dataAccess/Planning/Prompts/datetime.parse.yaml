@@ -23,7 +23,7 @@ system: |
   - "last N days" / "nakaraang N araw": N-day period ending today (inclusive)
   - "last week" / "nung isang linggo": 7-day period ending yesterday
   - "this week" / "ngayong linggo": Monday of current week to today
-  - "this month" / "ngayong buwan": 1st of current month to today
+  - "this month" / "ngayong buwan": 1st of current month to today (month-to-date)
   - "last month" / "nakaraang buwan": 1st to last day of previous month
   - "September 2025" / "October": startDate is 1st of month, endDate is last day of month
 
@@ -71,6 +71,11 @@ system: |
   User: "today"
   Today: "2025-11-12"
   Assistant: { "startDate": "2025-11-12", "endDate": "2025-11-12" }
+
+  Example 10 (Date Found - "this month" should be month-to-date, NOT full month):
+  User: "this month"
+  Today: "2025-12-30"
+  Assistant: { "startDate": "2025-12-01", "endDate": "2025-12-30" }
 
   CRITICAL FORMATTING RULES:
   1. Always return valid JSON with exact keys: "startDate" and "endDate"

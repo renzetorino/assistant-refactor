@@ -14,5 +14,8 @@ namespace dataAccess.Entities
         public decimal Subtotal { get; set; }
         public decimal Revenue { get; set; }
         public decimal Profit { get; set; }
+        
+        // ✅ Multi-tenancy: Filter sales by business
+        public int? BusinessId { get; set; }
     }
 }

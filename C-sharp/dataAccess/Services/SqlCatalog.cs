@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -9,15 +10,39 @@ using System.Threading.Tasks;
 
 namespace dataAccess.Services
 {
+    // ? Multi-tenancy: Query metadata system for runtime validation
+    // Defines data access scope and tenant isolation requirements for each query
+    public enum DataAccessScope
+    {
+        UserOnly,      // User can only see their own data (user_id filtering)
+        BusinessWide,  // User sees all data in their business (business_id filtering only)
+        CrossBusiness  // Admin-only, sees all businesses (rare, requires special permission)
+    }
+
+    public class QueryMetadata
+    {
+        public string QueryId { get; init; } = "";
+        public DataAccessScope Scope { get; init; }
+        public bool RequiresTenantIsolation { get; init; }
+        public string Description { get; init; } = "";
+    }
+
     public interface ISqlCatalog
     {
         Task<object?> RunAsync(string queryId, IDictionary<string, object?> args, CancellationToken ct = default);
+        QueryMetadata? GetQueryMetadata(string queryId);
     }
 
     public sealed partial class SqlCatalog : ISqlCatalog
     {
         private readonly AppDbContext _db;
-        public SqlCatalog(AppDbContext db) => _db = db;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+
+        public SqlCatalog(AppDbContext db, IHttpContextAccessor httpContextAccessor)
+        {
+            _db = db;
+            _httpContextAccessor = httpContextAccessor;
+        }
 
         // ---------- helpers: unwrap & parse ----------
         private static object? Unwrap(object? v)
@@ -71,7 +96,79 @@ namespace dataAccess.Services
             throw new InvalidCastException($"Arg '{key}' must be int. Got {(v == null ? "null" : v.GetType().Name)}.");
         }
 
-        // DateOnly → DateTime (unspecified kind) for timestamptz comparisons
+        // ? Multi-tenancy: Extract REQUIRED business_id from HttpContext for data isolation
+        // Reads from HttpContext.Items["BusinessId"] set by BusinessScopingMiddleware
+        // This prevents malicious YAML from bypassing tenant isolation via args manipulation
+        private int GetBusinessId()
+        {
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext == null)
+                throw new InvalidOperationException("HttpContext not available - SqlCatalog must be called within HTTP request scope");
+            
+            if (!httpContext.Items.TryGetValue("BusinessId", out var bidObj) || bidObj is not int bid)
+                throw new UnauthorizedAccessException("Business context required for tenant isolation - BusinessId not found in HttpContext");
+            
+            return bid;
+        }
+
+        // Query metadata registry - documents access scope and security requirements
+        private static readonly Dictionary<string, QueryMetadata> _queryMetadata = new()
+        {
+            // EXPENSE QUERIES
+            ["EXPENSE_SUMMARY"] = new() { QueryId = "EXPENSE_SUMMARY", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Total expenses for business with date range filtering" },
+            ["TOP_EXPENSE_CATEGORIES"] = new() { QueryId = "TOP_EXPENSE_CATEGORIES", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Top spending categories across business" },
+            ["EXPENSE_BY_CATEGORY_WEEKLY"] = new() { QueryId = "EXPENSE_BY_CATEGORY_WEEKLY", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Weekly expense breakdown by category" },
+            ["EXPENSE_BY_DAY"] = new() { QueryId = "EXPENSE_BY_DAY", Scope = DataAccessScope.UserOnly, RequiresTenantIsolation = true, Description = "User's daily expenses within business" },
+            ["EXPENSE_BY_CATEGORY"] = new() { QueryId = "EXPENSE_BY_CATEGORY", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Expense totals by category for business" },
+            ["EXPENSE_BY_SUPPLIER"] = new() { QueryId = "EXPENSE_BY_SUPPLIER", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Expense breakdown by supplier" },
+            ["TOP_EXPENSE_SUPPLIERS"] = new() { QueryId = "TOP_EXPENSE_SUPPLIERS", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Top suppliers by expense amount" },
+            ["EXPENSE_RECENT_TRANSACTIONS"] = new() { QueryId = "EXPENSE_RECENT_TRANSACTIONS", Scope = DataAccessScope.UserOnly, RequiresTenantIsolation = true, Description = "User's recent expense transactions" },
+            ["EXPENSE_LABEL_BREAKDOWN"] = new() { QueryId = "EXPENSE_LABEL_BREAKDOWN", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Expenses grouped by label" },
+            ["EXPENSE_BUDGET_VS_ACTUAL"] = new() { QueryId = "EXPENSE_BUDGET_VS_ACTUAL", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Budget vs actual spending comparison" },
+            ["BUDGET_UTILIZATION"] = new() { QueryId = "BUDGET_UTILIZATION", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Alias for EXPENSE_BUDGET_VS_ACTUAL" },
+            ["EXPENSE_NOTES_SEARCH"] = new() { QueryId = "EXPENSE_NOTES_SEARCH", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Search expense notes across business" },
+            
+            // INVENTORY QUERIES
+            ["INVENTORY_SNAPSHOT"] = new() { QueryId = "INVENTORY_SNAPSHOT", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Current inventory levels for all products" },
+            ["LOW_STOCK_ITEMS"] = new() { QueryId = "LOW_STOCK_ITEMS", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Products below minimum stock threshold" },
+            ["STOCK_BY_CATEGORY"] = new() { QueryId = "STOCK_BY_CATEGORY", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Inventory grouped by category" },
+            ["STOCK_MOVEMENT_WEEKLY"] = new() { QueryId = "STOCK_MOVEMENT_WEEKLY", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Weekly stock changes" },
+            ["INV_SNAPSHOT"] = new() { QueryId = "INV_SNAPSHOT", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Inventory snapshot with valuation" },
+            ["INV_BY_PRODUCT"] = new() { QueryId = "INV_BY_PRODUCT", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Inventory details for specific product" },
+            ["INV_LOW_STOCK"] = new() { QueryId = "INV_LOW_STOCK", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Low stock alert list" },
+            ["INV_OUT_OF_STOCK"] = new() { QueryId = "INV_OUT_OF_STOCK", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Out of stock products" },
+            ["INV_VALUATION_CURRENT"] = new() { QueryId = "INV_VALUATION_CURRENT", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Total inventory value" },
+            ["INV_AVAILABLE_PRODUCTS"] = new() { QueryId = "INV_AVAILABLE_PRODUCTS", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Available products for sale" },
+            
+            // SALES QUERIES
+            ["SALES_SUMMARY"] = new() { QueryId = "SALES_SUMMARY", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Total sales metrics for business" },
+            ["TOP_PRODUCTS"] = new() { QueryId = "TOP_PRODUCTS", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Best selling products" },
+            ["SALES_BY_DAY"] = new() { QueryId = "SALES_BY_DAY", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Daily sales breakdown" },
+            ["SALES_BY_DAY_PRIOR"] = new() { QueryId = "SALES_BY_DAY_PRIOR", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Sales comparison with prior period" },
+            ["SALES_BY_WEEK"] = new() { QueryId = "SALES_BY_WEEK", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Weekly sales aggregation" },
+            ["SALES_BY_HOUR"] = new() { QueryId = "SALES_BY_HOUR", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Hourly sales patterns" },
+            ["SALES_BY_PRODUCT"] = new() { QueryId = "SALES_BY_PRODUCT", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Sales breakdown by product" },
+            ["SALES_BY_CATEGORY"] = new() { QueryId = "SALES_BY_CATEGORY", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Sales grouped by category" },
+            ["BOTTOM_PRODUCTS"] = new() { QueryId = "BOTTOM_PRODUCTS", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Worst performing products" },
+            ["ORDERS_BY_STATUS"] = new() { QueryId = "ORDERS_BY_STATUS", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Orders grouped by status" },
+            ["AOV_BY_DAY"] = new() { QueryId = "AOV_BY_DAY", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Average order value by day" },
+            ["AOV_BY_WEEK"] = new() { QueryId = "AOV_BY_WEEK", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Average order value by week" },
+            ["ORDER_SIZE_DISTRIBUTION"] = new() { QueryId = "ORDER_SIZE_DISTRIBUTION", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Distribution of order sizes" },
+            ["RECENT_ORDERS"] = new() { QueryId = "RECENT_ORDERS", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Recent orders list" },
+            ["ORDER_DETAIL"] = new() { QueryId = "ORDER_DETAIL", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Detailed order information" },
+            ["SALES_BY_PRODUCT_DAY"] = new() { QueryId = "SALES_BY_PRODUCT_DAY", Scope = DataAccessScope.BusinessWide, RequiresTenantIsolation = true, Description = "Product sales by day" },
+        };
+
+        /// <summary>
+        /// Gets metadata for a query, including its access scope and security requirements.
+        /// Used by YamlReportRunner to validate tenant isolation before execution.
+        /// </summary>
+        public QueryMetadata? GetQueryMetadata(string queryId)
+        {
+            return _queryMetadata.TryGetValue(queryId, out var metadata) ? metadata : null;
+        }
+
+        // DateOnly ? DateTime (unspecified kind) for timestamptz comparisons
         private static DateTime ToDbStart(DateOnly d) =>
             DateTime.SpecifyKind(d.ToDateTime(TimeOnly.MinValue), DateTimeKind.Unspecified);
         private static DateTime ToDbEnd(DateOnly d) =>
@@ -141,16 +238,21 @@ namespace dataAccess.Services
         // =========================
         // EXPENSE
         // =========================
+        
+        // ? DATA ACCESS SCOPE: BusinessWide - Shows all expenses for the business within date range
+        // ? TENANT ISOLATION: Enforced via business_id from HttpContext
         private async Task<object?> ExpenseSummary(IDictionary<string, object?> a, CancellationToken ct)
         {
             var start = GetDateArg(a, "start");
             var end = GetDateArg(a, "end");
             var userId = GetGuidArg(a, "user_id");
+            var businessId = GetBusinessId();
 
             var q = _db.Expenses.Where(e =>
                 e.OccurredOn >= start &&
                 e.OccurredOn <= end &&
-                (!userId.HasValue || e.UserId == userId));
+                (!userId.HasValue || e.UserId == userId) &&
+                e.BusinessId == businessId);
 
             decimal total = await q.SumAsync(e => (decimal?)e.Amount, ct) ?? 0m;
 
@@ -159,7 +261,8 @@ namespace dataAccess.Services
             var qPrev = _db.Expenses.Where(e =>
                 e.OccurredOn >= prevStart &&
                 e.OccurredOn <= prevEnd &&
-                (!userId.HasValue || e.UserId == userId));
+                (!userId.HasValue || e.UserId == userId) &&
+                e.BusinessId == businessId);
 
             decimal prev = await qPrev.SumAsync(e => (decimal?)e.Amount, ct) ?? 0m;
 
@@ -173,13 +276,15 @@ namespace dataAccess.Services
             var end = GetDateArg(a, "end");
             var k = GetIntArg(a, "k", 5);
             var userId = GetGuidArg(a, "user_id");
+            var businessId = GetBusinessId();
 
             var grouped = await _db.Expenses
                 .Where(e =>
                     e.OccurredOn >= start &&
                     e.OccurredOn <= end &&
                     e.CategoryId != null &&
-                    (!userId.HasValue || e.UserId == userId))
+                    (!userId.HasValue || e.UserId == userId) &&
+                    e.BusinessId == businessId)
                 .Join(_db.Categories,
                       e => e.CategoryId!,
                       c => c.Id,
@@ -203,13 +308,15 @@ namespace dataAccess.Services
             var start = GetDateArg(a, "start");
             var end = GetDateArg(a, "end");
             var userId = GetGuidArg(a, "user_id");
+            var businessId = GetBusinessId();
 
             var rows = await _db.Expenses
                 .Where(e =>
                     e.OccurredOn >= start &&
                     e.OccurredOn <= end &&
                     e.CategoryId != null &&
-                    (!userId.HasValue || e.UserId == userId))
+                    (!userId.HasValue || e.UserId == userId) &&
+                    e.BusinessId == businessId)
                 .Join(_db.Categories,
                       e => e.CategoryId!,
                       c => c.Id,
@@ -232,16 +339,20 @@ namespace dataAccess.Services
             return new { x, series = byCatWeek.ToList() };
         }
 
+        // ? DATA ACCESS SCOPE: UserOnly - Shows only the specified user's expenses within the business
+        // ? TENANT ISOLATION: Enforced via business_id + user_id filtering
         private async Task<object?> ExpenseByDay(IDictionary<string, object?> a, CancellationToken ct)
         {
             var start = GetDateArg(a, "start");
             var end = GetDateArg(a, "end");
             var userId = GetGuidArg(a, "user_id");
+            var businessId = GetBusinessId();
 
             var rows = await _db.Expenses
                 .Where(e => e.OccurredOn >= start
                     && e.OccurredOn <= end
-                    && (!userId.HasValue || e.UserId == userId))
+                    && (!userId.HasValue || e.UserId == userId)
+                    && e.BusinessId == businessId)
                 .GroupBy(e => e.OccurredOn)
                 .Select(g => new { day = g.Key, total = g.Sum(x => x.Amount) })
                 .OrderBy(g => g.day)
@@ -255,11 +366,13 @@ namespace dataAccess.Services
             var start = GetDateArg(a, "start");
             var end = GetDateArg(a, "end");
             var userId = GetGuidArg(a, "user_id");
+            var businessId = GetBusinessId();
 
             var rows = await _db.Expenses
                 .Where(e => e.OccurredOn >= start
                     && e.OccurredOn <= end
-                    && (!userId.HasValue || e.UserId == userId))
+                    && (!userId.HasValue || e.UserId == userId)
+                    && e.BusinessId == businessId)
                 .GroupJoin(_db.Categories, e => e.CategoryId, c => (Guid?)c.Id,
                     (e, cg) => new { e.Amount, Cat = cg.Select(x => x.Name).FirstOrDefault() })
                 .GroupBy(x => x.Cat ?? "Uncategorized")
@@ -275,11 +388,13 @@ namespace dataAccess.Services
             var start = GetDateArg(a, "start");
             var end = GetDateArg(a, "end");
             var userId = GetGuidArg(a, "user_id");
+            var businessId = GetBusinessId();
 
             var rows = await _db.Expenses
                 .Where(e => e.OccurredOn >= start
                     && e.OccurredOn <= end
-                    && (!userId.HasValue || e.UserId == userId))
+                    && (!userId.HasValue || e.UserId == userId)
+                    && e.BusinessId == businessId)
                 .GroupJoin(_db.Contacts, e => e.ContactId, co => (Guid?)co.Id,
                     (e, cg) => new { e.Amount, Supplier = cg.Select(x => x.Name).FirstOrDefault() })
                 .GroupBy(x => x.Supplier ?? "Unknown")
@@ -321,6 +436,7 @@ namespace dataAccess.Services
         {
             var n = GetIntArg(a, "limit", 20);
             var userId = GetGuidArg(a, "user_id");
+            var businessId = GetBusinessId();
             var start = a.ContainsKey("start") ? GetDateArg(a, "start") : (DateOnly?)null;
             var end = a.ContainsKey("end") ? GetDateArg(a, "end") : (DateOnly?)null;
 
@@ -328,6 +444,7 @@ namespace dataAccess.Services
             var q = _db.Expenses.AsQueryable();
             if (userId.HasValue)
                 q = q.Where(e => e.UserId == userId);
+            q = q.Where(e => e.BusinessId == businessId); // ✅ Always filter by business_id
             if (start.HasValue)
                 q = q.Where(e => e.OccurredOn >= start.Value);
             if (end.HasValue)
@@ -360,7 +477,7 @@ namespace dataAccess.Services
                 occurred_on = e.OccurredOn,
                 amount = Math.Round((decimal)e.Amount, 2),
                 category = (e.CategoryId.HasValue && categories.ContainsKey(e.CategoryId.Value)) ? categories[e.CategoryId.Value] : "Uncategorized",
-                notes = string.IsNullOrWhiteSpace(e.Notes) ? "—" : e.Notes.Trim()
+                notes = string.IsNullOrWhiteSpace(e.Notes) ? "�" : e.Notes.Trim()
             }).ToList();
 
             return rows;
@@ -371,12 +488,14 @@ namespace dataAccess.Services
             var start = GetDateArg(a, "start");
             var end = GetDateArg(a, "end");
             var userId = GetGuidArg(a, "user_id");
+            var businessId = GetBusinessId();
 
             var rows = await _db.ExpenseLabels
                 .Join(_db.Expenses, el => el.ExpenseId, e => e.Id, (el, e) => new { el, e })
                 .Where(x => x.e.OccurredOn >= start
                     && x.e.OccurredOn <= end
-                    && (!userId.HasValue || x.e.UserId == userId))
+                    && (!userId.HasValue || x.e.UserId == userId)
+                    && x.e.BusinessId == businessId)
                 .Join(_db.Labels, x => x.el.LabelId, l => l.Id, (x, l) => new { label = l.Name, x.e.Amount })
                 .GroupBy(x => x.label)
                 .Select(g => new { label = g.Key, total = g.Sum(x => x.Amount) })
@@ -416,12 +535,14 @@ namespace dataAccess.Services
             }
 
             var userId = GetGuidArg(a, "user_id");
+            var businessId = GetBusinessId();
 
             // Get actual expenses for the period
             var actual = await _db.Expenses
                 .Where(e => e.OccurredOn >= start
                     && e.OccurredOn <= end
-                    && (!userId.HasValue || e.UserId == userId))
+                    && (!userId.HasValue || e.UserId == userId)
+                    && e.BusinessId == businessId)
                 .SumAsync(e => (decimal?)e.Amount, ct) ?? 0m;
 
             // Try to find budget for the month(s) in the range
@@ -455,11 +576,13 @@ namespace dataAccess.Services
                 throw new ArgumentException("Missing required arg 'query'");
             var query = (Unwrap(qv)?.ToString() ?? "").Trim();
             var userId = GetGuidArg(a, "user_id");
+            var businessId = GetBusinessId();
 
             var rows = await _db.Expenses
                 .Where(e => e.OccurredOn >= start
                     && e.OccurredOn <= end
                     && (!userId.HasValue || e.UserId == userId)
+                    && e.BusinessId == businessId
                     && (e.Notes ?? "").Contains(query, StringComparison.OrdinalIgnoreCase))
                 .GroupJoin(_db.Categories, e => e.CategoryId, c => (Guid?)c.Id,
                     (e, cg) => new
@@ -494,8 +617,13 @@ namespace dataAccess.Services
         // =========================
         // INVENTORY
         // =========================
+        
+        // ? DATA ACCESS SCOPE: BusinessWide - Shows all inventory for the business
+        // ? TENANT ISOLATION: Enforced via business_id from HttpContext
         private async Task<object?> InventorySnapshot(IDictionary<string, object?> a, CancellationToken ct)
         {
+            var businessId = GetBusinessId();
+            
             var rows = await _db.ProductCategories
                 .Join(_db.Products,
                       pc => pc.ProductId,
@@ -506,9 +634,19 @@ namespace dataAccess.Services
                           product = p.ProductName,
                           current_stock = pc.CurrentStock,
                           reorder_point = pc.ReorderPoint,
-                          updated_stock = pc.UpdatedStock
+                          updated_stock = pc.UpdatedStock,
+                          business_id = p.BusinessId
                       })
+                .Where(r => r.business_id == businessId)
                 .OrderBy(r => r.product)
+                .Select(r => new
+                {
+                    r.product_id,
+                    r.product,
+                    r.current_stock,
+                    r.reorder_point,
+                    r.updated_stock
+                })
                 .ToListAsync(ct);
 
             return rows;
@@ -518,6 +656,7 @@ namespace dataAccess.Services
         {
             var threshold = GetIntArg(a, "threshold", int.MinValue);
             var k = GetIntArg(a, "k", 10);
+            var businessId = GetBusinessId();
 
             var q = _db.ProductCategories
                 .Join(_db.Products,
@@ -527,8 +666,10 @@ namespace dataAccess.Services
                       {
                           product = p.ProductName,
                           current_stock = pc.CurrentStock,
-                          reorder_point = pc.ReorderPoint
-                      });
+                          reorder_point = pc.ReorderPoint,
+                          business_id = p.BusinessId
+                      })
+                .Where(x => x.business_id == businessId);
 
             if (threshold != int.MinValue)
                 q = q.Where(x => x.current_stock <= threshold);
@@ -539,6 +680,12 @@ namespace dataAccess.Services
                 .OrderBy(x => x.current_stock)
                 .ThenBy(x => x.product)
                 .Take(k)
+                .Select(x => new
+                {
+                    x.product,
+                    x.current_stock,
+                    x.reorder_point
+                })
                 .ToListAsync(ct);
 
             return rows;
@@ -546,11 +693,14 @@ namespace dataAccess.Services
 
         private async Task<object?> StockByCategory(IDictionary<string, object?> a, CancellationToken ct)
         {
+            var businessId = GetBusinessId();
+            
             var raw = await _db.ProductCategories
                 .Join(_db.Products,
                       pc => pc.ProductId,
                       p => p.ProductId,
-                      (pc, p) => new { pc.CurrentStock, p.SupplierId })
+                      (pc, p) => new { pc.CurrentStock, p.SupplierId, p.BusinessId })
+                .Where(x => x.BusinessId == businessId)
                 .Join(_db.Suppliers,
                       x => x.SupplierId,
                       s => s.SupplierId,
@@ -626,6 +776,7 @@ namespace dataAccess.Services
         private async Task<object?> InvByProduct(IDictionary<string, object?> a, CancellationToken ct)
         {
             var limit = GetIntArg(a, "limit", 200);
+            var businessId = GetBusinessId();
 
             string? nameLike = null;
             if (a.TryGetValue("name_like", out var nv) && nv is not null)
@@ -647,8 +798,10 @@ namespace dataAccess.Services
                         pc.Price,
                         pc.Cost,
                         pc.Color,
-                        pc.AgeSize
+                        pc.AgeSize,
+                        p.BusinessId
                     })
+                .Where(x => x.BusinessId == businessId)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(nameLike))
@@ -794,6 +947,7 @@ namespace dataAccess.Services
         private async Task<object?> InvAvailableProducts(IDictionary<string, object?> a, CancellationToken ct)
         {
             var limit = GetIntArg(a, "limit", 200);
+            var businessId = GetBusinessId();
 
             string? nameLike = null;
             if (a.TryGetValue("name_like", out var nv) && nv is not null)
@@ -816,8 +970,10 @@ namespace dataAccess.Services
                         pc.Price,
                         pc.Cost,
                         pc.Color,
-                        pc.AgeSize
+                        pc.AgeSize,
+                        p.BusinessId
                     })
+                .Where(x => x.BusinessId == businessId)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(nameLike))
@@ -849,17 +1005,22 @@ namespace dataAccess.Services
         // =========================
         // SALES
         // =========================
+        
+        // ? DATA ACCESS SCOPE: BusinessWide - Shows all sales for the business within date range
+        // ? TENANT ISOLATION: Enforced via business_id from HttpContext
         private async Task<object?> SalesSummary(IDictionary<string, object?> a, CancellationToken ct)
         {
             var startD = GetDateArg(a, "start");
             var endD = GetDateArg(a, "end");
             var utcStart = ToDbStart(startD);
             var utcEnd = ToDbEnd(endD);
+            var businessId = GetBusinessId();
 
             var q = from oi in _db.OrderItems
                     where oi.Order != null
                        && oi.Order.OrderDate >= utcStart
                        && oi.Order.OrderDate <= utcEnd
+                       && oi.Order.BusinessId == businessId
                     select new { oi.Subtotal, oi.Quantity, oi.OrderId };
 
             var revenue = await q.SumAsync(x => (decimal?)x.Subtotal, ct) ?? 0m;
@@ -875,6 +1036,7 @@ namespace dataAccess.Services
                         where oi.Order != null
                            && oi.Order.OrderDate >= prevStart
                            && oi.Order.OrderDate <= prevEnd
+                           && oi.Order.BusinessId == businessId
                         select (decimal?)oi.Subtotal;
 
             var prevRevenue = await qPrev.SumAsync(ct) ?? 0m;
@@ -898,11 +1060,13 @@ namespace dataAccess.Services
             var dbStart = ToDbStart(startD);
             var dbEnd = ToDbEnd(endD);
             var k = GetIntArg(a, "k", 10);
+            var businessId = GetBusinessId();
 
             var rows = await _db.OrderItems
                 .Where(oi => oi.Order != null
                           && oi.Order.OrderDate >= dbStart
-                          && oi.Order.OrderDate <= dbEnd)
+                          && oi.Order.OrderDate <= dbEnd
+                          && oi.Order.BusinessId == businessId)
                 .GroupBy(oi => new { oi.ProductId, oi.Product!.ProductName })
                 .Select(g => new
                 {
@@ -923,11 +1087,13 @@ namespace dataAccess.Services
             var endD = GetDateArg(a, "end");
             var dbStart = ToDbStart(startD);
             var dbEnd = ToDbEnd(endD);
+            var businessId = GetBusinessId();
 
             var rows = await _db.OrderItems
                 .Where(oi => oi.Order != null
                           && oi.Order.OrderDate >= dbStart
-                          && oi.Order.OrderDate <= dbEnd)
+                          && oi.Order.OrderDate <= dbEnd
+                          && oi.Order.BusinessId == businessId)
                 .GroupBy(oi => oi.Order!.OrderDate.Date)
                 .Select(g => new
                 {
@@ -961,11 +1127,13 @@ namespace dataAccess.Services
 
             var dbStart = ToDbStart(prevStartD);
             var dbEnd = ToDbEnd(prevEndD);
+            var businessId = GetBusinessId();
 
             var rows = await _db.OrderItems
                 .Where(oi => oi.Order != null
                           && oi.Order.OrderDate >= dbStart
-                          && oi.Order.OrderDate <= dbEnd)
+                          && oi.Order.OrderDate <= dbEnd
+                          && oi.Order.BusinessId == businessId)
                 .GroupBy(oi => oi.Order!.OrderDate.Date)
                 .Select(g => new
                 {
@@ -986,9 +1154,11 @@ namespace dataAccess.Services
             var endD = GetDateArg(a, "end");
             var dbStart = ToDbStart(startD);
             var dbEnd = ToDbEnd(endD);
+            var businessId = GetBusinessId();
 
             var rows = await _db.OrderItems
-                .Where(oi => oi.Order != null && oi.Order.OrderDate >= dbStart && oi.Order.OrderDate <= dbEnd)
+                .Where(oi => oi.Order != null && oi.Order.OrderDate >= dbStart && oi.Order.OrderDate <= dbEnd
+                          && oi.Order.BusinessId == businessId)
                 .GroupBy(oi => ISOWeek.GetWeekOfYear(oi.Order!.OrderDate))
                 .Select(g => new {
                     week = g.Key,
@@ -1008,9 +1178,11 @@ namespace dataAccess.Services
             var endD = GetDateArg(a, "end");
             var dbStart = ToDbStart(startD);
             var dbEnd = ToDbEnd(endD);
+            var businessId = GetBusinessId();
 
             var rows = await _db.OrderItems
-                .Where(oi => oi.Order != null && oi.Order.OrderDate >= dbStart && oi.Order.OrderDate <= dbEnd)
+                .Where(oi => oi.Order != null && oi.Order.OrderDate >= dbStart && oi.Order.OrderDate <= dbEnd
+                          && oi.Order.BusinessId == businessId)
                 .GroupBy(oi => new { d = oi.Order!.OrderDate.Date, h = oi.Order!.OrderDate.Hour })
                 .Select(g => new {
                     date = DateOnly.FromDateTime(g.Key.d),
@@ -1031,9 +1203,13 @@ namespace dataAccess.Services
             var endD = GetDateArg(a, "end");
             var dbStart = ToDbStart(startD);
             var dbEnd = ToDbEnd(endD);
+            var businessId = GetBusinessId();
 
             var rows = await _db.OrderItems
-                .Where(oi => oi.Order != null && oi.Order.OrderDate >= dbStart && oi.Order.OrderDate <= dbEnd)
+                .Where(oi => oi.Order != null 
+                          && oi.Order.OrderDate >= dbStart 
+                          && oi.Order.OrderDate <= dbEnd
+                          && oi.Order.BusinessId == businessId)
                 .GroupBy(oi => new { oi.ProductId, oi.Product!.ProductName })
                 .Select(g => new {
                     product = g.Key.ProductName,
@@ -1053,11 +1229,15 @@ namespace dataAccess.Services
             var endD = GetDateArg(a, "end");
             var dbStart = ToDbStart(startD);
             var dbEnd = ToDbEnd(endD);
+            var businessId = GetBusinessId();
 
             var dim = (a.TryGetValue("dimension", out var dv) ? (Unwrap(dv)?.ToString() ?? "") : "").ToLowerInvariant();
 
             var joined = _db.OrderItems
-                .Where(oi => oi.Order != null && oi.Order.OrderDate >= dbStart && oi.Order.OrderDate <= dbEnd)
+                .Where(oi => oi.Order != null 
+                          && oi.Order.OrderDate >= dbStart 
+                          && oi.Order.OrderDate <= dbEnd
+                          && oi.Order.BusinessId == businessId)
                 .Join(_db.ProductCategories,
                       oi => oi.ProductCategoryId,
                       pc => pc.ProductCategoryId,
@@ -1242,8 +1422,8 @@ namespace dataAccess.Services
             return new[]
             {
                 new { bucket = "1",   orders = b1 },
-                new { bucket = "2–3", orders = b2 },
-                new { bucket = "4–5", orders = b3 },
+                new { bucket = "2�3", orders = b2 },
+                new { bucket = "4�5", orders = b3 },
                 new { bucket = "6+",  orders = b4 }
             };
         }
@@ -1307,10 +1487,12 @@ namespace dataAccess.Services
             var dbStart = ToDbStart(startD);
             var dbEnd = ToDbEnd(endD);
             var topK = GetIntArg(a, "top_k", 10);
+            var businessId = GetBusinessId();
 
             var top = await _db.OrderItems
                 .Where(oi => oi.Order != null &&
-                             oi.Order.OrderDate >= dbStart && oi.Order.OrderDate <= dbEnd)
+                             oi.Order.OrderDate >= dbStart && oi.Order.OrderDate <= dbEnd
+                             && oi.Order.BusinessId == businessId)
                 .GroupBy(oi => new { oi.ProductId, oi.Product!.ProductName })
                 .Select(g => new { g.Key.ProductId, name = g.Key.ProductName, revenue = g.Sum(x => x.Subtotal) })
                 .OrderByDescending(x => x.revenue).Take(topK)

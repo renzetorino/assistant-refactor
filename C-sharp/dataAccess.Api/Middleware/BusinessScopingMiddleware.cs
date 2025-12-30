@@ -30,6 +30,14 @@ public class BusinessScopingMiddleware
             Console.WriteLine("║         [MULTI-TENANCY] Business Scoping Middleware          ║");
             Console.WriteLine("╚═══════════════════════════════════════════════════════════════╝");
 
+            // DEBUG: Log all JWT claims to identify which claim contains user ID
+            Console.WriteLine("🔍 [DEBUG] All JWT claims:");
+            foreach (var claim in context.User.Claims)
+            {
+                Console.WriteLine($"   - Type: {claim.Type} | Value: {claim.Value}");
+            }
+            Console.WriteLine("═══════════════════════════════════════════════════════════════");
+
             // Extract user_id from "sub" claim (standard JWT claim)
             var userIdClaim = context.User.FindFirst("sub")?.Value;
             if (!string.IsNullOrWhiteSpace(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
@@ -44,7 +52,7 @@ public class BusinessScopingMiddleware
                 _logger.LogWarning("Failed to extract valid UserId from JWT claims");
             }
 
-            // Extract business_id from custom claim (if present)
+            // Extract business_id from custom claim (REQUIRED)
             // Note: This requires Supabase JWT to include business_id claim
             var businessIdClaim = context.User.FindFirst("business_id")?.Value;
             if (!string.IsNullOrWhiteSpace(businessIdClaim) && int.TryParse(businessIdClaim, out var businessId))
@@ -55,11 +63,13 @@ public class BusinessScopingMiddleware
             }
             else
             {
-                // business_id is optional for backward compatibility during migration
-                // Services should handle null business_id gracefully
-                Console.WriteLine("⚠️  No BusinessId found in JWT claims");
-                Console.WriteLine("    ℹ️  This is expected if JWT custom claims hook is not configured yet");
-                _logger.LogDebug("No BusinessId found in JWT claims (optional during migration)");
+                // ❌ SECURITY: business_id is REQUIRED for all authenticated requests
+                Console.WriteLine("🚨 SECURITY VIOLATION: Missing required business_id claim in JWT");
+                _logger.LogWarning("Missing required business_id claim in JWT - request denied");
+                
+                context.Response.StatusCode = 403;
+                await context.Response.WriteAsync("Forbidden: Business context required for multi-tenancy isolation");
+                return; // ❌ STOP REQUEST - Do not proceed to endpoints
             }
 
             // Log for security audit

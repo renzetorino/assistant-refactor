@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -187,7 +188,7 @@ namespace dataAccess.Reports
 
                 // Continue with existing batch execution...
                 var requests = BuildRequests(domain, hints);
-                var rows = await RunBatchAsync(domain, requests, ct);
+                var rows = await RunBatchAsync(domain, requests, businessId, ct);
 
                 var fmt = new
                 {
@@ -285,7 +286,8 @@ namespace dataAccess.Reports
             var requests = BuildRequests(domain, h);
 
             // 3) Execute SqlCatalog per query → rows bag keyed by query_id (+#2 for dupes)
-            var rows = await RunBatchAsync(domain, requests, ct);
+            // business_id is now extracted from HttpContext by SqlCatalog.GetBusinessId()
+            var rows = await RunBatchAsync(domain, requests, businessId, ct);
 
             // 3.1) Formatting hints (₱ PHP). Keep feature flags simple; budgets removed.
             var fmt = new
@@ -469,6 +471,7 @@ namespace dataAccess.Reports
         private async Task<Dictionary<string, object?>> RunBatchAsync(
             string domain,
             IEnumerable<SectionBundles.QuerySpec> requests,
+            int? businessId,
             CancellationToken ct)
         {
             var bag = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
@@ -515,7 +518,30 @@ namespace dataAccess.Reports
 
                 try
                 {
-                    var val = await _sql.RunAsync(qid, r.Args, ct); // real SqlCatalog
+                    // ✅ MULTI-TENANCY: Validate query has proper tenant isolation before execution
+                    var metadata = _sql.GetQueryMetadata(qid);
+                    if (metadata == null)
+                    {
+                        _logger.LogWarning("[report-runner] Query '{QueryId}' has no metadata - skipping for security", qid);
+                        bag[key] = Array.Empty<object>();
+                        continue;
+                    }
+                    
+                    if (!metadata.RequiresTenantIsolation)
+                    {
+                        throw new SecurityException(
+                            $"SECURITY VIOLATION: Query '{qid}' is marked as not requiring tenant isolation. " +
+                            $"All queries MUST enforce business_id filtering for data safety.");
+                    }
+                    
+                    // Log access scope for audit trail
+                    _logger.LogDebug(
+                        "[report-runner] Executing query '{QueryId}' with scope '{Scope}' for business_id {BusinessId}", 
+                        qid, metadata.Scope, businessId);
+                    
+                    // ✅ business_id now extracted from HttpContext by SqlCatalog.GetBusinessId()
+                    // No longer passed via args dict to prevent YAML injection attacks
+                    var val = await _sql.RunAsync(qid, r.Args, ct);
                     bag[key] = val;
                 }
                 catch (ArgumentOutOfRangeException ex) when (string.Equals(ex.ParamName, "queryId", StringComparison.OrdinalIgnoreCase))

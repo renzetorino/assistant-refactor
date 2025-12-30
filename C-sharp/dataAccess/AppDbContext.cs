@@ -43,8 +43,23 @@ namespace dataAccess.Services
             // =========================
             // SALES PROJECTION (VIEW)
             // =========================
-            modelBuilder.Entity<Sales>().ToView("sales");
-            modelBuilder.Entity<Sales>().HasNoKey();
+            modelBuilder.Entity<Sales>(e =>
+            {
+                e.ToView("sales");
+                e.HasNoKey();
+                
+                // ✅ Multi-tenancy: Map business_id column from view
+                e.Property(s => s.BusinessId).HasColumnName("business_id");
+                e.Property(s => s.OrderId).HasColumnName("orderid");
+                e.Property(s => s.OrderDate).HasColumnName("orderdate");
+                e.Property(s => s.ProductId).HasColumnName("productid");
+                e.Property(s => s.ProductName).HasColumnName("productname");
+                e.Property(s => s.Quantity).HasColumnName("quantity");
+                e.Property(s => s.UnitPrice).HasColumnName("unitprice");
+                e.Property(s => s.Subtotal).HasColumnName("subtotal");
+                e.Property(s => s.Revenue).HasColumnName("revenue");
+                e.Property(s => s.Profit).HasColumnName("profit");
+            });
 
             // =========================
             // SUPPLIERS
