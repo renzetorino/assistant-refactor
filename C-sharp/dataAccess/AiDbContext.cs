@@ -24,6 +24,9 @@ namespace dataAccess.Services
         public DbSet<Forecast> Forecasts { get; set; } = default!;
         public DbSet<Report> Reports { get; set; } = default!;
 
+        // --- Business Mentor Insights ---
+        public DbSet<AiInsight> AiInsights { get; set; } = default!;
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -189,6 +192,29 @@ namespace dataAccess.Services
                 e.HasIndex(x => x.BusinessId).HasDatabaseName("idx_reports_business_id");
                 e.HasIndex(x => x.CreatedAt).HasDatabaseName("idx_reports_created_at");
                 e.HasIndex(x => new { x.UserId, x.BusinessId }).HasDatabaseName("idx_reports_user_business");
+            });
+
+            // =========================
+            // AI INSIGHTS (BUSINESS MENTOR)
+            // =========================
+            modelBuilder.Entity<AiInsight>(e =>
+            {
+                e.ToTable("ai_insights");
+                e.HasKey(x => x.Id);
+
+                e.Property(x => x.Id).HasColumnName("id");
+                e.Property(x => x.BusinessId).HasColumnName("business_id");
+                e.Property(x => x.Category).HasColumnName("category");
+                e.Property(x => x.DetectorVersion).HasColumnName("detector_version");
+                e.Property(x => x.RawFindings).HasColumnName("raw_findings").HasColumnType("jsonb");
+                e.Property(x => x.AiSummary).HasColumnName("ai_summary");
+                e.Property(x => x.CreatedAt).HasColumnName("created_at");
+                e.Property(x => x.SourceEvent).HasColumnName("source_event");
+
+                e.HasIndex(x => x.BusinessId).HasDatabaseName("idx_ai_insights_business_id");
+                e.HasIndex(x => x.Category).HasDatabaseName("idx_ai_insights_category");
+                e.HasIndex(x => x.CreatedAt).HasDatabaseName("idx_ai_insights_created_at");
+                e.HasIndex(x => new { x.BusinessId, x.Category, x.CreatedAt }).HasDatabaseName("idx_ai_insights_business_category_created");
             });
         }
     }
