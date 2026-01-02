@@ -13,63 +13,82 @@ const peso = (n) =>
 
 // -------------------- LineChart --------------------
 function LineChart({ data = [], width = 400, height = 120 }) {
-  if (!Array.isArray(data) || data.length === 0)
-    return <div style={{ height }}>No chart data</div>;
+  console.log('🔍 [LineChart] Rendering with data:', data);
+  
+  if (!Array.isArray(data) || data.length === 0) {
+    console.warn('⚠️ [LineChart] No data or invalid data array');
+    return <div style={{ height, padding: '20px', textAlign: 'center', color: '#999' }}>No chart data</div>;
+  }
 
-  const min = Math.min(...data.map((d) => d.value));
-  const max = Math.max(...data.map((d) => d.value));
-  const range = max - min || 1;
+  try {
+    const min = Math.min(...data.map((d) => Number(d.value ?? 0)));
+    const max = Math.max(...data.map((d) => Number(d.value ?? 0)));
+    const range = max - min || 1;
 
-  const padding = 32;
+    console.log('🔍 [LineChart] Chart dimensions:', { min, max, range, pointCount: data.length });
 
-  // Map points
-  const points = data.map((d, i) => {
-    const x = padding + (i / (data.length - 1)) * (width - 2 * padding);
-    const y = height - padding - ((d.value - min) / range) * (height - 2 * padding);
-    return { x, y, label: d.label, value: d.value };
-  });
+    const padding = 32;
 
-  return (
-    <svg width={width} height={height} style={{ background: "#f8fafc", borderRadius: 8 }}>
-      {/* Axes */}
-      <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#94a3b8" />
-      <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#94a3b8" />
+    // Map points
+    const points = data.map((d, i) => {
+      const denominator = data.length - 1 || 1; // Prevent division by zero for single point
+      const x = padding + (i / denominator) * (width - 2 * padding);
+      const y = height - padding - ((Number(d.value ?? 0) - min) / range) * (height - 2 * padding);
+      return { x, y, label: d.label, value: d.value };
+    });
 
-      {/* X axis labels */}
-      {points.map((pt, i) => (
-        <text key={i} x={pt.x} y={height - padding + 12} textAnchor="middle" fontSize="10" fill="#64748b">
-          {pt.label}
-        </text>
-      ))}
+    console.log('✅ [LineChart] Chart points calculated successfully');
 
-      {/* Y axis labels */}
-      {[0, 0.25, 0.5, 0.75, 1].map((frac, i) => {
-        const y = height - padding - frac * (height - 2 * padding);
-        const val = (min + frac * range).toFixed(0);
-        return (
-          <g key={i}>
-            <line x1={padding - 4} y1={y} x2={padding} y2={y} stroke="#94a3b8" />
-            <text x={padding - 6} y={y + 4} textAnchor="end" fontSize="10" fill="#64748b">
-              {val}
-            </text>
-          </g>
-        );
-      })}
+    return (
+      <svg width={width} height={height} style={{ background: "#f8fafc", borderRadius: 8 }}>
+        {/* Axes */}
+        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#94a3b8" />
+        <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#94a3b8" />
 
-      {/* Line */}
-      <polyline
-        fill="none"
-        stroke="#3b82f6"
-        strokeWidth="2"
-        points={points.map((pt) => `${pt.x},${pt.y}`).join(" ")}
-      />
+        {/* X axis labels */}
+        {points.map((pt, i) => (
+          <text key={i} x={pt.x} y={height - padding + 12} textAnchor="middle" fontSize="10" fill="#64748b">
+            {pt.label}
+          </text>
+        ))}
 
-      {/* Points */}
-      {points.map((pt, i) => (
-        <circle key={i} cx={pt.x} cy={pt.y} r={3} fill="#3b82f6" />
-      ))}
-    </svg>
-  );
+        {/* Y axis labels */}
+        {[0, 0.25, 0.5, 0.75, 1].map((frac, i) => {
+          const y = height - padding - frac * (height - 2 * padding);
+          const val = (min + frac * range).toFixed(0);
+          return (
+            <g key={i}>
+              <line x1={padding - 4} y1={y} x2={padding} y2={y} stroke="#94a3b8" />
+              <text x={padding - 6} y={y + 4} textAnchor="end" fontSize="10" fill="#64748b">
+                {val}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Line */}
+        <polyline
+          fill="none"
+          stroke="#3b82f6"
+          strokeWidth="2"
+          points={points.map((pt) => `${pt.x},${pt.y}`).join(" ")}
+        />
+
+        {/* Points */}
+        {points.map((pt, i) => (
+          <circle key={i} cx={pt.x} cy={pt.y} r={3} fill="#3b82f6" />
+        ))}
+      </svg>
+    );
+  } catch (err) {
+    console.error('❌ [LineChart] Error rendering chart:', err);
+    return (
+      <div style={{ height, padding: '20px', textAlign: 'center', color: '#e74c3c' }}>
+        ⚠️ Chart rendering error<br/>
+        <small style={{ fontSize: '11px' }}>Check console for details</small>
+      </div>
+    );
+  }
 }
 
 // -------------------- ExpensesWindow --------------------
@@ -85,29 +104,60 @@ export default function ExpensesWindow({ runId = null, onClose }) {
 
     async function fetchData() {
       try {
+        console.log('🔍 [ExpensesWindow] Starting fetch, runId:', runId);
         setLoading(true);
         setError(null);
 
         let uiSpec = null;
 
         if (runId) {
-          const r = await fetch(`${API_BASE}/api/reports/expense/by-id/${runId}`);
-          if (!r.ok) throw new Error(`by-id failed: ${r.status}`);
+          console.log('🔍 [ExpensesWindow] Fetching by runId:', runId);
+          const url = `${API_BASE}/api/reports/expense/by-id/${runId}`;
+          console.log('🔍 [ExpensesWindow] URL:', url);
+          const r = await fetch(url);
+          console.log('🔍 [ExpensesWindow] API Response status:', r.status);
+          if (!r.ok) {
+            const errorText = await r.text();
+            console.error('❌ [ExpensesWindow] API Error:', r.status, errorText);
+            throw new Error(`by-id failed: ${r.status}`);
+          }
           const j = await r.json();
+          console.log('🔍 [ExpensesWindow] API Response JSON:', j);
           uiSpec = j.ui_spec ?? j.uiSpec ?? j.ui ?? null;
+          console.log('🔍 [ExpensesWindow] Extracted uiSpec:', uiSpec);
         } else {
-          const r = await fetch(`${API_BASE}/api/reports/recent?domain=expenses&limit=1`);
-          if (!r.ok) throw new Error(`recent failed: ${r.status}`);
+          console.log('🔍 [ExpensesWindow] Fetching recent expense report');
+          const url = `${API_BASE}/api/reports/recent?domain=expenses&limit=1`;
+          console.log('🔍 [ExpensesWindow] URL:', url);
+          const r = await fetch(url);
+          console.log('🔍 [ExpensesWindow] API Response status:', r.status);
+          if (!r.ok) {
+            const errorText = await r.text();
+            console.error('❌ [ExpensesWindow] API Error:', r.status, errorText);
+            throw new Error(`recent failed: ${r.status}`);
+          }
           const j = await r.json();
-          if (!Array.isArray(j) || j.length === 0) throw new Error("No recent expense reports");
+          console.log('🔍 [ExpensesWindow] API Response JSON:', j);
+          if (!Array.isArray(j) || j.length === 0) {
+            console.warn('⚠️ [ExpensesWindow] No recent expense reports found');
+            throw new Error("No recent expense reports");
+          }
           uiSpec = j[0]?.ui_spec ?? j[0]?.uiSpec ?? j[0]?.ui ?? null;
+          console.log('🔍 [ExpensesWindow] Extracted uiSpec from recent:', uiSpec);
         }
 
-        if (!abort) setUi(uiSpec);
+        if (!abort) {
+          console.log('✅ [ExpensesWindow] Setting UI state with uiSpec');
+          setUi(uiSpec);
+        }
       } catch (e) {
+        console.error('❌ [ExpensesWindow] Error caught:', e);
         if (!abort) setError(String(e?.message || e));
       } finally {
-        if (!abort) setLoading(false);
+        if (!abort) {
+          console.log('🔍 [ExpensesWindow] Finished loading');
+          setLoading(false);
+        }
       }
     }
 
@@ -182,7 +232,12 @@ export default function ExpensesWindow({ runId = null, onClose }) {
       </div>
     );
 
-  if (!ui) return <div className="pw-card">No data.</div>;
+  if (!ui) {
+    console.error('❌ [ExpensesWindow] No UI data available for rendering');
+    return <div className="pw-card">No data.</div>;
+  }
+
+  console.log('✅ [ExpensesWindow] Rendering with UI data:', ui);
 
   // -------------------- Parse JSON Spec --------------------
   const title = ui.report_title ?? "Expense Report";
@@ -197,17 +252,34 @@ export default function ExpensesWindow({ runId = null, onClose }) {
   let lineChartData = [];
   const lineChart = charts.find((c) => c.type === "line");
   if (lineChart) {
-    if (Array.isArray(lineChart.data)) {
-      lineChartData = lineChart.data.map((d) => ({
-        value: d.value ?? d.y ?? 0,
-        label: d.label ?? d.x ?? "",
-      }));
-    } else if (Array.isArray(lineChart.series) && lineChart.series[0]?.points) {
-      lineChartData = lineChart.series[0].points.map((pt) => ({
-        value: pt.y ?? pt.value ?? 0,
-        label: pt.x ?? pt.label ?? "",
-      }));
+    console.log('🔍 [ExpensesWindow] Found line chart:', lineChart);
+    try {
+      if (Array.isArray(lineChart.data)) {
+        console.log('🔍 [ExpensesWindow] Processing lineChart.data');
+        lineChartData = lineChart.data.map((d, idx) => {
+          console.log(`🔍 [ExpensesWindow] Processing data point ${idx}:`, d);
+          return {
+            value: Number(d.value ?? d.y ?? 0),
+            label: String(d.label ?? d.x ?? ""),
+          };
+        });
+      } else if (Array.isArray(lineChart.series) && lineChart.series[0]?.points) {
+        console.log('🔍 [ExpensesWindow] Processing lineChart.series[0].points');
+        lineChartData = lineChart.series[0].points.map((pt, idx) => {
+          console.log(`🔍 [ExpensesWindow] Processing series point ${idx}:`, pt);
+          return {
+            value: Number(pt.y ?? pt.value ?? 0),
+            label: String(pt.x ?? pt.label ?? ""),
+          };
+        });
+      }
+      console.log('✅ [ExpensesWindow] Parsed lineChartData:', lineChartData);
+    } catch (err) {
+      console.error('❌ [ExpensesWindow] Error parsing line chart data:', err);
+      lineChartData = [];
     }
+  } else {
+    console.warn('⚠️ [ExpensesWindow] No line chart found in charts array');
   }
 
   // Top categories

@@ -1,3 +1,12 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// ZOMBIE CONTROLLER - COMMENTED OUT (2026-01-02)
+// ═══════════════════════════════════════════════════════════════════════════
+// This controller depends on VertexAISearchService (zombie service).
+// FAQ search is now handled by JsonFaqService via ChatOrchestratorService.
+// See: ChatOrchestratorService → LocalDecoderService → JsonFaqService
+// ═══════════════════════════════════════════════════════════════════════════
+
+/*
 using dataAccess.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
@@ -134,3 +143,4 @@ public class FaqLogResponse
     public bool? Helpful { get; set; }
     public DateTime CreatedAt { get; set; }
 }
+*/

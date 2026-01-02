@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 
 namespace dataAccess.Services;
 
-public enum ForecastDomain { Sales, Expenses }
-public sealed record ForecastPoint(DateOnly Date, decimal Value, decimal Lower, decimal Upper);
+// ForecastDomain and ForecastPoint are defined in HybridForecastService.cs
+// Removed duplicate definitions to fix CS0101 build error
 
 /// <summary>
 /// LEGACY: Simple deterministic forecasting (CMA trend + weekday seasonality + CI band).

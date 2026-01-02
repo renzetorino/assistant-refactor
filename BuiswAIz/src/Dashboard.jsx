@@ -16,7 +16,7 @@ const Dashboard = () => {
 
   const [user, setUser] = useState(null);
   const [userBusinessId, setUserBusinessId] = useState(null);
-  const [setBusinessInfo] = useState(null);
+  const [businessinfo, setBusinessInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [topSellingProducts, setTopSellingProducts] = useState([]);
   const [leastSellingProducts, setLeastSellingProducts] = useState([]);
@@ -163,10 +163,7 @@ const Dashboard = () => {
     const byDay = Array.from({ length: daysInMonth }, () => 0);
 
     for (const row of rows) {
-      const amt =
-        Number(row.amount) ??
-        Number(row.expense_amount) ??
-        Number(row.total) ?? 0;
+      const amt = Number(row.amount ?? 0);
 
       const d = getExpenseDate(row);
       if (!d) continue;

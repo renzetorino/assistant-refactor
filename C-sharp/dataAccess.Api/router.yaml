@@ -34,10 +34,14 @@ intent_classification:
     - reports.expenses  # ✅ ADDED: Plural form (LLM sometimes uses this)
     - reports.sales
     - report  # ✅ ADDED: Generic form (LLM sometimes shortens it)
+    - forecasting  # ✅ ADDED: What LLM actually outputs for forecast queries
+    - forecast  # ✅ ADDED: Short form
     - forecast.sales
     - forecast.inventory
     - forecast.expense
     - forecast.expenses  # ✅ ADDED: Plural form
+    - prediction  # ✅ ADDED: Alternative term users might use
+    - predictions  # ✅ ADDED: Plural form
     - out_of_scope
 
 # Legacy threshold configuration (kept for backward compatibility)

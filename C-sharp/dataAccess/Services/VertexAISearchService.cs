@@ -1,3 +1,12 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// ZOMBIE SERVICE - COMMENTED OUT (2026-01-02)
+// ═══════════════════════════════════════════════════════════════════════════════
+// This service is no longer in use and requires Google.Cloud.DiscoveryEngine.V1 package
+// which is not installed. The system uses JsonFaqService for FAQ search instead.
+// FaqSearchResult is defined in JsonFaqService.cs
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/*
 using Google.Cloud.DiscoveryEngine.V1;
 using Microsoft.Extensions.Configuration;
 using dataAccess.Entities;
@@ -10,12 +19,14 @@ public interface IVertexAISearchService
     Task<FaqSearchResult> SearchFaqAsync(string query, string? userId = null, int maxResults = 3);
 }
 
-public record FaqSearchResult(
-    string Answer,
-    List<FaqChunk> Chunks,
-    double Confidence
-);
+// FaqSearchResult is already defined in JsonFaqService.cs - duplicate removed
+// public record FaqSearchResult(
+//     string Answer,
+//     List<FaqChunk> Chunks,
+//     double Confidence
+// );
 
+/*
 public record FaqChunk(
     string Content,
     string PageNumber,
@@ -321,3 +332,4 @@ public class VertexAISearchService : IVertexAISearchService
         }
     }
 }
+*/

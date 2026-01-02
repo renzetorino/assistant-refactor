@@ -1,4 +1,13 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿// ═══════════════════════════════════════════════════════════════════════════
+// LEGACY ENDPOINT - COMMENTED OUT (2026-01-02)
+// ═══════════════════════════════════════════════════════════════════════════
+// This endpoint bypasses ChatOrchestratorService and directly calls YamlReportRunner.
+// According to LEGACY_ENDPOINTS_LIST.md, this is marked for deprecation.
+// All queries should go through: POST /api/chat/query (ChatOrchestratorService)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/*
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using System.Text.Json.Nodes;
 using dataAccess.Reports;
@@ -28,3 +37,4 @@ public static class AssistantEndpoint
         return Results.Json(new AskResponse("report", null, ui));
     }
 }
+*/

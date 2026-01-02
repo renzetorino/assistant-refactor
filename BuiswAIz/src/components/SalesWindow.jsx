@@ -19,6 +19,7 @@ export default function SalesWindow({ runId = null }) {
 
   // Fetch report data
   useEffect(() => {
+    console.log('🔍 [SalesWindow] useEffect triggered with runId:', runId);
     let abort = false;
     (async () => {
       try {
@@ -27,23 +28,53 @@ export default function SalesWindow({ runId = null }) {
 
         let uiSpec;
         if (runId) {
-          const r = await fetch(`${API_BASE}/api/reports/sales/by-id/${runId}`);
-          if (!r.ok) throw new Error(`by-id failed: ${r.status}`);
+          console.log('🔍 [SalesWindow] Fetching report by ID:', runId);
+          const url = `${API_BASE}/api/reports/sales/by-id/${runId}`;
+          console.log('🔍 [SalesWindow] API URL:', url);
+          const r = await fetch(url);
+          console.log('🔍 [SalesWindow] API Response status:', r.status);
+          if (!r.ok) {
+            const errorText = await r.text();
+            console.error('❌ [SalesWindow] API Error:', r.status, errorText);
+            throw new Error(`by-id failed: ${r.status}`);
+          }
           const j = await r.json();
+          console.log('🔍 [SalesWindow] API Response JSON:', j);
           uiSpec = j.ui_spec ?? j.uiSpec ?? j?.ui ?? null;
+          console.log('🔍 [SalesWindow] Extracted uiSpec:', uiSpec);
         } else {
-          const r = await fetch(`${API_BASE}/api/reports/recent?domain=sales&limit=1`);
-          if (!r.ok) throw new Error(`recent failed: ${r.status}`);
+          console.log('🔍 [SalesWindow] Fetching latest report (no runId provided)');
+          const url = `${API_BASE}/api/reports/recent?domain=sales&limit=1`;
+          console.log('🔍 [SalesWindow] API URL:', url);
+          const r = await fetch(url);
+          console.log('🔍 [SalesWindow] API Response status:', r.status);
+          if (!r.ok) {
+            const errorText = await r.text();
+            console.error('❌ [SalesWindow] API Error:', r.status, errorText);
+            throw new Error(`recent failed: ${r.status}`);
+          }
           const j = await r.json();
-          if (!Array.isArray(j) || j.length === 0) throw new Error("No recent reports");
+          console.log('🔍 [SalesWindow] API Response JSON:', j);
+          if (!Array.isArray(j) || j.length === 0) {
+            console.warn('⚠️ [SalesWindow] No recent reports found');
+            throw new Error("No recent reports");
+          }
           uiSpec = j[0]?.ui_spec ?? j[0]?.uiSpec ?? j[0]?.ui ?? null;
+          console.log('🔍 [SalesWindow] Extracted uiSpec from recent:', uiSpec);
         }
 
-        if (!abort) setUi(uiSpec);
+        if (!abort) {
+          console.log('✅ [SalesWindow] Setting UI state with uiSpec');
+          setUi(uiSpec);
+        }
       } catch (e) {
+        console.error('❌ [SalesWindow] Error caught:', e);
         if (!abort) setError(String(e?.message || e));
       } finally {
-        if (!abort) setLoading(false);
+        if (!abort) {
+          console.log('🔍 [SalesWindow] Finished loading');
+          setLoading(false);
+        }
       }
     })();
     return () => { abort = true; };
@@ -51,33 +82,105 @@ export default function SalesWindow({ runId = null }) {
 
   // Prepare chart data with actual day numbers on X-axis
   const chartData = useMemo(() => {
-    if (!ui || !Array.isArray(ui.charts?.[0]?.series?.[0]?.points)) return null;
+    console.log('🔍 [SalesWindow] chartData useMemo triggered');
+    console.log('🔍 [SalesWindow] ui object:', ui);
+    
+    if (!ui) {
+      console.warn('⚠️ [SalesWindow] No ui object');
+      return null;
+    }
+    
+    if (!Array.isArray(ui.charts)) {
+      console.warn('⚠️ [SalesWindow] ui.charts is not an array:', ui.charts);
+      return null;
+    }
+    
+    if (!ui.charts[0]) {
+      console.warn('⚠️ [SalesWindow] ui.charts[0] is missing');
+      return null;
+    }
+    
+    if (!Array.isArray(ui.charts[0].series)) {
+      console.warn('⚠️ [SalesWindow] ui.charts[0].series is not an array:', ui.charts[0].series);
+      return null;
+    }
+    
+    if (!ui.charts[0].series[0]) {
+      console.warn('⚠️ [SalesWindow] ui.charts[0].series[0] is missing');
+      return null;
+    }
+    
+    if (!Array.isArray(ui.charts[0].series[0].points)) {
+      console.warn('⚠️ [SalesWindow] ui.charts[0].series[0].points is not an array:', ui.charts[0].series[0].points);
+      return null;
+    }
+    
+    console.log('🔍 [SalesWindow] Chart points:', ui.charts[0].series[0].points);
+    
+    try {
+      const rawPoints = ui.charts[0].series[0].points.map((pt, idx) => {
+        console.log(`🔍 [SalesWindow] Processing point ${idx}:`, pt);
+        
+        if (!pt.x || typeof pt.x !== 'string') {
+          console.warn(`⚠️ [SalesWindow] Invalid pt.x at index ${idx}:`, pt.x);
+          return { day: idx + 1, y: Number(pt.y ?? 0) };
+        }
+        
+        const parts = pt.x.split("-");
+        if (parts.length < 3) {
+          console.warn(`⚠️ [SalesWindow] Invalid date format at index ${idx}: ${pt.x}`);
+          return { day: idx + 1, y: Number(pt.y ?? 0) };
+        }
+        
+        const day = Number(parts[2]);
+        if (isNaN(day)) {
+          console.warn(`⚠️ [SalesWindow] Invalid day number at index ${idx}: ${parts[2]}`);
+          return { day: idx + 1, y: Number(pt.y ?? 0) };
+        }
+        
+        return {
+          day: day,
+          y: Number(pt.y ?? 0)
+        };
+      });
+      
+      console.log('🔍 [SalesWindow] Parsed rawPoints:', rawPoints);
+      
+      if (rawPoints.length === 0) {
+        console.warn('⚠️ [SalesWindow] No points after parsing');
+        return null;
+      }
 
-    const rawPoints = ui.charts[0].series[0].points.map(pt => ({
-      day: Number(pt.x.split("-")[2]), // extract day from YYYY-MM-DD
-      y: Number(pt.y ?? 0)
-    }));
+      const w = 600, h = 300, pad = 50;
+      const allY = rawPoints.map(p => p.y);
+      const minY = Math.min(...allY);
+      const maxY = Math.max(...allY);
 
-    if (rawPoints.length === 0) return null;
+      const minX = Math.min(...rawPoints.map(p => p.day));
+      const maxX = Math.max(...rawPoints.map(p => p.day));
+      
+      console.log('🔍 [SalesWindow] Chart dimensions:', { minX, maxX, minY, maxY, pointCount: rawPoints.length });
 
-    const w = 600, h = 300, pad = 50;
-    const allY = rawPoints.map(p => p.y);
-    const minY = Math.min(...allY);
-    const maxY = Math.max(...allY);
+      const xCoord = (day) => pad + ((day - minX) / (maxX - minX || 1)) * (w - pad * 2);
+      const yCoord = (y) => h - pad - ((y - minY) / (maxY - minY || 1)) * (h - pad * 2);
 
-    const minX = Math.min(...rawPoints.map(p => p.day));
-    const maxX = Math.max(...rawPoints.map(p => p.day));
+      const pathD = rawPoints.map((pt, i) => {
+        const x = xCoord(pt.day);
+        const y = yCoord(pt.y);
+        return `${i === 0 ? "M" : "L"} ${x} ${y}`;
+      }).join(" ");
 
-    const xCoord = (day) => pad + ((day - minX) / (maxX - minX)) * (w - pad * 2);
-    const yCoord = (y) => h - pad - ((y - minY) / (maxY - minY || 1)) * (h - pad * 2);
-
-    const pathD = rawPoints.map((pt, i) => {
-      const x = xCoord(pt.day);
-      const y = yCoord(pt.y);
-      return `${i === 0 ? "M" : "L"} ${x} ${y}`;
-    }).join(" ");
-
-    return { w, h, pad, pathD, rawPoints, xCoord, yCoord, minY, maxY, minX, maxX };
+      console.log('✅ [SalesWindow] Chart data generated successfully');
+      
+      return {
+        width: w, height: h, padding: pad,
+        pathD, rawPoints, minX, maxX, minY, maxY,
+        xCoord, yCoord
+      };
+    } catch (err) {
+      console.error('❌ [SalesWindow] Error parsing chart data:', err);
+      return null;
+    }
   }, [ui]);
 
   const downloadPDF = async () => {
@@ -91,7 +194,12 @@ export default function SalesWindow({ runId = null }) {
 
   if (loading) return <div className="pw-card pw-loader">Loading…</div>;
   if (error) return <div className="pw-card">Error: {error}</div>;
-  if (!ui) return <div className="pw-card">No data.</div>;
+  if (!ui) {
+    console.error('❌ [SalesWindow] No UI data available for rendering');
+    return <div className="pw-card">No data.</div>;
+  }
+
+  console.log('✅ [SalesWindow] Rendering with UI data:', ui);
 
   const title = ui.report_title ?? "Sales Report";
   const period = ui.period?.label ?? "";
@@ -152,29 +260,37 @@ export default function SalesWindow({ runId = null }) {
             </div>
 
             <div className="sr-card sr-chart">
-              <svg width={chartData.w} height={chartData.h} viewBox={`0 0 ${chartData.w} ${chartData.h}`}>
-                {/* Y-axis labels */}
-                {[0, 0.25, 0.5, 0.75, 1].map(f => {
-                  const y = chartData.h - chartData.pad - f * (chartData.h - chartData.pad * 2);
-                  const val = Math.round(chartData.minY + f * (chartData.maxY - chartData.minY));
-                  return (
-                    <g key={f}>
-                      <line x1={chartData.pad} y1={y} x2={chartData.w - chartData.pad} y2={y} stroke="#e0e0e0" />
-                      <text x={chartData.pad - 10} y={y + 4} textAnchor="end" fontSize="10">{val}</text>
-                    </g>
-                  );
-                })}
+              {!chartData ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
+                  <p>⚠️ Chart data unavailable</p>
+                  <p style={{ fontSize: '12px', marginTop: '10px' }}>
+                    Check console logs for details
+                  </p>
+                </div>
+              ) : (
+                <svg width={chartData.width} height={chartData.height} viewBox={`0 0 ${chartData.width} ${chartData.height}`}>
+                  {/* Y-axis labels */}
+                  {[0, 0.25, 0.5, 0.75, 1].map(f => {
+                    const y = chartData.height - chartData.padding - f * (chartData.height - chartData.padding * 2);
+                    const val = Math.round(chartData.minY + f * (chartData.maxY - chartData.minY));
+                    return (
+                      <g key={f}>
+                        <line x1={chartData.padding} y1={y} x2={chartData.width - chartData.padding} y2={y} stroke="#e0e0e0" />
+                        <text x={chartData.padding - 10} y={y + 4} textAnchor="end" fontSize="10">{val}</text>
+                      </g>
+                    );
+                  })}
 
-                {/* X-axis labels */}
-                {chartData.rawPoints.map((pt, i) => {
-                  const x = chartData.xCoord(pt.day);
-                  return (
-                    <g key={i}>
-                      <line x1={x} y1={chartData.h - chartData.pad} x2={x} y2={chartData.h - chartData.pad + 5} stroke="#000" />
-                      <text x={x} y={chartData.h - chartData.pad + 15} textAnchor="middle" fontSize="10">{pt.day}</text>
-                    </g>
-                  );
-                })}
+                  {/* X-axis labels */}
+                  {chartData.rawPoints.map((pt, i) => {
+                    const x = chartData.xCoord(pt.day);
+                    return (
+                      <g key={i}>
+                        <line x1={x} y1={chartData.height - chartData.padding} x2={x} y2={chartData.height - chartData.padding + 5} stroke="#000" />
+                        <text x={x} y={chartData.height - chartData.padding + 15} textAnchor="middle" fontSize="10">{pt.day}</text>
+                      </g>
+                    );
+                  })}
 
                 {/* Line path */}
                 <path d={chartData.pathD} fill="none" stroke="#2563eb" strokeWidth="2" />
@@ -198,6 +314,7 @@ export default function SalesWindow({ runId = null }) {
                   );
                 })}
               </svg>
+              )}
 
               {/* Tooltip overlay */}
               {tooltip && (
