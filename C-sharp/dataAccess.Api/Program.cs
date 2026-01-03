@@ -431,6 +431,8 @@ builder.Services.AddScoped<ChatHistoryService>(); // Keep for backward compatibi
 // Phase 3: YAML-driven Runners with Slot Validation
 builder.Services.AddScoped<IForecastRunnerService, ForecastRunnerService>();
 
+// Business Mentor Insights (Sprint 2)
+builder.Services.AddScoped<dataAccess.Planning.Insights.InsightScanner>();
 
 builder.Services.AddHttpClient();
 
