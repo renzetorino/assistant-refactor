@@ -9,6 +9,8 @@ import TopSellingProducts from "./Dashboard/TopSellingProducts";
 import SalesSummaryDashboard from "./Dashboard/SalesSummaryDashboard";
 import DailyGrossSales from "./Dashboard/DailyGrossSales";
 import Notifications from "./Dashboard/Notifications";
+import { fetchMorningBriefing, fetchExpenseForecast } from "./api/mentorInsights";
+import InsightModal from "./components/InsightModal";
 import "./stylecss/Dashboard/Dashboard.css";
 
 const Dashboard = () => {
@@ -27,13 +29,23 @@ const Dashboard = () => {
   const [activityLogs, setActivityLogs] = useState([]);
 
   
-  // Help tooltip states for each component
-  const [showHelpSummary, setShowHelpSummary] = useState(false);
+  // Help tooltip states for other components
   const [showHelpDailySales, setShowHelpDailySales] = useState(false);
-  const [showHelpExpense, setShowHelpExpense] = useState(false);
   const [showHelpProducts, setShowHelpProducts] = useState(false);
   const [showHelpNotifications, setShowHelpNotifications] = useState(false);
   const [showHelpActivity, setShowHelpActivity] = useState(false);
+
+  // Morning Briefing Insights state (Business Summary)
+  const [showMorningBriefingModal, setShowMorningBriefingModal] = useState(false);
+  const [morningBriefingContent, setMorningBriefingContent] = useState(null);
+  const [morningBriefingLoading, setMorningBriefingLoading] = useState(false);
+  const [morningBriefingError, setMorningBriefingError] = useState(null);
+
+  // Expense Forecast Insights state
+  const [showExpenseForecastModal, setShowExpenseForecastModal] = useState(false);
+  const [expenseForecastContent, setExpenseForecastContent] = useState(null);
+  const [expenseForecastLoading, setExpenseForecastLoading] = useState(false);
+  const [expenseForecastError, setExpenseForecastError] = useState(null);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -232,6 +244,35 @@ const Dashboard = () => {
 
         setBusinessInfo(business);
         setLoading(false);
+        
+        // Sprint 6: Trigger background refresh of AI insights on login
+        // This pre-populates the cache so ? icon clicks are instant
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            const API_BASE = import.meta.env.VITE_API_ASSISTANT_URL || 'http://localhost:5115';
+            
+            // Fire-and-forget: don't wait for response, don't block UI
+            fetch(`${API_BASE}/api/mentor-insights/refresh-async`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json',
+              },
+            }).then(response => {
+              if (response.ok) {
+                console.log('[Dashboard] AI Insights refresh queued successfully');
+              } else {
+                console.warn('[Dashboard] AI Insights refresh failed:', response.status);
+              }
+            }).catch(error => {
+              console.warn('[Dashboard] AI Insights refresh error:', error.message);
+            });
+          }
+        } catch (refreshError) {
+          console.warn('[Dashboard] Failed to trigger insights refresh:', refreshError);
+          // Don't block user experience if refresh fails
+        }
         
       } catch (error) {
         console.error("Authentication error:", error);
@@ -461,6 +502,40 @@ const Dashboard = () => {
     }
   }, [userBusinessId]);
 
+  // Fetch mentor insights when help button is clicked
+  const handleMorningBriefingClick = async () => {
+    setShowMorningBriefingModal(true);
+    setMorningBriefingLoading(true);
+    setMorningBriefingError(null);
+
+    try {
+      const data = await fetchMorningBriefing();
+      setMorningBriefingContent(data.content || "No briefing available.");
+    } catch (error) {
+      console.error('Failed to fetch morning briefing:', error);
+      setMorningBriefingError(error.message || 'Failed to load insights. Please try again.');
+    } finally {
+      setMorningBriefingLoading(false);
+    }
+  };
+
+  // Expense Forecast modal handler
+  const handleExpenseForecastClick = async () => {
+    setShowExpenseForecastModal(true);
+    setExpenseForecastLoading(true);
+    setExpenseForecastError(null);
+
+    try {
+      const data = await fetchExpenseForecast();
+      setExpenseForecastContent(data.content || "No expense forecast available.");
+    } catch (error) {
+      console.error('Failed to fetch expense forecast:', error);
+      setExpenseForecastError(error.message || 'Failed to load insights. Please try again.');
+    } finally {
+      setExpenseForecastLoading(false);
+    }
+  };
+
   // ✅ Show loading state while waiting for business ID
   if (loading || !userBusinessId) {
     return (
@@ -498,6 +573,8 @@ const Dashboard = () => {
               <li onClick={() => navigate("/TablePage")}>Sales</li>
               <li onClick={() => navigate("/expenses")}>Expenses</li>
               <li onClick={() => navigate("/assistant")}>AI Assistant</li>
+              {/* COMMENTED OUT: Business Maturity link removed (feature did not meet team/advisor standards) */}
+              {/* <li onClick={() => navigate("/maturity-report")}>Business Maturity</li> */}
             </ul>
             <p className="nav-header">RELATED</p>
             <ul>
@@ -518,26 +595,11 @@ const Dashboard = () => {
                   <div className="help-wrapper-dash">
                     <button 
                       className="help-button-dash"
-                      onClick={() => setShowHelpSummary(!showHelpSummary)}
-                      aria-label="Help"
+                      onClick={handleMorningBriefingClick}
+                      aria-label="AI Morning Briefing"
                     >
                       ?
                     </button>
-                   {showHelpSummary && (
-                      <div className="help-box-dash">
-                        <div className="help-arrow-dash"></div>
-                        
-                        <div className="help-content-dash">
-                          <p>Gen TIPS</p>
-                        </div>
-                        
-                        <div className="help-separator-dash"></div>
-                        
-                        <div className="help-content-dash">
-                          <p>AI</p>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -592,26 +654,11 @@ const Dashboard = () => {
                       <div className="help-wrapper-dash">
                         <button 
                           className="help-button-dash"
-                          onClick={() => setShowHelpExpense(!showHelpExpense)}
-                          aria-label="Help"
+                          onClick={handleExpenseForecastClick}
+                          aria-label="AI Expense Insights"
                         >
                           ?
                         </button>
-                        {showHelpExpense && (
-                          <div className="help-box-dash">
-                            <div className="help-arrow-dash"></div>
-                            
-                            <div className="help-content-dash">
-                              <p>Gen TIPS</p>
-                            </div>
-                            
-                            <div className="help-separator-dash"></div>
-                            
-                            <div className="help-content-dash">
-                              <p>AI</p>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -806,6 +853,28 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Morning Briefing Modal */}
+      <InsightModal
+        isOpen={showMorningBriefingModal}
+        onClose={() => setShowMorningBriefingModal(false)}
+        title="👋 Your Business Overview"
+        content={morningBriefingContent}
+        loading={morningBriefingLoading}
+        error={morningBriefingError}
+        insightType="morning-briefing"
+      />
+
+      {/* Expense Forecast Modal */}
+      <InsightModal
+        isOpen={showExpenseForecastModal}
+        onClose={() => setShowExpenseForecastModal(false)}
+        title="� Expense Insights - Smart Spending Guide"
+        content={expenseForecastContent}
+        loading={expenseForecastLoading}
+        error={expenseForecastError}
+        insightType="expense-forecast"
+      />
     </div>
   );
 };

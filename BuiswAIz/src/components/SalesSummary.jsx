@@ -1,13 +1,18 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase';
 import '../stylecss/Sales/SalesSummary.css';
+import InsightModal from './InsightModal';
+import { fetchProfitTeaching } from '../api/mentorInsights';
 
 const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selectedWeek, selectedDay, startDate, endDate, userBusinessId }) => {
   const [expenses, setExpenses] = useState([]);
   const [_loading, setLoading] = useState(true);
   const [isTransactionsExpanded, setIsTransactionsExpanded] = useState(false);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
+  const [showInsightModal, setShowInsightModal] = useState(false);
+  const [insightContent, setInsightContent] = useState(null);
+  const [insightLoading, setInsightLoading] = useState(false);
+  const [insightError, setInsightError] = useState(null);
 
   const getWeekRange = useCallback((weekStartDate) => {
     const start = new Date(weekStartDate);
@@ -15,6 +20,22 @@ const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selec
     end.setDate(start.getDate() + 6);
     return { start, end };
   }, []);
+
+  const handleInsightClick = async () => {
+    setShowInsightModal(true);
+    setInsightLoading(true);
+    setInsightError(null);
+
+    try {
+      const data = await fetchProfitTeaching(90); // 90 days analysis period
+      setInsightContent(data.content || "No profit insights available.");
+    } catch (error) {
+      console.error("Failed to fetch profit teaching:", error);
+      setInsightError(error.message || "Failed to load insights. Please try again.");
+    } finally {
+      setInsightLoading(false);
+    }
+  };
 
   // Helper function to extract date in YYYY-MM-DD format
 
@@ -271,26 +292,11 @@ const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selec
             <div className="help-wrapper-dash">
               <button 
                 className="help-button-dash"
-                onClick={() => setShowHelp(!showHelp)}
-                aria-label="Help"
+                onClick={handleInsightClick}
+                aria-label="AI Profit Insights"
               >
                 ?
               </button>
-              {showHelp && (
-                <div className="help-box-dash">
-                  <div className="help-arrow-dash"></div>
-                  
-                  <div className="help-content-dash">
-                    <p>GEN TIPS</p>
-                  </div>
-                  
-                  <div className="help-separator-dash"></div>
-                  
-                  <div className="help-content-dash">
-                    <p>AI Tips</p>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -450,6 +456,16 @@ const SalesSummary = ({ orderData, rangeMode, selectedYear, selectedMonth, selec
           </div>
         )}
       </div>
+
+      {/* AI Insights Modal */}
+      <InsightModal
+        isOpen={showInsightModal}
+        onClose={() => setShowInsightModal(false)}
+        title="💰 Profit Teaching"
+        content={insightContent}
+        loading={insightLoading}
+        error={insightError}
+      />
     </div>
   );
 };

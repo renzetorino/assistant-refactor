@@ -431,8 +431,30 @@ builder.Services.AddScoped<ChatHistoryService>(); // Keep for backward compatibi
 // Phase 3: YAML-driven Runners with Slot Validation
 builder.Services.AddScoped<IForecastRunnerService, ForecastRunnerService>();
 
-// Business Mentor Insights (Sprint 2)
+// Business Mentor Insights (Sprint 2 & 3)
 builder.Services.AddScoped<dataAccess.Planning.Insights.InsightScanner>();
+builder.Services.AddScoped<dataAccess.Planning.Insights.BusinessMentorFormatter>();
+builder.Services.AddScoped<dataAccess.Planning.Insights.InsightCoordinator>();
+
+// Sprint 6: Background Insight Refresh Worker
+builder.Services.Configure<InsightRefreshOptions>(
+    builder.Configuration.GetSection(InsightRefreshOptions.SectionName));
+builder.Services.AddHostedService<InsightRefreshWorker>();
+
+// ============================================================================
+// COMMENTED OUT: Business Maturity Analytics (Sprint 7)
+// ============================================================================
+// REASON: Did not meet team and advisor standards for the following issues:
+//   - Placeholder calculation logic (Agility score uses hardcoded 12-hour baseline)
+//   - Trust score based on inventory update count, not actual forecast adherence
+//   - Data pollution: Uses same ai_insights table as mentorship insights
+//   - Incomplete features: Missing ActivityLog integration and purchase_orders tracking
+//   - Small datasets return default scores of 50, making results unreliable
+// STATUS: Will be upgraded with proper metrics in future sprint
+// DATE COMMENTED: January 15, 2026
+// ============================================================================
+// builder.Services.AddScoped<dataAccess.Planning.Maturity.MaturityScoreCalculator>();
+// builder.Services.AddScoped<dataAccess.Planning.Maturity.MaturityReportGenerator>();
 
 builder.Services.AddHttpClient();
 
@@ -442,6 +464,19 @@ builder.Services.AddHttpClient<GroqJsonClient>((sp, http) =>
     http.BaseAddress = new Uri("https://api.groq.com/openai/v1/");
     http.Timeout = TimeSpan.FromSeconds(60);
 });
+
+// Gemini client (typed HttpClient) for Business Mentor insights
+// Sprint 4 (Updated): API key redaction handled via logging configuration (appsettings.json)
+// HttpClient logs for GeminiJsonClient are suppressed to prevent API key exposure
+builder.Services.AddHttpClient<GeminiJsonClient>((sp, http) =>
+{
+    http.BaseAddress = new Uri("https://generativelanguage.googleapis.com/v1beta/");
+    http.Timeout = TimeSpan.FromSeconds(60);
+});
+
+// Register interfaces for DI
+builder.Services.AddScoped<IGroqJsonClient>(sp => sp.GetRequiredService<GroqJsonClient>());
+builder.Services.AddScoped<IGeminiJsonClient>(sp => sp.GetRequiredService<GeminiJsonClient>());
 
 builder.Services.AddScoped<VectorSearchService>();
 
@@ -569,6 +604,15 @@ builder.Services.AddRateLimiter(options =>
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 0 // No queueing, reject immediately when limit exceeded
             }));
+
+    // Named policy: mentor-insights (10 requests/minute per business)
+    options.AddFixedWindowLimiter("mentor-insights", options =>
+    {
+        options.PermitLimit = 10;
+        options.Window = TimeSpan.FromMinutes(1);
+        options.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        options.QueueLimit = 0; // No queueing for insights API
+    });
 
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
@@ -1261,6 +1305,16 @@ app.MapGet("/api/debug/config/vec-all", (IConfiguration cfg) =>
 app.Run();
 
 public sealed class RouteReq { public string? Input { get; set; } }
+
+// Sprint 4 (Updated): API Key Redaction Implementation
+// ======================================================
+// Instead of using a DelegatingHandler (which runs AFTER the HttpClient logger),
+// we suppress HttpClient logs entirely for GeminiJsonClient via appsettings.json:
+//   "System.Net.Http.HttpClient.GeminiJsonClient": "None"
+// This prevents API keys from appearing in any logs while maintaining logging for other services.
+// The original ApiKeyRedactingHandler approach didn't work because .NET's HttpClient logging
+// happens before the handler can modify the request.
+
 public sealed record AssistantRequest(string Text, string? Domain);
 public sealed record DebugSkRequest(string Query);
 

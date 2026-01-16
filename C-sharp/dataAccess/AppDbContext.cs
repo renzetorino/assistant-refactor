@@ -30,6 +30,9 @@ namespace dataAccess.Services
         public DbSet<PlannedRecurrence> PlannedRecurrences { get; set; } = default!;
         public DbSet<Attachment> Attachments { get; set; } = default!;
 
+        // --- Activity Log (for AI Insights cache invalidation) ---
+        public DbSet<ActivityLog> ActivityLogs { get; set; } = default!;
+
         // Read-only projection for Sales reporting (view)
         public DbSet<Sales> Sales { get; set; } = default!;
 
@@ -39,6 +42,22 @@ namespace dataAccess.Services
 
             // Default schema
             modelBuilder.HasDefaultSchema("public");
+
+            // =========================
+            // ACTIVITY LOG
+            // =========================
+            modelBuilder.Entity<ActivityLog>(e =>
+            {
+                e.ToTable("activitylog");
+                e.HasKey(x => x.Id);
+
+                e.Property(x => x.Id).HasColumnName("activity_id");
+                e.Property(x => x.ActionType).HasColumnName("action_type");
+                e.Property(x => x.ActionDesc).HasColumnName("action_desc");
+                e.Property(x => x.DoneUser).HasColumnName("done_user");
+                e.Property(x => x.BusinessId).HasColumnName("businessid");
+                e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+            });
 
             // =========================
             // SALES PROJECTION (VIEW)

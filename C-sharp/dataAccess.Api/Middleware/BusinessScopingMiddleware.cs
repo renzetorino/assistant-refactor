@@ -1,4 +1,5 @@
 using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -39,7 +40,10 @@ public class BusinessScopingMiddleware
             Console.WriteLine("═══════════════════════════════════════════════════════════════");
 
             // Extract user_id from "sub" claim (standard JWT claim)
-            var userIdClaim = context.User.FindFirst("sub")?.Value;
+            // Try both "sub" (short form) and ClaimTypes.NameIdentifier (mapped form)
+            var userIdClaim = context.User.FindFirst("sub")?.Value 
+                ?? context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            
             if (!string.IsNullOrWhiteSpace(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
             {
                 context.Items["UserId"] = userId;

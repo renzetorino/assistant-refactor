@@ -13,6 +13,8 @@ import { fetchDefectiveItems } from "../inventory/fetchdefectitem";
 import DefectivePanel from "../inventory/DefectivePanel";
 import InheritedBatches from "../inventory/inheritedBatches";
 import ProductAvailability from "../inventory/ProductAvailability";
+import { fetchInventoryRisk } from "../api/mentorInsights";
+import InsightModal from "../components/InsightModal";
 
 const Inventory = () => {
   const [products, setProducts] = useState([]);
@@ -27,7 +29,12 @@ const Inventory = () => {
   const navigate = useNavigate();
   const [restockStorage, setrestockStorage] = useState(false);
   const [showExchangeModal, setShowExchangeModal] = useState(false);
-  const [showHelpInventory, setShowHelpInventory] = useState(false);
+
+  // Sprint 4: Inventory Risk Insights modal state (matches Dashboard pattern)
+  const [showInventoryRiskModal, setShowInventoryRiskModal] = useState(false);
+  const [inventoryRiskContent, setInventoryRiskContent] = useState(null);
+  const [inventoryRiskLoading, setInventoryRiskLoading] = useState(false);
+  const [inventoryRiskError, setInventoryRiskError] = useState(null);
 
   // -----------------------------
   // Load products filtered by business
@@ -135,6 +142,23 @@ const Inventory = () => {
     return () => clearInterval(interval);
   }, [user]);
 
+  // Sprint 4: Handle inventory risk modal click (matches Dashboard pattern)
+  const handleInventoryRiskClick = async () => {
+    setShowInventoryRiskModal(true);
+    setInventoryRiskLoading(true);
+    setInventoryRiskError(null);
+
+    try {
+      const data = await fetchInventoryRisk();
+      setInventoryRiskContent(data.content || "No inventory insights available.");
+    } catch (error) {
+      console.error('Failed to fetch inventory risk insights:', error);
+      setInventoryRiskError(error.message || 'Failed to load insights. Please try again.');
+    } finally {
+      setInventoryRiskLoading(false);
+    }
+  };
+
   const filteredProducts = products.filter((product) =>
     product.productname.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -155,6 +179,8 @@ const Inventory = () => {
               <li onClick={() => navigate("/TablePage")}>Sales</li>
               <li onClick={() => navigate("/expenses")}>Expenses</li>
               <li onClick={() => navigate("/assistant")}>AI Assistant</li>
+              {/* COMMENTED OUT: Business Maturity link removed (feature did not meet team/advisor standards) */}
+              {/* <li onClick={() => navigate("/maturity-report")}>Business Maturity</li> */}
             </ul>
             <p className="nav-header">RELATED</p>
             <ul>
@@ -170,30 +196,6 @@ const Inventory = () => {
             <div className="panel-header">
               <div className="header-left-dash">
                 <h2 className="panel-title">Inventory</h2>
-                <div className="help-wrapper-dash">
-                  <button 
-                    className="help-button-dash"
-                    onClick={() => setShowHelpInventory(!showHelpInventory)}
-                    aria-label="Help"
-                  >
-                    ?
-                  </button>
-                  {showHelpInventory && (
-                    <div className="help-box-dash">
-                      <div className="help-arrow-dash"></div>
-                      
-                      <div className="help-content-dash">
-                        <p>Gen TIPS</p>
-                      </div>
-                      
-                      <div className="help-separator-dash"></div>
-                      
-                      <div className="help-content-dash">
-                        <p>AI</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
               <div className="panel-actions">
                 <input
@@ -340,6 +342,18 @@ const Inventory = () => {
           user={user}
         />
       )}
+
+      {/* Sprint 4: Inventory Risk Modal */}
+      <InsightModal
+        isOpen={showInventoryRiskModal}
+        onClose={() => setShowInventoryRiskModal(false)}
+        title="📦 Inventory Risk Analysis"
+        content={inventoryRiskContent}
+        loading={inventoryRiskLoading}
+        error={inventoryRiskError}
+        insightType="inventory-risk"
+        businessId={user?.business_id}
+      />
     </div>
   );
 };

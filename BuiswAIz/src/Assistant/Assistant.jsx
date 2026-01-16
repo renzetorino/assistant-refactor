@@ -454,9 +454,11 @@ const Assistant = () => {
             <ul>
               <li onClick={() => navigate("/Dashboard")}>Dashboard</li>
               <li onClick={() => navigate("/inventory")}>Inventory</li>
-              <li onClick={() => navigate("/TablePage")}>Sales</li>
+              <li onClick={() => navigate("/TablePage")}> Sales</li>
               <li onClick={() => navigate("/expenses")}>Expenses</li>
               <li className="active">AI Assistant</li>
+              {/* COMMENTED OUT: Business Maturity link removed (feature did not meet team/advisor standards) */}
+              {/* <li onClick={() => navigate("/maturity-report")}>Business Maturity</li> */}
             </ul>
 
             <p className="nav-header">RELATED</p>

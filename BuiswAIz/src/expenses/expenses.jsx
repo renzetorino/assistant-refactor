@@ -9,6 +9,7 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { supabase } from '../supabase';
 import "./ExpenseDashboard.css";
+import "../stylecss/Dashboard/Dashboard.css";
 import { fetchMainCategories, fetchSubcategories, getCategoryById } from '../api/categories';
 import { listContacts, createContact } from '../api/contacts';
 import { listExpensesByMonth, createExpense, updateExpense, listExpensesByYear, listExpensesBetween, deleteExpense } from '../api/expenses';
@@ -21,6 +22,8 @@ import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import ConfirmActionModal from "../components/ConfirmActionModal";
 import TaxCenter from "../tax/TaxCenter";
 import { calcTax } from "../libs/tax";
+import InsightModal from '../components/InsightModal';
+import { fetchExpenseForecast } from '../api/mentorInsights';
 
 
 
@@ -159,7 +162,6 @@ const ExpenseDashboard = () => {
 
   const [budget, setBudget] = useState(0);
 
-
   const [editId, setEditId] = useState(null);
   const [editFiles, setEditFiles] = useState([]);
   const [showEditModal, setShowEditModal] = useState(false); 
@@ -195,6 +197,16 @@ const ExpenseDashboard = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const confirmRef = useRef({});
   const [selectedDay, setSelectedDay] = useState(null);
+  const [showHelpSummary, setShowHelpSummary] = useState(false);
+  const [showHelpYearlyTrend, setShowHelpYearlyTrend] = useState(false);
+  const [showHelpExpenseTable, setShowHelpExpenseTable] = useState(false);
+  const [showHelpCalendar, setShowHelpCalendar] = useState(false);
+
+  // InsightModal state
+  const [showInsightModal, setShowInsightModal] = useState(false);
+  const [insightContent, setInsightContent] = useState(null);
+  const [insightLoading, setInsightLoading] = useState(false);
+  const [insightError, setInsightError] = useState(null);
 
     // Generic action-confirm (over-budget, etc.)
   const [actionOpen, setActionOpen] = useState(false);
@@ -906,12 +918,44 @@ function getInlineAttachmentsFromRow(row) {
         </aside>
 
         <main className="main">
+          <div className="panel-header-with-help">
+            <div className="header-left-dash">
+              <h3>Summary</h3>
+              <div className="help-wrapper-dash">
+                <button 
+                  className="help-button-dash"
+                  onClick={() => setShowHelpSummary(!showHelpSummary)}
+                  aria-label="Help"
+                >
+                  ?
+                </button>
+                {showHelpSummary && (
+                  <div className="help-box-dash">
+                    <div className="help-arrow-dash"></div>
+                    
+                    <div className="help-content-dash">
+                      <p>GEN TIPSTIPSTIPSTassaIasdasdasPSTIPSTIPSTIPS</p>
+                      
+                    </div>
+                    
+                    <div className="help-separator-dash"></div>
+                    
+                    <div className="help-content-dash">
+                      <p>AI TIPS</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+<div className="top-summary"></div>
           <div className="top-summary">
 
             {/* 1) Month-to-date vs Budget (with overspend meter) */}
             <div className="summary-card kpi-card">
               <div className="kpi-head">
-                <h3>Month-to-date</h3>
+                <h3>Month-to-date</h3> 
                 <span className={`risk-pill risk--${risk}`}>
                   {risk === "over" ? "Over Budget" :
                   risk === "high" ? "At Risk" :
@@ -999,6 +1043,35 @@ function getInlineAttachmentsFromRow(row) {
           )}
 
           {/* Toolbar */}
+          <div className="panel-header-with-help" style={{ marginBottom: '16px', marginTop: '24px' }}>
+            <div className="header-left-dash">
+              <h3>Expense Records</h3>
+              <div className="help-wrapper-dash">
+                <button 
+                  className="help-button-dash"
+                  onClick={() => setShowHelpExpenseTable(!showHelpExpenseTable)}
+                  aria-label="Help"
+                >
+                  ?
+                </button>
+                {showHelpExpenseTable && (
+                  <div className="help-box-dash">
+                    <div className="help-arrow-dash"></div>
+                    
+                    <div className="help-content-dash">
+                      <p> Gen TIPS</p>
+                    </div>
+                    
+                    <div className="help-separator-dash"></div>
+                    
+                    <div className="help-content-dash">
+                      <p>AI TIPS</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
           <section className="toolbar">
             <div className="toolbar-left">
               <button className="btn primary" onClick={() =>{resetAddExpenseForm(); setShowAddModal(true);}}>
@@ -1152,7 +1225,34 @@ function getInlineAttachmentsFromRow(row) {
           {/* Chart + Calendar */}
           <div className="chart-and-calendar">
             <div className="chart-container">
-              <h3>Yearly Expenses Trend</h3>
+              <div className="panel-header-with-help" style={{ marginBottom: '16px' }}>
+                <div className="header-left-dash">
+                  <h3>Yearly Expenses Trend</h3>
+                  <div className="help-wrapper-dash">
+                    <button 
+                      className="help-button-dash"
+                      onClick={async () => {
+                        setShowInsightModal(true);
+                        setInsightLoading(true);
+                        setInsightError(null);
+                        try {
+                          const currentMonth = new Date();
+                          const data = await fetchExpenseForecast(currentMonth);
+                          setInsightContent(data.content || "No expense forecast available.");
+                        } catch (error) {
+                          console.error("Failed to fetch expense forecast:", error);
+                          setInsightError(error.message || "Failed to load insights.");
+                        } finally {
+                          setInsightLoading(false);
+                        }
+                      }}
+                      aria-label="AI Expense Forecast"
+                    >
+                      ?
+                    </button>
+                  </div>
+                </div>
+              </div>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={chartData}>
                   <XAxis dataKey="month" />
@@ -1793,6 +1893,16 @@ function getInlineAttachmentsFromRow(row) {
           </div>
         </div>
       )}
+
+      {/* AI Insights Modal */}
+      <InsightModal
+        isOpen={showInsightModal}
+        onClose={() => setShowInsightModal(false)}
+        title="� Expense Insights - Smart Spending Guide"
+        content={insightContent}
+        loading={insightLoading}
+        error={insightError}
+      />
 
           </div>
         );

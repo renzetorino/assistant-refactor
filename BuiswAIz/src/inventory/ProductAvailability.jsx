@@ -3,11 +3,34 @@ import { formatDistanceToNow, parseISO } from "date-fns";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "../stylecss/ProductAvailability.css";
-
+import InsightModal from "../components/InsightModal";
+import { fetchInventoryRisk } from "../api/mentorInsights";
 
 const ProductAvailability = ({ lowStockProducts, user }) => {
   const [loadingIds, setLoadingIds] = useState([]);
-  const [showHelp, setShowHelp] = useState(false);
+  const [showInsightModal, setShowInsightModal] = useState(false);
+  const [insightContent, setInsightContent] = useState(null);
+  const [insightLoading, setInsightLoading] = useState(false);
+  const [insightError, setInsightError] = useState(null);
+
+  const handleInsightClick = async () => {
+    setShowInsightModal(true);
+    setInsightLoading(true);
+    setInsightError(null);
+
+    try {
+      // For inventory risk, we analyze all products (holistic analysis)
+      // Use first product ID as a placeholder since backend now scans all products
+      const productId = lowStockProducts[0]?.productid || 1;
+      const data = await fetchInventoryRisk(productId);
+      setInsightContent(data.content || "No inventory insights available.");
+    } catch (error) {
+      console.error("Failed to fetch inventory insight:", error);
+      setInsightError(error.message || "Failed to load insights. Please try again.");
+    } finally {
+      setInsightLoading(false);
+    }
+  };
 
   const handleReorder = async (category) => {
     const id = category.productcategoryid;
@@ -48,26 +71,11 @@ const ProductAvailability = ({ lowStockProducts, user }) => {
         <div className="help-wrapper-dash">
           <button 
             className="help-button-dash"
-            onClick={() => setShowHelp(!showHelp)}
-            aria-label="Help"
+            onClick={handleInsightClick}
+            aria-label="AI Inventory Insights"
           >
             ?
           </button>
-          {showHelp && (
-            <div className="help-box-dash">
-              <div className="help-arrow-dash"></div>
-              
-              <div className="help-content-dash">
-                <p>Gen TIPS</p>
-              </div>
-              
-              <div className="help-separator-dash"></div>
-              
-              <div className="help-content-dash">
-                <p>AI</p>
-              </div>
-            </div>
-          )}
         </div>
       </div>
       <div className="availability-container">
@@ -153,6 +161,15 @@ const ProductAvailability = ({ lowStockProducts, user }) => {
             })
         )}
       </div>
+      <InsightModal
+        isOpen={showInsightModal}
+        onClose={() => setShowInsightModal(false)}
+        title="� Inventory Insights - Stock Management Guide"
+        content={insightContent}
+        loading={insightLoading}
+        error={insightError}
+        insightType="inventory-risk"
+      />
       <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );

@@ -24,6 +24,8 @@ import Signup from "./Signup";
 import SetupBusiness from './SetupBusiness';
 import CreateBusiness from './createBusiness';
 import JoinBusiness from './joinBusiness';
+// COMMENTED OUT: Business Maturity feature removed (did not meet team/advisor standards)
+// import MaturityReport from './pages/MaturityReport';
 
 function App() {
   return (
@@ -55,6 +57,8 @@ function App() {
             <Route path="/upload" element={<ProtectedRoute><UploadSheets /></ProtectedRoute>} />
             <Route path="/PlannedPaymentsPage" element={<ProtectedRoute><PlannedPaymentsPage /></ProtectedRoute>} />
             <Route path="/budget-history" element={<ProtectedRoute><BudgetHistory /></ProtectedRoute>} />
+            {/* COMMENTED OUT: Business Maturity route removed (did not meet team/advisor standards) */}
+            {/* <Route path="/maturity-report" element={<ProtectedRoute><MaturityReport /></ProtectedRoute>} /> */}
 
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
