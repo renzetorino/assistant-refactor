@@ -8,7 +8,11 @@ const FaqSearch = () => {
   const [error, setError] = useState(null);
 
   // Get API URL from environment or use localhost for development
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const API_URL = import.meta.env.VITE_API_URL;
+  if (!API_URL) {
+    console.error('VITE_API_URL not configured');
+    return null;
+  }
 
   const handleSearch = async (e) => {
     e.preventDefault();

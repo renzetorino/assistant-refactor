@@ -101,6 +101,16 @@ if (string.IsNullOrWhiteSpace(vec))
 builder.Services.AddSingleton<VecConnResolver>();
 
 // Helper to resolve VEC connection string (with fallback)
+static string ResolveVecConn(IConfiguration cfg)
+{
+    return cfg["APP__VEC__CONNECTIONSTRING"]
+        ?? cfg["APP:VEC:CONNECTIONSTRING"]
+        ?? cfg.GetConnectionString("VEC")
+        ?? cfg.GetConnectionString("Vector")
+        ?? cfg.GetConnectionString("APP__VEC__CONNECTIONSTRING")
+        ?? throw new InvalidOperationException("Vector connection string not found (APP__VEC__CONNECTIONSTRING / ConnectionStrings:VEC/Vector).");
+}
+
 string Mask(string s) => Regex.Replace(s ?? "", @"Password=[^;]*", "Password=***");
 Console.WriteLine("[Boot] REL = " + Mask(rel));
 try { Console.WriteLine("[Boot] VEC = " + Mask(ResolveVecConn(builder.Configuration))); }
@@ -643,40 +653,26 @@ if (!string.IsNullOrWhiteSpace(fastLlmApiKey) && !string.IsNullOrWhiteSpace(smar
                 throw new InvalidOperationException("SK plugin validation failed in production. Cannot start application.");
             }
         }
-        else
-        {
-            Console.WriteLine($"[SK] ✅ All {validationResult.ValidPlugins.Count} plugins validated successfully:");
-            foreach (var plugin in validationResult.ValidPlugins)
-                Console.WriteLine($"  - {plugin}");
-        }
-
-        if (validationResult.Warnings.Count > 0)
-        {
-            Console.WriteLine("[SK] ⚠️ Plugin warnings:");
-            foreach (var warning in validationResult.Warnings)
-                Console.WriteLine($"  - {warning}");
-        }
+        // Plugin validation successful - warnings logged via ILogger if needed
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"[SK] ❌ Plugin validation error: {ex.Message}");
+        app.Logger.LogError(ex, "[SK] Plugin validation error");
         if (app.Environment.IsProduction())
             throw;
     }
 }
 
-// 1. Enable middleware to serve generated Swagger as a JSON endpoint.
-app.UseSwagger();
-
-// 2. Enable middleware to serve swagger-ui (HTML, JS, CSS, etc.)
-app.UseSwaggerUI(c =>
+// Swagger UI - Only enabled in Development environment
+if (app.Environment.IsDevelopment())
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "BuiswAIz API V1");
-    
-    // 👇 OPTIONAL PERO RECOMMENDED:
-    // Ito ang gagawin para pagbukas mo ng URL, Swagger agad ang bubungad (no need mag type ng /swagger)
-    c.RoutePrefix = string.Empty; 
-});
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "BuiswAIz API V1");
+        c.RoutePrefix = string.Empty; // Swagger at root in dev
+    });
+}
 
 app.UseExceptionHandler(errorApp =>
 {
@@ -714,8 +710,16 @@ app.UseBusinessScoping(); // ✅ Extract user_id and business_id from JWT for mu
 app.UseAuthorization();
 app.MapControllers();
 
-// ✅ Day 2: SK Orchestration Test Endpoint
-app.MapPost("/api/debug/sk-orchestrate", async (
+// Health check endpoint (available in all environments)
+app.MapGet("/health", () => Results.Ok(new { ok = true }));
+
+// ========================================================================
+// DEBUG ENDPOINTS - Only available in Development environment
+// ========================================================================
+if (app.Environment.IsDevelopment())
+{
+    // ✅ Day 2: SK Orchestration Test Endpoint
+    app.MapPost("/api/debug/sk-orchestrate", async (
     HttpContext httpContext,
     IChatOrchestratorService orchestrator,
     DebugSkRequest req,
@@ -847,13 +851,6 @@ app.MapGet("/api/debug/expense-spec-deep", async () =>
         var path = Path.Combine(AppContext.BaseDirectory, "Planning", "Prompts", "reports.expense.yaml");
         var text = await File.ReadAllTextAsync(path);
 
-    app.MapGet("/api/debug/schema-mapping", (IDatabaseSchemaService schemaService, bool refresh = false) =>
-    {
-        var diagnostics = schemaService.GetDiagnostics(refresh);
-        return Results.Ok(diagnostics);
-    })
-    .WithName("DebugSchemaMapping")
-    .WithTags("Debug");
         // simple heuristics
         var hasTabs = text.Contains('\t');
         var beginsWithBom = text.Length > 0 && text[0] == '\uFEFF';
@@ -906,7 +903,13 @@ app.MapGet("/api/debug/expense-spec-deep", async () =>
     }
 });
 
-app.MapGet("/health", () => Results.Ok(new { ok = true }));
+app.MapGet("/api/debug/schema-mapping", (IDatabaseSchemaService schemaService, bool refresh = false) =>
+{
+    var diagnostics = schemaService.GetDiagnostics(refresh);
+    return Results.Ok(diagnostics);
+})
+.WithName("DebugSchemaMapping")
+.WithTags("Debug");
 
 // Debug endpoint to test LLM SQL generation
 app.MapPost("/api/debug/llm-sql", async (
@@ -977,7 +980,6 @@ app.MapGet("/api/reports/expense/by-id/{id:guid}", async (
 
     // MULTI-TENANCY: Extract business_id from HttpContext
     int? businessId = ctx.Items.TryGetValue("BusinessId", out var bidObj) && bidObj is int bid ? bid : (int?)null;
-    Console.WriteLine($"[MULTI-TENANCY] /api/reports/expense/by-id/{id} | BusinessId: {businessId?.ToString() ?? "NULL"}");
 
     // Build SQL with business_id filter for security
     var hasBusinessFilter = businessId.HasValue;
@@ -1163,17 +1165,6 @@ app.MapGet("/api/debug/db-ping", async (IConfiguration cfg, CancellationToken ct
 // Assuming you have: public sealed record AssistantRequest(string Text, string? Domain);
 // ---------- DELETED: Unused helper functions (2025-12-27) ----------
 
-
-static string ResolveVecConn(IConfiguration cfg)
-{
-    return cfg["APP__VEC__CONNECTIONSTRING"]
-        ?? cfg["APP:VEC:CONNECTIONSTRING"]
-        ?? cfg.GetConnectionString("VEC")
-        ?? cfg.GetConnectionString("Vector")
-        ?? cfg.GetConnectionString("APP__VEC__CONNECTIONSTRING")
-        ?? throw new InvalidOperationException("Vector connection string not found (APP__VEC__CONNECTIONSTRING / ConnectionStrings:VEC/Vector).");
-}
-
 // ----------------------------------------------------------------
 
 // -------------------------------
@@ -1301,6 +1292,7 @@ app.MapGet("/api/debug/config/vec-all", (IConfiguration cfg) =>
         ConnStr_Vector = cfg.GetConnectionString("Vector") ?? "<null>"
     });
 });
+} // End of Development-only debug endpoints
 
 app.Run();
 

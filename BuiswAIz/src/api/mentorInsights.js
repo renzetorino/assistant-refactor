@@ -1,7 +1,10 @@
 // src/api/mentorInsights.js
 import { supabase } from '../supabase';
 
-const API_BASE = import.meta.env.VITE_API_ASSISTANT_URL || 'http://localhost:5115';
+const API_BASE = import.meta.env.VITE_API_ASSISTANT_URL;
+if (!API_BASE) {
+  throw new Error('VITE_API_ASSISTANT_URL environment variable is not configured');
+}
 
 /**
  * Fetches the latest cached mentor insights for the current business.

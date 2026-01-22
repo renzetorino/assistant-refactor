@@ -250,7 +250,11 @@ const Dashboard = () => {
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.access_token) {
-            const API_BASE = import.meta.env.VITE_API_ASSISTANT_URL || 'http://localhost:5115';
+            const API_BASE = import.meta.env.VITE_API_ASSISTANT_URL;
+            if (!API_BASE) {
+              console.error('VITE_API_ASSISTANT_URL not configured');
+              return;
+            }
             
             // Fire-and-forget: don't wait for response, don't block UI
             fetch(`${API_BASE}/api/mentor-insights/refresh-async`, {
@@ -260,13 +264,9 @@ const Dashboard = () => {
                 'Content-Type': 'application/json',
               },
             }).then(response => {
-              if (response.ok) {
-                console.log('[Dashboard] AI Insights refresh queued successfully');
-              } else {
-                console.warn('[Dashboard] AI Insights refresh failed:', response.status);
-              }
+              // AI Insights refresh queued
             }).catch(error => {
-              console.warn('[Dashboard] AI Insights refresh error:', error.message);
+              // Insight refresh error handled silently
             });
           }
         } catch (refreshError) {

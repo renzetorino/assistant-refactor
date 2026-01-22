@@ -388,9 +388,7 @@ const Assistant = () => {
 
   // ===== Open handlers =====
   function openSpotlightCard(card) {
-    console.log('🔍 [DEBUG] openSpotlightCard called with card:', card);
     if (!card) {
-      console.warn('⚠️ [DEBUG] openSpotlightCard: card is null/undefined');
       return;
     }
 
@@ -402,8 +400,6 @@ const Assistant = () => {
     const runId   = card.runId || null;
     const product = card.product || null;
     
-    console.log('🔍 [DEBUG] openSpotlightCard parsed:', { rawDomain, isExpenses, isInventory, scope, runId, product });
-
     // keep your sales-only UI state
     if (!isExpenses && !isInventory) {
       setSalesScope(scope);

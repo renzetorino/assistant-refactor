@@ -27,18 +27,6 @@ public class BusinessScopingMiddleware
         // Only process authenticated requests
         if (context.User?.Identity?.IsAuthenticated == true)
         {
-            Console.WriteLine("\n╔═══════════════════════════════════════════════════════════════╗");
-            Console.WriteLine("║         [MULTI-TENANCY] Business Scoping Middleware          ║");
-            Console.WriteLine("╚═══════════════════════════════════════════════════════════════╝");
-
-            // DEBUG: Log all JWT claims to identify which claim contains user ID
-            Console.WriteLine("🔍 [DEBUG] All JWT claims:");
-            foreach (var claim in context.User.Claims)
-            {
-                Console.WriteLine($"   - Type: {claim.Type} | Value: {claim.Value}");
-            }
-            Console.WriteLine("═══════════════════════════════════════════════════════════════");
-
             // Extract user_id from "sub" claim (standard JWT claim)
             // Try both "sub" (short form) and ClaimTypes.NameIdentifier (mapped form)
             var userIdClaim = context.User.FindFirst("sub")?.Value 
@@ -47,12 +35,10 @@ public class BusinessScopingMiddleware
             if (!string.IsNullOrWhiteSpace(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
             {
                 context.Items["UserId"] = userId;
-                Console.WriteLine($"✅ Extracted UserId from JWT: {userId}");
                 _logger.LogDebug("Extracted UserId: {UserId} from JWT", userId);
             }
             else
             {
-                Console.WriteLine("❌ Failed to extract valid UserId from JWT claims");
                 _logger.LogWarning("Failed to extract valid UserId from JWT claims");
             }
 
@@ -62,13 +48,11 @@ public class BusinessScopingMiddleware
             if (!string.IsNullOrWhiteSpace(businessIdClaim) && int.TryParse(businessIdClaim, out var businessId))
             {
                 context.Items["BusinessId"] = businessId;
-                Console.WriteLine($"✅ Extracted BusinessId from JWT: {businessId}");
                 _logger.LogDebug("Extracted BusinessId: {BusinessId} from JWT", businessId);
             }
             else
             {
                 // ❌ SECURITY: business_id is REQUIRED for all authenticated requests
-                Console.WriteLine("🚨 SECURITY VIOLATION: Missing required business_id claim in JWT");
                 _logger.LogWarning("Missing required business_id claim in JWT - request denied");
                 
                 context.Response.StatusCode = 403;
@@ -78,9 +62,6 @@ public class BusinessScopingMiddleware
 
             // Log for security audit
             var endpoint = context.Request.Path.Value;
-            Console.WriteLine($"📍 Endpoint: {endpoint}");
-            Console.WriteLine("═══════════════════════════════════════════════════════════════\n");
-
             _logger.LogInformation(
                 "Business scope established for request: UserId={UserId}, BusinessId={BusinessId}, Endpoint={Endpoint}",
                 context.Items.ContainsKey("UserId") ? context.Items["UserId"] : null,
