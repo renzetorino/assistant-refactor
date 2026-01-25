@@ -1,6 +1,6 @@
 # 📱 BuiswAIz (App Workspace)
 
- This project is a distributed, multi-stack management system that combines a high-performance React frontend with dual-backend processing for business logic and AI orchestration.
+ This project is a distributed, multi-stack management system that combines a React frontend with dual-backend processing for business logic and AI orchestration.
 
 ## 📂 Project Structure
 
