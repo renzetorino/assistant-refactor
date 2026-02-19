@@ -109,46 +109,73 @@ const Supplier = () => {
     setShowReceiveModal(true);
   };
 
-  const confirmReceiveOrder = async (batchCode, newCost, newPrice) => {
+ const confirmReceiveOrder = async (batchCode, newCost, newPrice) => {
+    if (!selectedOrder || !user) return;
+
     try {
       const receivedAt = new Date();
 
-      const { error: restockError } = await supabase.from("restockstorage").insert({
-        productid: selectedOrder.productid,
-        productcategoryid: selectedOrder.productcategoryid,
-        supplierid: selectedOrder.supplierid,
-        new_stock: selectedOrder.order_qty,
-        new_cost: newCost,
-        new_price: newPrice,
-        batchCode,
-        datereceived: receivedAt,
-        created_at: receivedAt,
-      });
+      // 🔹 Properly declare and cast variables
+      const userid = user.userid || null; // must be uuid
+      const businessid = Number(user.business_id) || null; // must be integer
+
+      if (!userid || !businessid) {
+        throw new Error("Missing userid or businessid");
+      }
+
+      // 1️⃣ Insert into restockstorage
+      const { error: restockError, data: restockData } = await supabase
+        .from("restockstorage")
+        .insert({
+          productid: selectedOrder.productid,
+          productcategoryid: selectedOrder.productcategoryid,
+          supplierid: selectedOrder.supplierid,
+          new_stock: selectedOrder.order_qty,
+          new_cost: newCost,
+          new_price: newPrice,
+          batchCode,
+          datereceived: receivedAt,
+          created_at: receivedAt,
+          userid,
+          businessid,
+        })
+        .select(); // return inserted row for verification
 
       if (restockError) throw restockError;
+      console.log("Inserted restockstorage:", restockData);
 
+      // 2️⃣ Insert into expenses
       const actualPayment = newCost * selectedOrder.order_qty;
-      const { error: expenseError } = await supabase.from("expenses").insert({
-        user_id: user?.userid || null,
-        occurred_on: receivedAt,
-        category_id: "5e4b2625-86ba-4066-adaa-4657700c118c",
-        amount: actualPayment,
-        notes: `Payment to supplier ${selectedOrder.supplierid} for product ${selectedOrder.products?.productname}`,
-        status: "cleared",
-      });
+      const { error: expenseError, data: expenseData } = await supabase
+        .from("expenses")
+        .insert({
+          user_id: userid,
+          occurred_on: receivedAt,
+          category_id: "5e4b2625-86ba-4066-adaa-4657700c118c",
+          amount: actualPayment,
+          notes: `Payment to supplier ${selectedOrder.supplierid} for product ${selectedOrder.products?.productname}`,
+          status: "cleared",
+          business_id: businessid,
+        })
+        .select();
 
       if (expenseError) throw expenseError;
+      console.log("Inserted expense:", expenseData);
 
+      // 3️⃣ Delete the purchase order safely
       const { error: deleteError } = await supabase
         .from("purchase_orders")
         .delete()
-        .eq("purchaseorderid", selectedOrder.purchaseorderid);
+        .eq("purchaseorderid", selectedOrder.purchaseorderid)
+        .eq("businessid", businessid);
 
       if (deleteError) throw deleteError;
 
+      // 4️⃣ Close modal & refresh orders
       setShowReceiveModal(false);
       setSelectedOrder(null);
-      loadOrders(user.business_id);
+      await loadOrders(businessid);
+
     } catch (err) {
       console.error("Error processing received order:", err);
     }
