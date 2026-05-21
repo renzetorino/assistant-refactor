@@ -19,6 +19,7 @@ import ExpenseDashboard from "./expenses/expenses";
 import UploadSheets from "./components/UploadSheets";
 import BudgetHistory from "./budget/BudgetHistory";
 import PointOfSales from "./PointOfSales";
+import OnlineOrders from "./onlineOrders/OnlineOrders";
 import PlannedPaymentsPage from "./pages/PlannedPaymentsPage";
 import Signup from "./Signup";
 import SetupBusiness from './SetupBusiness';
@@ -52,6 +53,7 @@ function App() {
             <Route path="/supplier" element={<ProtectedRoute><Supplier /></ProtectedRoute>} />
             <Route path="/TablePage" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
             <Route path="/pos" element={<ProtectedRoute><PointOfSales /></ProtectedRoute>} />
+            <Route path="/online-orders" element={<ProtectedRoute><OnlineOrders /></ProtectedRoute>} />
             <Route path="/assistant" element={<ProtectedRoute><Assistant /></ProtectedRoute>} />
             <Route path="/expenses" element={<ProtectedRoute><ExpenseDashboard /></ProtectedRoute>} />
             <Route path="/upload" element={<ProtectedRoute><UploadSheets /></ProtectedRoute>} />

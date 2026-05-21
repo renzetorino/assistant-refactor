@@ -1,0 +1,189 @@
+.online-orders-page .status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.online-orders-page .status-pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.online-orders-page .status-preparing {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.online-orders-page .status-shipped {
+  background: #cce5ff;
+  color: #004085;
+}
+
+.online-orders-page .status-delivered {
+  background: #d4edda;
+  color: #155724;
+}
+
+.online-orders-page .status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.online-orders-page .status-btn {
+  background-color: #04b4fc;
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.online-orders-page .status-btn:hover:not(:disabled) {
+  background-color: #0390d4;
+}
+
+.online-orders-page .status-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.online-orders-page .status-btn.deliver {
+  background-color: #22c55e;
+}
+
+.online-orders-page .status-btn.deliver:hover:not(:disabled) {
+  background-color: #16a34a;
+}
+
+.online-orders-page .order-detail-panel {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+  padding: 20px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.online-orders-page .order-detail-panel h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #222;
+}
+
+.online-orders-page .detail-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+  color: #444;
+}
+
+.online-orders-page .detail-line:last-child {
+  border-bottom: none;
+}
+
+.online-orders-page .summary-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.online-orders-page .summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 6px 0;
+  color: #555;
+}
+
+.online-orders-page .summary-row strong {
+  color: #222;
+}
+
+.online-orders-page .empty-hint {
+  text-align: center;
+  color: #888;
+  padding: 40px 16px;
+  font-size: 14px;
+}
+
+.online-orders-page tr.selected td {
+  background-color: #dbeafe !important;
+}
+
+.online-orders-page .locked-note {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #666;
+  font-style: italic;
+}
+
+.online-orders-page .product-panel {
+  overflow-y: auto;
+}
+
+.online-orders-page .orders-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.online-orders-page .delivered-count {
+  font-size: 12px;
+  font-weight: 600;
+  background: #d4edda;
+  color: #155724;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.online-orders-page .active-orders-container {
+  flex: 1;
+  min-height: 200px;
+  max-height: 380px;
+  display: flex;
+  flex-direction: column;
+}
+
+.online-orders-page .active-orders-container table {
+  flex: 1;
+}
+
+.online-orders-page .delivered-orders-panel {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 2px solid #eef2f7;
+  flex-shrink: 0;
+}
+
+.online-orders-page .delivered-orders-container {
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid #eee;
+  border-radius: 12px;
+}
+
+.online-orders-page .delivered-orders-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.online-orders-page .delivered-orders-container::-webkit-scrollbar-thumb {
+  background: #22c55e;
+  border-radius: 3px;
+}

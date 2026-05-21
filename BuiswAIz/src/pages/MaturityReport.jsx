@@ -185,6 +185,7 @@ const MaturityReport = () => {
               <ul>
                 <li onClick={() => navigate("/supplier")}>Supplier</li>
                 <li onClick={() => navigate("/pos")}>Point of Sales</li>
+                <li onClick={() => navigate("/online-orders")}>Online Orders</li>
                 <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li>
               </ul>
             </div>
@@ -224,6 +225,7 @@ const MaturityReport = () => {
               <ul>
                 <li onClick={() => navigate("/supplier")}>Supplier</li>
                 <li onClick={() => navigate("/pos")}>Point of Sales</li>
+                <li onClick={() => navigate("/online-orders")}>Online Orders</li>
                 <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li>
               </ul>
             </div>
@@ -273,6 +275,7 @@ const MaturityReport = () => {
             <ul>
               <li onClick={() => navigate("/supplier")}>Supplier</li>
               <li onClick={() => navigate("/pos")}>Point of Sales</li>
+              <li onClick={() => navigate("/online-orders")}>Online Orders</li>
               <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li>
             </ul>
           </div>

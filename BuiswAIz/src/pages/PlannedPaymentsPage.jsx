@@ -1369,6 +1369,7 @@ async function markSeenToday(id) {
             <ul>
               <li onClick={() => navigate("/supplier")}>Supplier</li>
               <li onClick={() => navigate("/pos")}>Point of Sales</li>
+              <li onClick={() => navigate("/online-orders")}>Online Orders</li>
               <li className="active">Planned Payments</li>
             </ul>
           </div>

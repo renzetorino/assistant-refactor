@@ -249,6 +249,7 @@ const Supplier = () => {
             <ul>
               <li className="active">Supplier</li>
               <li onClick={() => navigate("/pos")}>Point of Sales</li>
+              <li onClick={() => navigate("/online-orders")}>Online Orders</li>
               <li onClick={() => navigate("/PlannedPaymentsPage")}>
                 Planned Payment
               </li>
