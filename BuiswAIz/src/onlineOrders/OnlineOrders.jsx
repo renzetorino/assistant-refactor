@@ -108,8 +108,6 @@ const OnlineOrders = () => {
   useEffect(() => {
     if (!user) return;
     loadOnlineOrders();
-    const interval = setInterval(loadOnlineOrders, 8000);
-    return () => clearInterval(interval);
   }, [user]);
 
   const groupedOrders = useMemo(() => {
