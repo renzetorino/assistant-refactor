@@ -167,7 +167,7 @@ const MaturityReport = () => {
     return (
       <div className="dashboard-page">
         <header className="header-bar">
-          <h1 className="header-title">BuiswAIz</h1>
+          <h1 className="header-title">Bake-keri</h1>
         </header>
         <div className="main-section">
           <aside className="sidebar">
@@ -177,16 +177,16 @@ const MaturityReport = () => {
                 <li onClick={() => navigate("/Dashboard")}>Dashboard</li>
                 <li onClick={() => navigate("/inventory")}>Inventory</li>
                 <li onClick={() => navigate("/TablePage")}>Sales</li>
-                <li onClick={() => navigate("/expenses")}>Expenses</li>
+                {/* <li onClick={() => navigate("/expenses")}>Expenses</li> */}
                 <li onClick={() => navigate("/assistant")}>AI Assistant</li>
                 <li className="active">Business Maturity</li>
               </ul>
               <p className="nav-header">RELATED</p>
               <ul>
                 <li onClick={() => navigate("/supplier")}>Supplier</li>
-                <li onClick={() => navigate("/pos")}>Point of Sales</li>
+                {/* <li onClick={() => navigate("/pos")}>Point of Sales</li> */}
                 <li onClick={() => navigate("/online-orders")}>Online Orders</li>
-                <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li>
+                {/* <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li> */}
               </ul>
             </div>
           </aside>
@@ -207,7 +207,7 @@ const MaturityReport = () => {
     return (
       <div className="dashboard-page">
         <header className="header-bar">
-          <h1 className="header-title">BuiswAIz</h1>
+          <h1 className="header-title">Bake-keri</h1>
         </header>
         <div className="main-section">
           <aside className="sidebar">
@@ -217,7 +217,7 @@ const MaturityReport = () => {
                 <li onClick={() => navigate("/Dashboard")}>Dashboard</li>
                 <li onClick={() => navigate("/inventory")}>Inventory</li>
                 <li onClick={() => navigate("/TablePage")}>Sales</li>
-                <li onClick={() => navigate("/expenses")}>Expenses</li>
+                {/* <li onClick={() => navigate("/expenses")}>Expenses</li> */}
                 <li onClick={() => navigate("/assistant")}>AI Assistant</li>
                 <li className="active">Business Maturity</li>
               </ul>
@@ -226,7 +226,7 @@ const MaturityReport = () => {
                 <li onClick={() => navigate("/supplier")}>Supplier</li>
                 <li onClick={() => navigate("/pos")}>Point of Sales</li>
                 <li onClick={() => navigate("/online-orders")}>Online Orders</li>
-                <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li>
+                {/* <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li> */}
               </ul>
             </div>
           </aside>
@@ -256,7 +256,7 @@ const MaturityReport = () => {
   return (
     <div className="dashboard-page">
       <header className="header-bar">
-        <h1 className="header-title">BuiswAIz</h1>
+        <h1 className="header-title">Bake-keri</h1>
       </header>
 
       <div className="main-section">
@@ -267,16 +267,16 @@ const MaturityReport = () => {
               <li onClick={() => navigate("/Dashboard")}>Dashboard</li>
               <li onClick={() => navigate("/inventory")}>Inventory</li>
               <li onClick={() => navigate("/TablePage")}>Sales</li>
-              <li onClick={() => navigate("/expenses")}>Expenses</li>
+              {/* <li onClick={() => navigate("/expenses")}>Expenses</li> */}
               <li onClick={() => navigate("/assistant")}>AI Assistant</li>
               <li className="active">Business Maturity</li>
             </ul>
             <p className="nav-header">RELATED</p>
             <ul>
               <li onClick={() => navigate("/supplier")}>Supplier</li>
-              <li onClick={() => navigate("/pos")}>Point of Sales</li>
+              {/* <li onClick={() => navigate("/pos")}>Point of Sales</li> */}
               <li onClick={() => navigate("/online-orders")}>Online Orders</li>
-              <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li>
+              {/* <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li> */}
             </ul>
           </div>
         </aside>

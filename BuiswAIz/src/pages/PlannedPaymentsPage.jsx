@@ -1347,7 +1347,7 @@ async function markSeenToday(id) {
   return (
     <div className="dashboard-container">
       <header className="header-bar">
-        <h1 className="header-title">BuiswAIz</h1>
+        <h1 className="header-title">Bake-keri</h1>
       </header>
 
       <div className="main-section">
@@ -1359,7 +1359,7 @@ async function markSeenToday(id) {
               <li onClick={() => navigate("/Dashboard")}>Dashboard</li>
               <li onClick={() => navigate("/inventory")}>Inventory</li>
               <li onClick={() => navigate("/TablePage")}>Sales</li>
-              <li onClick={() => navigate("/expenses")}>Expenses</li>
+              {/* <li onClick={() => navigate("/expenses")}>Expenses</li> */}
               
               <li onClick={() => navigate("/assistant")}>AI Assistant</li>
               {/* COMMENTED OUT: Business Maturity link removed (feature did not meet team/advisor standards) */}
@@ -1368,7 +1368,7 @@ async function markSeenToday(id) {
             <p className="nav-header">RELATED</p>
             <ul>
               <li onClick={() => navigate("/supplier")}>Supplier</li>
-              <li onClick={() => navigate("/pos")}>Point of Sales</li>
+              {/* <li onClick={() => navigate("/pos")}>Point of Sales</li> */}
               <li onClick={() => navigate("/online-orders")}>Online Orders</li>
               <li className="active">Planned Payments</li>
             </ul>

@@ -895,7 +895,7 @@ function getInlineAttachmentsFromRow(row) {
   return (
     <div className="dashboard-container">
       <header className="header-bar">
-        <h1 className="header-title">BuiswAIz</h1>
+        <h1 className="header-title">Bake-keri</h1>
       </header>
       <div className="main-section">
         <aside className="sidebar">
@@ -911,9 +911,9 @@ function getInlineAttachmentsFromRow(row) {
             <p className="nav-header">RELATED</p>
             <ul>
               <li onClick={() => navigate("/supplier")}>Supplier</li>
-              <li onClick={() => navigate("/pos")}>Point of Sales</li>
+              {/* <li onClick={() => navigate("/pos")}>Point of Sales</li> */}
               <li onClick={() => navigate("/online-orders")}>Online Orders</li>
-              <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li>
+              {/* <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li> */}
             </ul>
           </div>
         </aside>

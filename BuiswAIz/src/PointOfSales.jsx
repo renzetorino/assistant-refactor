@@ -398,7 +398,7 @@ const PointOfSales = () => {
     return (
       <div className="pos-page">
         <header className="header-bar">
-          <h1 className="header-title">BuiswAIz</h1>
+          <h1 className="header-title">Bake-keri</h1>
         </header>
         <div className="pos-main-section">
           <aside className="sidebar">
@@ -408,7 +408,7 @@ const PointOfSales = () => {
                 <li onClick={() => navigate("/Dashboard")}>Dashboard</li>
                 <li onClick={() => navigate("/inventory")}>Inventory</li>
                 <li onClick={() => navigate("/TablePage")}>Sales</li>
-                <li onClick={() => navigate("/expenses")}>Expenses</li>
+                {/* <li onClick={() => navigate("/expenses")}>Expenses</li> */}
                 <li onClick={() => navigate("/assistant")}>AI Assistant</li>
                 {/* COMMENTED OUT: Business Maturity link removed (feature did not meet team/advisor standards) */}
                 {/* <li onClick={() => navigate("/maturity-report")}>Business Maturity</li> */}
@@ -418,7 +418,7 @@ const PointOfSales = () => {
                 <li onClick={() => navigate("/supplier")}>Supplier</li>
                 <li className="active">Point of Sales</li>
                 <li onClick={() => navigate("/online-orders")}>Online Orders</li>
-                <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li>
+                {/* <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li> */}
               </ul>
             </div>
           </aside>
@@ -433,7 +433,7 @@ const PointOfSales = () => {
   return (
     <div className="pos-page">
       <header className="header-bar">
-        <h1 className="header-title">BuiswAIz</h1>
+        <h1 className="header-title">Bake-keri</h1>
         {businessInfo && (
           <div className="business-info-header">
             <span className="business-name">{businessInfo.businessname}</span>
@@ -452,7 +452,7 @@ const PointOfSales = () => {
               <li onClick={() => navigate("/Dashboard")}>Dashboard</li>
               <li onClick={() => navigate("/inventory")}>Inventory</li>
               <li onClick={() => navigate("/TablePage")}>Sales</li>
-              <li onClick={() => navigate("/expenses")}>Expenses</li>
+              {/* <li onClick={() => navigate("/expenses")}>Expenses</li> */}
               <li onClick={() => navigate("/assistant")}>AI Assistant</li>
               {/* COMMENTED OUT: Business Maturity link removed (feature did not meet team/advisor standards) */}
               {/* <li onClick={() => navigate("/maturity-report")}>Business Maturity</li> */}
@@ -462,7 +462,7 @@ const PointOfSales = () => {
               <li onClick={() => navigate("/supplier")}>Supplier</li>
               <li className="active">Point of Sales</li>
               <li onClick={() => navigate("/online-orders")}>Online Orders</li>
-              <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li>
+              {/* <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li> */}
             </ul>
           </div>
         </aside>

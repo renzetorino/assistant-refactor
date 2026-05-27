@@ -166,7 +166,7 @@ const Inventory = () => {
   return (
     <div className="inventory-page">
       <header className="header-bar">
-        <h1 className="header-title">BuiswAIz</h1>
+        <h1 className="header-title">Bake-keri</h1>
       </header>
 
       <div className="main-section">
@@ -177,7 +177,7 @@ const Inventory = () => {
               <li onClick={() => navigate("/Dashboard")}>Dashboard</li>
               <li className="active">Inventory</li>
               <li onClick={() => navigate("/TablePage")}>Sales</li>
-              <li onClick={() => navigate("/expenses")}>Expenses</li>
+              {/* <li onClick={() => navigate("/expenses")}>Expenses</li> */}
               <li onClick={() => navigate("/assistant")}>AI Assistant</li>
               {/* COMMENTED OUT: Business Maturity link removed (feature did not meet team/advisor standards) */}
               {/* <li onClick={() => navigate("/maturity-report")}>Business Maturity</li> */}
@@ -185,9 +185,9 @@ const Inventory = () => {
             <p className="nav-header">RELATED</p>
             <ul>
               <li onClick={() => navigate("/supplier")}>Supplier</li>
-              <li onClick={() => navigate("/pos")}>Point of Sales</li>
+              {/* <li onClick={() => navigate("/pos")}>Point of Sales</li> */}
               <li onClick={() => navigate("/online-orders")}>Online Orders</li>
-              <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li>
+              {/* <li onClick={() => navigate("/PlannedPaymentsPage")}>Planned Payment</li> */}
             </ul>
           </div>
         </aside>
